@@ -1,1 +1,0 @@
-registerKeyValue("hello", "world");

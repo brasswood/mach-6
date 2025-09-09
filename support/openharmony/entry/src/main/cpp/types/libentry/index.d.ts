@@ -1,1 +1,0 @@
-export const loadURL: (url: string) => void;

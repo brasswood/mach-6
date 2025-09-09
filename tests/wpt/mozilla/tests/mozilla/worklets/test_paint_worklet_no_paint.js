@@ -1,2 +1,0 @@
-registerPaint("noPaint", class {
-});

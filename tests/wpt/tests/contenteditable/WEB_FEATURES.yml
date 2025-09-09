@@ -1,4 +1,0 @@
-features:
-- name: contenteditable-plaintextonly
-  files:
-  - plaintext-only.html

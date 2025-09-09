@@ -1,4 +1,0 @@
-/,./
-/_mozilla/,../mozilla/tests
-/_webgl/,../webgl/tests
-/_webgpu/,../webgpu/tests
