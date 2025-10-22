@@ -1,0 +1,1657 @@
+---
+source: src/cssparser.rs
+expression: res
+---
+OK: .min-height-full
+OK: .hanging-icon-list
+OK: .hanging-icon-list li
+OK: .hanging-icon-list .octicon
+OK: .hanging-icon-list .octicon-check
+OK: .hanging-icon-list .octicon-x
+OK: .integrations-install-target .select-menu
+OK: .integrations-install-target input[type="radio"]
+OK: .integrations-install-target .flash
+OK: .integrations-install-target .flash-error
+OK: .integrations-install-target .octicon-lock, .integrations-install-target .octicon-repo, .integrations-install-target .octicon-repo-forked
+OK: .integrations-install-target .octicon-lock
+OK: .integrations-install-target .private
+OK: .integrations-install-target [aria-selected="true"].private, .integrations-install-target .navigation-focus.private
+OK: .integrations-install-target [aria-selected="true"].octicon-lock, .integrations-install-target .navigation-focus .octicon-lock
+OK: .integrations-setup-note
+OK: .listgroup-item
+OK: .listgroup-item.disabled
+OK: .listgroup-item.disabled .listgroup-item-title
+OK: .link-small
+OK: .sub-permissions-error
+OK: .has-removed-contents
+OK: .org-login
+OK: .org-login img
+OK: .member-list-item .member-username
+OK: .member-list-item .member-link
+OK: .actor-and-action
+OK: .vertical-separator
+OK: .audit-log-search .audit-search-form
+OK: .audit-log-search .audit-results-actions
+OK: .audit-log-search .audit-search-clear
+OK: .audit-log-search .audit-log-alert .js-filter-input-support-url
+OK: .entry-details
+OK: .entry-details .entry-details-th, .entry-details .entry-details-td
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .entry-details .entry-details-th:hover,.entry-details .entry-details-td:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .entry-details .entry-details-tr:hover .entry-details-th,.entry-details .entry-details-tr:hover .entry-details-td{
+OK (no selector)
+OK: .audit-log-details-cont.open .entry-details
+OK: .billing-credit-card .javascript-disabled-overlay
+OK: .billing-credit-card.disabled .javascript-disabled-overlay
+OK: .usage-bar
+OK: .usage-bar.exceeded .progress
+OK: .lfs-data-pack-field
+OK: .lfs-data-icon
+OK: .lfs-data-icon.dark
+OK: .lfs-data-icon.octicon-database
+OK: .payment-methods
+OK (no selector)
+OK: .payment-methods .selected-payment-method
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .payment-methods .selected-payment-method::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .payment-methods .selected-payment-method::after{
+OK: .payment-methods .selected-payment-method.active
+OK: .payment-methods .form-group dd .form-control.short.input-vat
+OK: .payment-methods .pay-with-header
+OK: .payment-methods .pay-with-paypal .setup-creditcard-form, .payment-methods .pay-with-paypal .paypal-form-actions, .payment-methods .pay-with-paypal .terms, .payment-methods .pay-with-paypal .paypal-signed-in, .payment-methods .pay-with-paypal .paypal-down-flash, .payment-methods .pay-with-paypal .loading-paypal-spinner
+OK: .payment-methods.paypal-loading .loading-paypal-spinner
+OK: .payment-methods.paypal-down .paypal-down-flash
+OK: .payment-methods.paypal-logged-in .paypal-sign-in
+OK: .payment-methods.paypal-logged-in .setup-creditcard-form, .payment-methods.paypal-logged-in .paypal-form-actions, .payment-methods.paypal-logged-in .terms, .payment-methods.paypal-logged-in .paypal-signed-in
+OK: .payment-methods.has-paypal-account .paypal-sign-in
+OK: .payment-methods.has-paypal-account .paypal-signed-in
+OK: .paypal-label
+OK: .paypal-container
+OK: .braintree-paypal-loggedin
+OK: .bt-pp-name
+OK: .bt-pp-email
+OK: .bt-pp-cancel
+OK: .paypal-icon
+OK: .currency-container .local-currency, .currency-container .local-currency-block
+OK: .currency-container.open .local-currency
+OK: .currency-container.open .local-currency-block
+OK: .currency-container.open .default-currency
+OK: .strong-label
+OK: .discounted-original-price
+OK: .billing-manager-input
+OK: .seats-change-arrow
+OK: .plan-choice
+OK: .plan-choice.open, .plan-choice.selected
+OK: .line-item-value
+OK: .condensed-payment-methods .vat-field
+OK: .condensed-payment-methods .state-field
+OK: .condensed-payment-methods .postcode-field
+OK: .condensed-payment-methods .country-field
+OK: .condensed-payment-methods .is-international .country-field
+OK: .condensed-payment-methods .is-international.no-postcodes .country-field
+OK: .zuora-billing-section.PaymentMethod--creditcard:not(.has-removed-contents) ~ .SignUpContinueActions
+OK: .zuora-billing-section.PaymentMethod--creditcard-added ~ .SignUpContinueActions
+OK: .zuora-billing-section.PaymentMethod--paypal ~ .SignUpContinueActions
+OK: .billing-box-accordion[open] .octicon-chevron-right
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .billing-box-accordion:hover .billing-box-accordion-state .octicon{
+OK: .billing-box-accordion-chevron[open] .octicon-chevron-right
+OK: .billing-box-accordion-state .octicon
+OK: .billing-box-progress
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .Details-element:focus{
+OK: .blob-interaction-bar
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .blob-interaction-bar::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .blob-interaction-bar::after{
+OK: .blob-interaction-bar .octicon-search
+OK: .blob-filter
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .blob-filter:focus{
+OK: .diff-table .line-alert, .blob-code-content .line-alert
+OK: .diff-table .codeowners-error, .blob-code-content .codeowners-error
+OK: .diff-table .error-highlight, .blob-code-content .error-highlight
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .diff-table .error-highlight::before,.blob-code-content .error-highlight::before{
+OK: .blob-code-content .blob-num .line-alert
+OK: .diff-table .blob-num .line-alert
+OK: .csv-data .line-alert
+OK: .CopyBlock
+OK: .CopyBlock .octicon-copy
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .CopyBlock:hover,.CopyBlock:focus,.CopyBlock:active{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .CopyBlock:hover .octicon-copy,.CopyBlock:focus .octicon-copy,.CopyBlock:active .octicon-copy{
+OK: .blob-header.is-stuck
+OK: .CodeMirror-hints
+OK: .CodeMirror-hint
+OK: .CodeMirror-hint .CodeMirror-hint:first-child
+OK: .CodeMirror-hint .CodeMirror-hint:last-child
+OK: .CodeMirror-hint-active
+OK: .CodeMirror-lint-tooltip
+OK: .CodeMirror-lint-mark-error, .cm-lintRange.cm-lintRange-error
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .CodeMirror-lint-mark-error::before,.cm-lintRange.cm-lintRange-error::before{
+OK: .CodeMirror-lint-mark-warning, .cm-lintRange.cm-lintRange-warning
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .CodeMirror-lint-mark-warning::before,.cm-lintRange.cm-lintRange-warning::before{
+OK: .CodeMirror-lint-mark-info, .cm-lintRange.cm-lintRange-info
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .CodeMirror-lint-mark-info::before,.cm-lintRange.cm-lintRange-info::before{
+OK: .CodeMirror-hint-active .CodeMirror-hint-description
+OK: .status-heading
+OK: .merge-status-list
+OK: .merge-status-list.hide-closed-list
+OK: .statuses-toggle-opened
+OK: .merge-status-item
+OK: .merge-status-item:last-child:not(.review-item)
+OK: .merge-status-item .css-truncate-target
+OK: .merge-status-item .dismiss-review-form
+OK: .merge-status-item.open .review-status-item
+OK: .merge-status-item.open .dismiss-review-form
+OK: .status-meta
+OK: .status-actions
+OK: .branch-action-item-icon
+OK: .merge-status-icon
+OK: .branch-action
+OK: .branch-action .merge-branch-heading
+OK: .branch-action-icon
+OK: .branch-action-body
+OK: .branch-action-body .spinner
+OK: .branch-action-body .merge-message, .branch-action-body .merge-branch-form, .branch-action-body .queue-branch-form
+OK: .branch-action-item
+OK: .branch-action-item + .branch-action-item, .branch-action-item + .mergeability-details
+OK: .branch-action-item.open > .merge-status-list-wrapper > .merge-status-list, .branch-action-item.open > .merge-status-list
+OK: .branch-action-item.open > .merge-status-list-wrapper > .merge-status-list.hide-closed-list, .branch-action-item.open > .merge-status-list.hide-closed-list
+OK: .branch-action-item.open .statuses-toggle-opened
+OK: .branch-action-item.open .statuses-toggle-closed
+OK: .branch-action-item-simple
+OK: .branch-action-item-simple .merge-status-list
+OK: .branch-action-item-simple .merge-status-item
+OK: .branch-action-state-unknown .branch-action-icon, .branch-action-state-unstable .branch-action-icon
+OK: .branch-action-state-unknown .branch-action-body, .branch-action-state-unstable .branch-action-body
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .branch-action-state-unknown .branch-action-body::after,.branch-action-state-unknown .branch-action-body::before,.branch-action-state-unstable .branch-action-body::after,.branch-action-state-unstable .branch-action-body::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .branch-action-state-unknown .branch-action-body::after,.branch-action-state-unstable .branch-action-body::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .branch-action-state-unknown .branch-action-body::before,.branch-action-state-unstable .branch-action-body::before{
+OK: .branch-action-state-dirty .branch-action-icon, .branch-action-state-closed-dirty .branch-action-icon, .is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-icon
+OK: .branch-action-state-dirty .branch-action-body, .branch-action-state-closed-dirty .branch-action-body, .is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-body
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .branch-action-state-dirty .branch-action-body::after,.branch-action-state-dirty .branch-action-body::before,.branch-action-state-closed-dirty .branch-action-body::after,.branch-action-state-closed-dirty .branch-action-body::before,.is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-body::after,.is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-body::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .branch-action-state-dirty .branch-action-body::after,.branch-action-state-closed-dirty .branch-action-body::after,.is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-body::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .branch-action-state-dirty .branch-action-body::before,.branch-action-state-closed-dirty .branch-action-body::before,.is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-body::before{
+OK (no selector)
+OK: .merge-button-matrix-merge-form .merge-branch-form
+OK: .completeness-indicator
+OK: .completeness-indicator-success
+OK: .completeness-indicator-error
+OK: .completeness-indicator-problem
+OK: .completeness-indicator-warning
+OK: .dormant-users-recent-reports
+OK: .business-global-sidebar
+OK (no selector)
+OK: .business-content
+OK: .business-content h1:not(dialog h1)
+OK: .business-content h2:not(dialog h2)
+OK: .business-content h3:not(dialog h3), .business-content h4:not(dialog h4), .business-content h5:not(dialog h5), .business-content h6:not(dialog h6)
+OK: li:has(.business-folding-group) + .ActionList-sectionDivider:has(+ .business-sidebar-flat)
+OK: .ActionList-sectionDivider:has(+ li .business-folding-group.business-sidebar-flat)
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .enterprise-upload-file-input:focus+.f4 .enterprise-upload-label,.enterprise-upload-file-input:focus-visible+.f4 .enterprise-upload-label{
+OK: .business-content .h1-override-shared-component
+OK: .business-content .h2-override-shared-component
+OK: body.full-width-p-0 .new-discussion-timeline
+OK: body.full-width-p-0 .footer .mt-6
+OK: .checks-list-item-icon
+OK: .check-annotation
+OK: .file .check-annotation
+OK: .file .check-annotation:last-child
+OK: .check-annotation .annotation-actions
+OK: .check-annotation .annotation-octicon
+OK: .check-annotation.Details--on .Details-content--hidden
+OK: .annotation-title
+OK: .check-annotation-failure
+OK: .check-annotation-failure .annotation-title
+OK: .check-annotation-neutral
+OK: .check-annotation-warning
+OK: .check-annotation-warning .octicon-alert
+OK: .check-annotation-warning .annotation-title
+OK: .neutral-check
+OK: .check-page-commit-message
+OK (no selector)
+OK: .check-page-commit-message-container
+OK (no selector)
+OK: .code-frequency .addition
+OK: .code-frequency .deletion
+OK: .code-list .file-box
+OK: .code-list .title
+OK: .code-list .repo-specific .title, .code-list .repo-specific .full-path
+OK: .code-list .match-count, .code-list .updated-at
+OK: .code-list .language
+OK: .code-list .avatar
+OK: .code-list .code-list-item + .code-list-item
+OK: .code-list .blob-num
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .code-list .blob-num::before{
+OK: .code-list .blob-num a
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .code-list .blob-num a:hover{
+OK: .code-list .blob-code
+OK: .code-list .divider .blob-num, .code-list .divider .blob-code
+OK: .code-list .divider .blob-num
+OK: .code-list .full-path
+OK: .code-list .full-path .octicon-repo
+OK: .code-list .full-path .octicon-lock
+OK: .code-list .full-path a
+OK: .code-list-item-private .file-box
+OK: .code-list-item-private .blob-num
+OK: .code-list-item-private .blob-num a
+OK: .code-list-item-private .divider .blob-num, .code-list-item-private .divider .blob-code
+OK: .code-scanning-alert-warning-message
+OK: .code-scanning-font-size-inherit
+OK: .cs-status-message .md-paragraph, .cs-status-message .md-list
+OK: .cs-status-message .md-paragraph:last-child, .cs-status-message .md-list:last-child
+OK: .cs-status-message .md-list, .cs-message .md-list
+OK: .cs-status-message .md-pre
+OK: .codesearch-head.pagehead h1
+OK (no selector)
+OK: .search-form-fluid .TableObject-item--primary
+OK: .search-form-fluid .completed-query
+OK: .search-form-fluid .completed-query span
+OK: .search-form-fluid .search-page-label
+OK: .search-form-fluid .search-page-label.focus .completed-query
+OK: .search-form-fluid .search-page-input
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .search-form-fluid .search-page-input:focus{
+OK: .topics-row-container
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "-webkit-details-marker",
+): .codespaces-policy-form details>summary::-webkit-details-marker{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .codespaces-policy-item-no-hover:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .codespaces-policy-item-no-hover:hover .codespaces-policy-constraint-error{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .codespaces-policy-constraint-menu-item-muted-hover:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .codespaces-policy-form-blue-hover:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .codespaces-policy-form-blue-hover:hover svg{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .codespaces-policy-form-blue-hover:focus svg{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .codespaces-policy-form-danger-hover:hover{
+OK: .codespaces-list-box .css-truncate-target
+OK: .codespaces-policy-allowed-values-dropdown
+OK: .codespaces-policy-allowed-values-base-images-input
+OK: .codespaces-policy-repository-dialog .css-truncate-target
+OK (no selector)
+OK: .commit-activity-master
+OK: .is-graph-loading .commit-activity-master
+OK: rect
+OK: rect.max
+OK: g.bar
+OK: g.mini
+OK: g.active rect
+OK: circle.focus
+OK: .dot text
+OK: span.no-nl-marker
+OK: .symlink .no-nl-marker
+OK: .contrib-person path
+OK: .contrib-person .midlabel
+OK: .coupons .setup-plans td img
+OK: .coupons .coupon-form-body
+OK: .coupons .coupon-form-body .input-block
+OK: .coupons .coupon-form-body .btn
+OK: .coupon-icon
+OK: .coupon-icon .octicon
+OK: .edit-thi-file
+OK: .universe-promo-container
+OK (no selector)
+OK: .universe-dismiss-form
+OK: .universe-dismiss-form .octicon
+OK: .universe-header
+OK: .universe-header-logo
+OK: .universe-hero-section
+OK: .universe-hero-image
+OK: .universe-event-info
+OK: .universe-date-location
+OK: .universe-location-separator
+OK: .universe-promotion
+OK: .universe-promo-description
+OK: .universe-actions
+OK: .universe-cta
+OK: [data-color-mode="dark"] .universe-cta
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): [data-color-mode=dark] .universe-cta:hover{
+OK: [data-color-mode="light"] .universe-cta
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): [data-color-mode=light] .universe-cta:hover{
+OK (no selector)
+OK (no selector)
+OK: .spark-public-preview-nudge-container
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK: [data-color-mode="dark"] .spark-public-preview-nudge-container.variant1
+OK: [data-color-mode="light"] .spark-public-preview-nudge-container.variant1
+OK (no selector)
+OK (no selector)
+OK: [data-color-mode="dark"] .spark-public-preview-nudge-container.variant2
+OK: [data-color-mode="light"] .spark-public-preview-nudge-container.variant2
+OK: .spark-public-preview-nudge-dismiss-form
+OK: .spark-public-preview-nudge-image
+OK: .spark-public-preview-nudge-header
+OK: .variant1 .spark-public-preview-nudge-header
+OK: .variant2 .spark-public-preview-nudge-header
+OK: .spark-public-preview-nudge-description
+OK: .variant1 .spark-public-preview-nudge-description
+OK: .variant2 .spark-public-preview-nudge-description
+OK: .nudge-inverse-button
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .nudge-inverse-button:hover{
+OK: .repo-private-icon
+OK: .dashboard-rollup-items > .dashboard-rollup-item
+OK: .pinned-favorites-update-form
+OK: .dashboard-break-word
+OK: .news .bio g-emoji, .news .repo-description g-emoji
+OK: .news .feed-item-heading-menu-button
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .news .feed-item-heading-menu-button:hover{
+OK: .suggest-icon
+OK: .suggest-icon svg, .suggest-icon path
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .suggest-icon svg::before,.suggest-icon path::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .suggest-icon svg::after,.suggest-icon path::after{
+OK: .suggest-icon .suggest-icon-bubble
+OK: .suggest-icon .suggest-icon-bubble:nth-of-type(2n)
+OK: .suggest-icon .suggest-icon-bubble:nth-of-type(1)
+OK: .suggest-icon .suggest-icon-bubble:nth-of-type(2)
+OK: .suggest-icon .suggest-icon-bubble:nth-of-type(3)
+OK: .feed-filter-menu .feed-filter-menu-body
+OK (no selector)
+OK: .dashboard-notice
+OK: .dashboard-notice .dismiss
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .dashboard-notice .dismiss:hover{
+OK: .dashboard-notice .notice-icon
+OK: .dashboard-notice .octicon-organization
+OK: .dashboard-notice h2
+OK: .dashboard-notice p.no-title
+OK: .dashboard-notice ul
+OK: .dashboard-notice li
+OK: .dashboard-notice .coupon
+OK: .dependabot-rules-banner-container
+OK (no selector)
+OK: [data-color-mode="light"][data-light-theme*="dark"] .dependabot-rules-banner-container, [data-color-mode="dark"][data-dark-theme*="dark"] .dependabot-rules-banner-container
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK: dl.form.developer-select-account
+OK: development-menu .line-clamp-1
+OK: development-menu .form-control[is-loading]
+OK: development-menu .development-menu-component-menu-modal, development-menu .development-menu-component-dialog-modal
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): development-menu .SelectMenu-item:hover,development-menu .SelectMenu-item:focus-visible{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): development-menu .SelectMenu-item:hover .arrow,development-menu .SelectMenu-item:focus-visible .arrow{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): development-menu .SelectMenu-item:hover svg,development-menu .SelectMenu-item:hover span,development-menu .SelectMenu-item:hover p,development-menu .SelectMenu-item:focus-visible svg,development-menu .SelectMenu-item:focus-visible span,development-menu .SelectMenu-item:focus-visible p{
+OK: development-menu .development-menu-component-menu-modal, development-menu .development-menu-component-dialog, development-menu .development-menu-component-dialog-modal
+OK (no selector)
+OK (no selector)
+OK: development-menu .development-menu-component-dialog:not([hidden]) + .development-menu-component-dialog-overlay
+OK (no selector)
+OK: development-menu .development-menu-component-dialog
+OK (no selector)
+OK (no selector)
+OK: development-menu .development-menu-component-dialog .development-menu-component-dialog-modal
+OK: development-menu .SelectMenu-item[aria-disabled="true"]
+OK: .file-diff-split[data-lock-side-selection="left"] [data-split-side="right"], .file-diff-split[data-lock-side-selection="right"] [data-split-side="left"]
+OK: .invisible
+OK: .label-select-menu .color
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .label-select-menu .select-menu-item:hover,.label-select-menu .select-menu-item:focus,.label-select-menu .select-menu-item[aria-checked=true]:hover,.label-select-menu .select-menu-item[aria-checked=true]:focus{
+OK: .label-select-menu .select-menu-item-icon, .label-select-menu .label-options-icon
+OK: .user-has-reacted .octicon
+OK: .discussions-header-wrap
+OK (no selector)
+OK: .discussions-query-builder
+OK (no selector)
+OK: .discussions-button-wrap
+OK (no selector)
+OK (no selector)
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .discussions-select-menu a:focus{
+OK: .discussions-label-select-menu
+OK: .hx_discussion_section_row
+OK: .donut-chart > .error, .donut-chart > .cancelled, .donut-chart > .action_required, .donut-chart > .timed_out, .donut-chart > .failure
+OK: .donut-chart > .expected, .donut-chart > .queued, .donut-chart > .in_progress, .donut-chart > .waiting, .donut-chart > .requested, .donut-chart > .pending
+OK: .donut-chart > .success
+OK: .donut-chart > .neutral, .donut-chart > .stale, .donut-chart > .skipped
+OK: .ghe-license-status
+OK: .ghe-license-status .octocat
+OK: .ghe-license-status h1
+OK: .ghe-license-status p
+OK: .ghe-license-expiry-icon
+OK: .feature-preview-dialog
+OK: .feature-preview-dialog .feature-preview-info
+OK: .global-nav-feature-preview-dialog
+OK: .file
+OK: .file .drag-and-drop
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "target",
+): .file:target{
+OK: .file .data.empty
+OK: .file:not(.open) .file-header.file-header--expandable
+OK: .file .data.suppressed, .file.open .image
+OK: .file.open .data.suppressed
+OK: .file .image
+OK: .file .image table
+OK: .file .image td
+OK: .file .image td img
+OK: .file .image .border-wrap
+OK: .file .image a
+OK: .file .image img, .file .image canvas
+OK: .file .image .view img, .file .image .view canvas
+OK: .file .image .view > span
+OK: .file .empty
+OK: .file-header
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .file-header::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .file-header::after{
+OK: .file-actions
+OK: .file-actions select
+OK: .file-info
+OK: .file-info .octicon
+OK: .sticky-file-header
+OK: .sticky-file-header.has-open-dropdown
+OK: .diff-progressive-loader
+OK: .load-diff-button, .load-diff-retry
+OK: .diff-placeholder-svg
+OK: .copilot-text-completion[data-disabled]
+OK: .graphs .area
+OK: .graphs .path
+OK: .graphs .dot
+OK: .graphs .dot.padded
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .graphs .dot.padded circle:hover{
+OK: .graphs .d3-tip
+OK: .graphs .d3-tip text
+OK: .graphs .dir
+OK: .graphs .selection .overlay
+OK: .graphs .selection .selection
+OK: .svg-tip
+OK: .svg-tip.is-visible
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .svg-tip::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .svg-tip.left::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .svg-tip.right::after{
+OK: .svg-tip.comparison
+OK: .svg-tip.comparison .title
+OK: .svg-tip.comparison ul
+OK: .svg-tip.comparison li
+OK: .svg-tip.comparison .metric-0, .svg-tip.comparison .metric-1
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .svg-tip.comparison .metric-0::before,.svg-tip.comparison .metric-1::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .svg-tip.comparison .metric-0::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .svg-tip.comparison .metric-1::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): [data-dark-theme=dark_colorblind] .svg-tip.comparison .metric-1::before,[data-dark-theme=dark_tritanopia] .svg-tip.comparison .metric-1::before,[data-light-theme=light_colorblind] .svg-tip.comparison .metric-1::before,[data-dark-theme=light_tritanopia] .svg-tip.comparison .metric-1::before{
+OK: .team-breadcrumb .team-breadcrumb-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .team-breadcrumb .team-breadcrumb-item::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .team-breadcrumb .team-breadcrumb-item-selected::after{
+OK: .team-discussions-container
+OK (no selector)
+OK: .team-left-column .team-avatar
+OK (no selector)
+OK: .team-discussions
+OK: .team-discussions .previewable-comment-form .comment
+OK: .team-discussions .previewable-comment-form .tabnav-tab.selected
+OK: .hooks-listing .boxed-group-action.select-menu
+OK: .hooks-listing .boxed-group-inner
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .hook-item a:hover{
+OK: .hook-item .item-status
+OK: .hook-item .description
+OK: .hook-item .description .css-truncate-target
+OK: .hook-item .icon-for-success, .hook-item .icon-for-failure, .hook-item .icon-for-pending, .hook-item .icon-for-inactive, .hook-item .icon-for-mute
+OK: .hook-item.success .icon-for-success
+OK: .hook-item.failure .icon-for-failure
+OK: .hook-item.pending .icon-for-pending
+OK: .hook-item.inactive .icon-for-inactive
+OK: .hook-item.mute .icon-for-mute
+OK: .hook-item .icon-for-enabled, .hook-item .icon-for-disabled
+OK: .hook-item.enabled .icon-for-enabled
+OK: .hook-item.disabled .icon-for-disabled
+OK: .hook-item .hook-error-message
+OK: .hook-url.css-truncate-target
+OK: .hooks-oap-warning
+OK: .hooks-oap-warning ul
+OK: .hooks-oap-warning ul li
+OK: .item-name
+OK: .hovercard-icon
+OK: .integrations-select-repos
+OK: .integrations-select-repos .mini-repo-list-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .integrations-select-repos .mini-repo-list-item:hover .repo,.integrations-select-repos .mini-repo-list-item:hover .owner{
+OK: .integrations-select-repos .mini-repo-list-item .css-truncate-target
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "-webkit-scrollbar",
+): .integrations-select-repos::-webkit-scrollbar{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "-webkit-scrollbar-thumb",
+): .integrations-select-repos::-webkit-scrollbar-thumb{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "-webkit-scrollbar-track-piece",
+): .integrations-select-repos::-webkit-scrollbar-track-piece{
+OK: .integrations-repository-picker
+OK: .select-permission-modal
+OK: .issue-list-item + .issue-list-item
+OK: .issue-list-item
+OK: .pinned-issue-item .pinned-issue-handle
+OK: .pinned-issue-item.is-dragging, .pinned-issue-item.is-dragging .pinned-issue-handle
+OK: .pinned-issue-item.is-dragging
+OK: .pinned-issue-item.sortable-ghost
+OK: .issues-reset-query-wrapper
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .label-link:hover{
+OK: .issues-reset-query
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .issues-reset-query:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .issues-reset-query:hover .issues-reset-query-icon{
+OK: .issues-reset-query-icon
+OK: .task-progress
+OK: .task-progress .octicon
+OK: .task-progress .progress-bar
+OK: .task-progress .progress-bar .progress
+OK: .task-progress-counts
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): a.task-progress:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): a.task-progress:hover .octicon{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): a.task-progress:hover .progress-bar .progress{
+OK: .issue-meta-section .octicon
+OK: .issue-milestone
+OK: .issue-milestone .css-truncate-target
+OK: .milestone-link .octicon
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .milestone-link:hover .octicon{
+OK: .label-select-menu .description
+OK: .label-select-menu .color
+OK: .label-select-menu [aria-checked="true"] .select-menu-item-icon, .label-select-menu [aria-checked="mixed"] .select-menu-item-icon, .label-select-menu .selected .select-menu-item-icon
+OK: .label-select-menu [aria-checked="true"] .octicon-circle-slash, .label-select-menu [aria-checked="mixed"] .octicon-circle-slash, .label-select-menu .selected .octicon-circle-slash
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "active",
+): .label-select-menu [aria-checked=true]:active,.label-select-menu [aria-checked=mixed]:active,.label-select-menu .selected:active{
+OK: .label-select-menu .select-menu-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .label-select-menu .select-menu-item:hover,.label-select-menu .select-menu-item:focus,.label-select-menu .select-menu-item[aria-selected=true],.label-select-menu .select-menu-item.navigation-focus{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .label-select-menu .select-menu-item:hover .select-menu-item-icon,.label-select-menu .select-menu-item:focus .select-menu-item-icon,.label-select-menu .select-menu-item[aria-selected=true] .select-menu-item-icon,.label-select-menu .select-menu-item.navigation-focus .select-menu-item-icon{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .label-select-menu .select-menu-item:hover .label-options-icon,.label-select-menu .select-menu-item:focus .label-options-icon,.label-select-menu .select-menu-item[aria-selected=true] .label-options-icon,.label-select-menu .select-menu-item.navigation-focus .label-options-icon{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .label-select-menu .select-menu-item:hover .description,.label-select-menu .select-menu-item:focus .description,.label-select-menu .select-menu-item[aria-selected=true] .description,.label-select-menu .select-menu-item.navigation-focus .description{
+OK: .label-select-menu > form
+OK: .subnav .btn + .issues-search
+OK: .reaction-sort-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .reaction-sort-item:focus,.reaction-sort-item:hover{
+OK: .reaction-sort-item[aria-checked="true"]
+OK: .issue-keyword
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .issue-keyword:hover{
+OK: .new-label-color-dimensions
+OK: .select-menu-item[aria-selected="true"] > .octicon.label-options-icon, .select-menu-item.navigation-focus > .octicon.label-options-icon
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "invalid",
+): .new-label-color-input:invalid{
+OK: .issue-form-textarea
+OK: .issue-forms-wysiwyg-container .comment-form-head
+OK: .issue-forms-wysiwyg-container .comment-body
+OK: .issue-form-body > :first-child
+OK: react-app[app-name="issues"]
+OK: react-app[app-name="issues"] > [data-target="react-app.reactRoot"]
+OK: .octocat-spinner
+OK: .octocat-spinner-32
+OK (no selector)
+OK: .map-container .activity
+OK: .map-container .is-graph-loading .activity
+OK: .map
+OK: .map-background
+OK: .map-background-zoom
+OK: .map-land
+OK: .map-country
+OK: .map-country.hk
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .map-country:hover{
+OK: .map-country.active
+OK: .map-borders
+OK: .map-graticule
+OK: .map-graticule :nth-child(2n)
+OK: .map-legend .map-legend-circle
+OK: .map-legend .map-legend-text
+OK: .map-legend .map-legend-link
+OK: .map-point
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .map-point:hover{
+OK: .map-country-info
+OK: .CircleBadge--feature
+OK: .MarketplaceFeature
+OK: .MarketplaceFeature-text
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .MarketplaceFeature-link:hover .CircleBadge--feature{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .MarketplaceFeature-link:hover .MarketplaceFeature-text{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "active",
+): .MarketplaceFeature-link:active .CircleBadge--feature{
+OK: .ScreenshotCarousel
+OK: .ScreenshotCarousel-screenshot
+OK: .ScreenshotCarousel-nav
+OK: .ScreenshotCarousel-navitem
+OK: .ScreenshotCarousel-navitem:last-child
+OK: .ScreenshotCarousel-navitem.selected
+OK: .marketplace-listing-details-sidebar
+OK (no selector)
+OK: .marketplace-listing-details-description
+OK (no selector)
+OK: .marketplace-billing-modal
+OK: .marketplace-product-callout
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .marketplace-product-callout::before,.marketplace-product-callout::after{
+OK: .marketplace-product-callout .branch-action-item-icon
+OK: .filter-item.selected .Label--secondary
+OK: .MarketplaceEdit-body .CircleIcon
+OK: .MarketplaceEdit-body .CircleIcon .octicon
+OK: .CircleBadge--tiny
+OK: .CircleBadge--github
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .CircleBadge--github.CircleBadge--large::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .CircleBadge--github.CircleBadge--small::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .CircleBadge--github::after{
+OK: body.page-responsive .flash-full .container
+OK: .ClipboardButton
+OK: .ClipboardButton.ClipboardButton--success
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .ClipboardButton.ClipboardButton--success:focus{
+OK: .Link--muted.filter-item.selected
+OK: .member-list-item .table-list-cell-checkbox
+OK: .member-list-item.adminable .member-info
+OK: .member-list-item .member-avatar-cell
+OK: .triage-mode .none-selected
+OK: .merge-branch-description
+OK: .merge-branch-description.multi-line-error
+OK: .alt-merge-options
+OK: .merged .merge-branch-description .commit-ref .css-truncate-target
+OK: .select-menu-merge-method
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .select-menu-merge-method .select-menu-item:hover,.select-menu-merge-method .select-menu-item:hover .octicon,.select-menu-merge-method .select-menu-item:hover .select-menu-item-text{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .select-menu-merge-method .select-menu-item:hover .description{
+OK: .unavailable-merge-method
+OK: [aria-selected="true"].disabled .unavailable-merge-method, .navigation-focus.disabled .unavailable-merge-method
+OK: .network .network-tree
+OK: .network .gravatar
+OK: .network .octicon
+OK: .news .release
+OK: .news blockquote
+OK: .news .alert
+OK: .news .alert .commits
+OK: .news .alert .css-truncate.css-truncate-target, .news .alert .css-truncate .css-truncate-target
+OK: .news .alert p
+OK: .news .alert .markdown-body blockquote
+OK: .news .alert .octicon
+OK: .news .alert .dashboard-event-icon
+OK: .news .alert .body
+OK: .news .alert .time
+OK: .news .alert .title
+OK: .news .alert .title .subtle
+OK: .news .alert .gravatar
+OK: .news .alert .simple .title
+OK: .news .alert .simple .time
+OK: .news .alert:first-child
+OK: .news .alert:first-child .body
+OK: .news .alert:first-child .dashboard-event-icon
+OK: .news .github-welcome .done
+OK: .news .commits li
+OK: .news .commits li.more
+OK: .news .commits li .committer
+OK: .news .commits li img
+OK: .news .commits li img.emoji
+OK: .news .commits li .message
+OK: .news div.message, .news li blockquote
+OK: .oauth-no-description
+OK: .boxed-group-inner .oauth-application-info
+OK: .oauth-application-info .application-title
+OK: .oauth-application-info .application-description
+OK: .oauth-application-info .listgroup-item
+OK: .oauth-application-info .app-denied, .oauth-application-info .app-approved
+OK: .oauth-application-info .app-approved, .oauth-application-info .octicon-check
+OK: .oauth-application-info .app-denied, .oauth-application-info .octicon-x
+OK: .developer-app-item .developer-app-avatar-cell
+OK: .developer-app-item .developer-app-name
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .developer-app-item .developer-app-name:hover{
+OK: .developer-app-item .developer-app-info-cell
+OK: .developer-app-item .developer-app-list-meta
+OK: .org-transfer-requests
+OK: .toggle-secret-field .secret-standin
+OK: .toggle-secret-field .secret-field
+OK: .toggle-secret-field.open .secret-standin
+OK: .toggle-secret-field.open .secret-field
+OK: .invitation-2fa-banner
+OK: .sign-up-via-invitation .bleed-flush
+OK: .sign-up-via-invitation label
+OK: .security-secret-leaks-promo-banner
+OK: .dismissable .security-secret-leaks-promo-banner
+OK (no selector)
+OK: .security-secret-leaks-promo-banner-content
+OK (no selector)
+OK: .security-secret-leaks-promo-banner-dismiss
+OK: .security-secret-leaks-promo-banner-actions
+OK: .security-secret-leaks-promo-banner-remind-icon
+OK: .security-secret-leaks-promo-banner-remind-label
+OK: .security-secret-leaks-promo-banner-image-container
+OK: .dismissable .security-secret-leaks-promo-banner-image-container
+OK (no selector)
+OK: .security-secret-leaks-promo-banner-image-el
+OK: .security-secret-leaks-promo-banner-image
+OK (no selector)
+OK: .scan-secret-leaks .security-secret-leaks-promo-banner-image
+OK: [data-color-mode="dark"][data-dark-theme="dark"] .scan-secret-leaks .security-secret-leaks-promo-banner-image, [data-color-mode="dark"][data-dark-theme="dark_colorblind"] .scan-secret-leaks .security-secret-leaks-promo-banner-image, [data-color-mode="dark"][data-dark-theme="dark_tritanopia"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+OK: [data-color-mode="dark"][data-dark-theme="dark_dimmed"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+OK: [data-color-mode="dark"][data-dark-theme="dark_high_contrast"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+OK: [data-color-mode="light"][data-light-theme="light"] .scan-secret-leaks .security-secret-leaks-promo-banner-image, [data-color-mode="light"][data-light-theme="light_colorblind"] .scan-secret-leaks .security-secret-leaks-promo-banner-image, [data-color-mode="light"][data-light-theme="light_tritanopia"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+OK: [data-color-mode="light"][data-light-theme="light_high_contrast"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+OK (no selector)
+OK (no selector)
+OK: .github-roadmap-webinar-control-dismiss, .github-roadmap-webinar-treatment-dismiss
+OK: .github-roadmap-webinar-control-cta, .github-roadmap-webinar-treatment-cta
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .github-roadmap-webinar-control-cta:hover,.github-roadmap-webinar-treatment-cta:hover{
+OK: .github-roadmap-webinar-control-date, .github-roadmap-webinar-treatment-date
+OK: .github-roadmap-webinar-control-header, .github-roadmap-webinar-treatment-header
+OK: .github-roadmap-webinar-control, .github-roadmap-webinar-treatment
+OK: .github-roadmap-webinar-control
+OK (no selector)
+OK (no selector)
+OK: [data-color-mode="dark"] .github-roadmap-webinar-control
+OK: [data-color-mode="light"] .github-roadmap-webinar-control
+OK (no selector)
+OK: .github-roadmap-webinar-control-date
+OK: .github-roadmap-webinar-control-header
+OK: .github-roadmap-webinar-control-subtext
+OK: .github-roadmap-webinar-control-image
+OK (no selector)
+OK: .github-roadmap-webinar-treatment
+OK (no selector)
+OK: .github-roadmap-webinar-treatment-content
+OK: .github-roadmap-webinar-treatment-image
+OK (no selector)
+OK (no selector)
+OK: [data-color-mode="dark"] .github-roadmap-webinar-treatment-image.light
+OK: [data-color-mode="light"] .github-roadmap-webinar-treatment-image.dark
+OK: .github-roadmap-webinar-treatment-date
+OK: .github-roadmap-webinar-treatment-header
+OK: .github-roadmap-webinar-treatment-topics
+OK: .github-roadmap-webinar-treatment-topic
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .github-roadmap-webinar-treatment-topic::before{
+OK: .github-roadmap-webinar-treatment-cta
+OK: .orghead
+OK: .orghead .orgnav
+OK: .org-repos .TableObject-item--primary
+OK: .org-name
+OK: .audit-log-search .member-info
+OK: .audit-log-search .member-info .member-avatar
+OK: .audit-log-search .member-info .member-link
+OK: .audit-log-search .member-info .member-list-avatar
+OK: .audit-log-search .member-info .ghost
+OK: .audit-log-search .blankslate
+OK: .audit-log-search .export-phrase
+OK: .audit-results-actions
+OK: .audit-search-clear
+OK: .audit-search-clear .issues-reset-query
+OK: .audit-type
+OK: .audit-type .octicon
+OK: .audit-type .repo
+OK: .audit-type .team
+OK: .audit-type .user
+OK: .audit-type .oauth_access
+OK: .audit-type .hook
+OK: .export-phrase
+OK: .export-phrase pre
+OK: .saml-enabled-banner-container
+OK: .member-avatar
+OK: .auto-search-group
+OK: .auto-search-group .auto-search-input
+OK: .auto-search-group .spinner, .auto-search-group > .octicon
+OK: .auto-search-group .spinner
+OK: .auto-search-group > .octicon
+OK: .org-list .list-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .org-list .list-item::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .org-list .list-item::after{
+OK: .permission-level-cell .select-menu-button
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .permission-level-cell .select-menu-button::after{
+OK: .permission-level-cell .spinner
+OK: .permission-level-cell .is-loading .spinner
+OK: .select-menu-option-title
+OK: .reinstate-org-member
+OK: .reinstate-org-member .reinstate-lead
+OK: .reinstate-org-member label
+OK: .reinstate-org-member .reinstate-detail-container
+OK: .reinstate-org-member .reinstate-title
+OK: .reinstate-org-member .reinstate-title .octicon
+OK: .invite-member-results ul
+OK: .team-member-list
+OK: .team-member-list .table-list-cell
+OK: .team-member-list .team-member-content
+OK: .team-member-list .team-member-username
+OK: .team-member-list .Label--secondary
+OK: .team-member-list .invite-icon
+OK: .menu-item-danger, .menu-item-danger.selected
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .menu-item-danger:hover,.menu-item-danger[aria-selected=true],.menu-item-danger.navigation-focus,.menu-item-danger.selected:hover,.menu-item-danger.selected[aria-selected=true],.menu-item-danger.selected.navigation-focus{
+OK: .team-member-list-avatar
+OK: .team-member-list-avatar .octicon
+OK: .confirm-removal-list-container
+OK: .confirm-removal-list-item
+OK: .confirm-removal-list-item:first-child
+OK: .manage-member-meta
+OK: .manage-member-meta-item
+OK: .manage-member-meta-item:first-child
+OK: .manage-member-meta-item .btn-link
+OK: .manage-member-meta-item > .octicon
+OK: .manage-member-meta-item > .octicon-alert
+OK: .ldap-group-dn
+OK: .team-name-field
+OK: .invited .team-member-list
+OK: .invited .team-member-list .list-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .invited .team-member-list .list-item::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .invited .team-member-list .list-item::after{
+OK: .invited .team-member-list .list-item:last-of-type
+OK: .invited .team-member-list .list-item .edit-invitation
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .invited-banner::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .invited-banner::after{
+OK: .invited-banner .btn-sm
+OK: .invited-banner p
+OK: .invited-banner .inviter-link
+OK: .manage-member-sso-sessions.has-active-sessions .blankslate
+OK: .org-menu-item:not([aria-current="page"]) + .org-sub-menu
+OK: .trial-banner-notice
+OK (no selector)
+OK: .theme-name
+OK: .pinned-items-spinner
+OK: .pinned-items-setting-link
+OK: .pinned-item-name
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .pinned-item-checkbox+.pinned-item-name:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "disabled",
+): .pinned-item-checkbox:disabled+.pinned-item-name{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "disabled",
+): .pinned-item-checkbox:disabled+.pinned-item-name:hover{
+OK: .pinned-gist-blob-num
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .pinned-gist-blob-num:hover{
+OK (no selector)
+OK: .projects-splash-dialog
+OK (no selector)
+OK: .projects-splash-banner
+OK (no selector)
+OK: .projects-splash-banner p
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK (no selector)
+OK: .project-description p:last-child
+OK: .pending-cards-status
+OK: .project-column
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .project-column:focus{
+OK (no selector)
+OK: .project-column.moving
+OK: .sortable-ghost
+OK: .project-card
+OK: .project-card .project-reference-markdown > p, .project-card:last-child
+OK: .project-card:first-child
+OK (no selector)
+OK: .project-card ul, .project-card ol
+OK: .project-card blockquote
+OK: .project-card .contains-task-list
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .project-card:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .project-card:focus{
+OK (no selector)
+OK: .project-card.moving
+OK: .issue-card.draggable
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .issue-card .AvatarStack:hover .from-avatar{
+OK: .issue-card pre
+OK (no selector)
+OK: .project-note-form textarea
+OK: .card-menu-container .dropdown-menu, .column-menu-container .dropdown-menu
+OK: .card-octicon
+OK: .card-note-octicon
+OK: .is-sending .auto-search-group .chooser-spinner
+OK: .card-filter-autocomplete-dropdown
+OK: .card-filter-autocomplete-dropdown [aria-selected="true"], .card-filter-autocomplete-dropdown .navigation-focus
+OK: .card-filter-autocomplete-dropdown [aria-selected="true"] .autocomplete-text-qualifier, .card-filter-autocomplete-dropdown .navigation-focus .autocomplete-text-qualifier
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .projects-reset-query:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .projects-reset-query:hover .projects-reset-query-icon{
+OK: .projects-reset-query-icon
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .project-small-menu-dropdown::before,.project-small-menu-dropdown::after{
+OK: .project-edit-mode .column-menu-container, .project-edit-mode .column-menu-item
+OK: .project-edit-mode .project-move-actions
+OK: .push-board-over
+OK (no selector)
+OK: .projects-comment-form .comment-md-support-link
+OK: .projects-comment-form .comment-form-actions
+OK: .projects-comment-form .comment-form-actions button
+OK: .projects-comment-form .comment-form-head
+OK: .projects-comment-form .comment-form-head .tabnav-tabs
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .projects-comment-form .comment-form-head::after{
+OK: .projects-comment-form .comment-form-textarea
+OK: .projects-comment-form .preview-content
+OK: .projects-comment-form .preview-content .comment-body
+OK: .project-issue-body-wrapper
+OK: .Details--on .project-issue-body-wrapper
+OK: .project-issue-body-blur
+OK: .Details--on .project-issue-body-blur
+OK: .project-comment-title-hover .comment-action, .project-comment-body-hover .comment-action
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .project-comment-title-hover:hover .comment-action,.project-comment-body-hover:hover .comment-action{
+OK: .project-comment-body-reaction .timeline-comment-action
+OK: .project-name-hover .project-name-edit-action
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .project-name-hover:hover .project-name-edit-action{
+OK: .project-icon path
+OK: .remove-spacing-wrapper .FormControl-spacingWrapper
+OK: .vcard-fullname
+OK: .vcard-username
+OK: .user-profile-bio-message
+OK: .profile-readme .markdown-body .anchor
+OK: #package-results .package-grid
+OK (no selector)
+OK: .user-profile-following-container .user-following-container.on .follow, .user-profile-following-container .user-following-container .unfollow
+OK: .user-profile-following-container .user-following-container .follow, .user-profile-following-container .user-following-container.on .unfollow
+OK: .user-repo-search-results-summary
+OK: .pull-request-tab-content
+OK: .pull-request-tab-content.is-visible
+OK: .pull-request-ref-restore
+OK: .pull-request-ref-restore-text
+OK: .pull-request-queued-state
+OK: .stale-files-tab
+OK: .stale-files-tab-link
+OK (no selector)
+OK: .add-comment-label, .is-review-pending .start-review-label
+OK: .start-review-label, .is-review-pending .add-comment-label
+OK: .is-review-pending .review-simple-reply-button
+OK: .review-comment-contents
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .review-comment::after,.review-comment-loader::after,.review-comment.is-comment-editing::after{
+OK: .review-comment
+OK: .review-comment:first-child
+OK: .review-comment:last-child
+OK: .review-comment .comment-body, .review-comment .comment-reactions
+OK: .review-comment .comment-body
+OK: .review-comment .comment-body .suggested-change-form-container:nth-last-of-type(2)
+OK: .review-comment .comment-reactions
+OK: .review-comment .pull-review-comment-reaction .has-reactions
+OK: .review-comment .show-more-popover.dropdown-menu-sw
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .review-comment:last-child::after,.review-comment:last-child .review-comment-contents::after{
+OK: .review-comment .timeline-comment-action
+OK: .review-comment .is-comment-editing
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .review-comment .is-comment-editing::after{
+OK: .review-comment .is-comment-editing .timeline-comment-actions, .review-comment .is-comment-editing .edit-comment-hide
+OK: .review-comment .is-comment-editing .previewable-comment-form
+OK: .review-comment.is-comment-loading .previewable-comment-form
+OK: .pr-review-reactions .just-bottom, .pr-review-reactions .has-reactions, .pr-review-reactions .has-reactions.comment-reactions
+OK: .pr-review-reactions.pr-review-reactions-next-to-feedback .just-bottom, .pr-review-reactions.pr-review-reactions-next-to-feedback .has-reactions, .pr-review-reactions.pr-review-reactions-next-to-feedback .has-reactions.comment-reactions
+OK: .pr-review-reactions.pr-review-reactions-no-margin .just-bottom, .pr-review-reactions.pr-review-reactions-no-margin .has-reactions, .pr-review-reactions.pr-review-reactions-no-margin .has-reactions.comment-reactions
+OK: .timeline-comment.is-comment-editing .discussion-item-header
+OK: .timeline-comment.is-comment-editing .pr-review-reactions
+OK: .review-thread-reply
+OK: .review-thread-reply .inline-comment-form
+OK: .review-thread-reply-button
+OK: .readme.contributing > div
+OK: .readme .markdown-body, .readme .plain
+OK: .readme .plain pre
+OK: .file .readme table[data-table-type="yaml-metadata"]
+OK: .file .readme table[data-table-type="yaml-metadata"] table
+OK: .labels-list .blankslate
+OK: .labels-list .table-list-header
+OK: .labels-list.is-empty .blankslate
+OK: .labels-list.is-empty .table-list-header
+OK: .label-select-menu-item .g-emoji
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .label-edit::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .label-edit::after{
+OK: .label-edit label
+OK: .label-edit .error
+OK: .label-edit.loading
+OK: .label-characters-remaining
+OK: .repo-list
+OK: .repo-list-item
+OK: .repo-list-item-with-avatar
+OK: .repo-list-item-hanging-avatar
+OK: .mini-repo-list-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .mini-repo-list-item:hover{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .mini-repo-list-item:hover .repo,.mini-repo-list-item:hover .owner{
+OK: .mini-repo-list-item .repo-icon
+OK: .mini-repo-list-item .repo-and-owner
+OK: .mini-repo-list-item .owner
+OK: .mini-repo-list-item .repo
+OK: .mini-repo-list-item .stars
+OK: .mini-repo-list-item .repo-description
+OK: .private .mini-repo-list-item
+OK: .private .mini-repo-list-item .repo-icon
+OK: .form-group.errored label .commit-ref
+OK: .repo-menu-item:not([aria-current="page"]) + .repo-sub-menu
+OK: .repository-og-image
+OK: .line-clamp-2
+OK: .timeout
+OK: .timeout h3
+OK: .repo-language-color
+OK: .iconbutton .octicon
+OK: .prereceive-feedback
+OK: .prereceive-feedback-heading
+OK: .revert-error
+OK: .revert-error-heading
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "checked",
+): .repository-item-checkbox:checked+.repository-item-name{
+OK: .custom-role-icon
+OK: .security-center-filter-wrap
+OK (no selector)
+OK: .recent-user-key-access
+OK: .access-token
+OK: .access-token:last-child
+OK: .access-token .last-used
+OK: .access-token.new-token
+OK: .access-token.new-token .octicon-check
+OK: .access-token .token-description
+OK: .access-token .token
+OK: .access-token .token-type
+OK: table.security-history-detail
+OK: table.security-history-detail td
+OK: .u2f-registration
+OK: .new-u2f-registration
+OK: .new-u2f-registration .add-u2f-registration-form:not(.for-trusted-device)
+OK: .new-u2f-registration.is-active .add-u2f-registration-link
+OK: .new-u2f-registration.is-active .add-u2f-registration-form
+OK: .new-u2f-registration .webauthn-request-interaction, .new-u2f-registration .webauthn-request-error
+OK: .new-u2f-registration.is-sending .webauthn-request-interaction
+OK: .new-u2f-registration.is-showing-error .webauthn-request-error
+OK: .spinner
+OK: .is-sending .spinner
+OK: .collaborators .collab-list
+OK: .collaborators .collab-list-item:first-child .collab-list-cell
+OK: .collaborators .collab-list-cell
+OK: .collaborators .collab-meta
+OK: .collaborators .collab-remove
+OK: .collaborators .collab-remove .remove-link
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .collaborators .collab-remove .remove-link:hover{
+OK: .collaborators .collab-team-link
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .collaborators .collab-team-link:hover{
+OK: .collaborators .collab-team-link .avatar
+OK: .collaborators .collab-team-link.disabled
+OK: .collaborators .collab-info
+OK: .collaborators .collab-info .description
+OK: .collaborators .collab-info .collab-name
+OK: .settings-next
+OK: .settings-next label
+OK: .settings-next .note
+OK: .settings-next .form-checkbox input[type="radio"], .settings-next .form-checkbox input[type="checkbox"]
+OK: dl.form-group > dd textarea.compact
+OK: .form-hr
+OK: .listgroup
+OK: .listgroup-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .listgroup-item::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .listgroup-item::after{
+OK: .listgroup-item + .listgroup-item
+OK: .listgroup-item .css-truncate-target
+OK: .listgroup-item-title
+OK: .listgroup-item-body
+OK: .listgroup-header
+OK: .listgroup-overflow
+OK: .listgroup-sm .listgroup-item
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .user-already-added::after{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .repository-visibility-change-warning::before{
+OK: .recovery-codes-container
+OK (no selector)
+OK: .two-factor-recovery-codes
+OK: .two-factor-recovery-code-mark
+OK: .two-factor-recovery-code
+OK (no selector)
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .two-factor-recovery-code::before{
+OK: .recovery-codes-saving-options
+OK: .recovery-codes-saving-options .recovery-code-save-button
+OK: .recovery-codes-warning
+OK: .two-factor-steps
+OK: .setup-form
+OK: .setup-form .form-group.successed .error
+OK: .setup-form .form-group dd .form-control
+OK: .setup-form .form-group dd .form-control.short
+OK: .setup-form dd
+OK: .setup-form dd .octicon
+OK: .setup-form .octicon-alert
+OK: .setup-form .octicon-check
+OK: .setup-form .tos-info, .setup-form .setup-organization-next
+OK: .setup-form .tos-info
+OK: .setup-form .setup-organization-next
+OK: .setup-form .setup-plans
+OK: .setup-form .setup-plans tr.selected
+OK: .setup-form .setup-plans .name
+OK: .setup-form .setup-plans .choose-plan input[type="radio"]
+OK: .setup-creditcard-form .country-form, .setup-creditcard-form .state-form
+OK: .setup-creditcard-form .country-form, .setup-creditcard-form .postal-code-form
+OK: .setup-creditcard-form .form-group select.select-country
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "invalid",
+): .setup-creditcard-form .form-group select:invalid{
+OK: .setup-creditcard-form .form-group select.select-state
+OK: .setup-creditcard-form .form-group .input-vat
+OK: .setup-creditcard-form .form-group input.input-postal-code
+OK: .setup-creditcard-form.is-vat-country .vat-field
+OK: .setup-creditcard-form.is-international .form-group select.select-country
+OK: .setup-creditcard-form.is-international .state-form
+OK: .setup-creditcard-form.no-postcodes .postal-code-form
+OK: .setup-creditcard-form dd .octicon-credit-card
+OK: .setup-creditcard-form .vat-field
+OK: .setup-creditcard-form .vat-field.prefilled
+OK: .setup-creditcard-form .help-text
+OK: .signup-plan-summary-subhead
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "disabled",
+): .signup-btn:disabled{
+OK: .signup-plan-details[open] .octicon-chevron-right
+OK: .collection-search-results em
+OK: .draft-tag
+OK: .showcase-page-pattern
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .showcase-page-pattern::after{
+OK: .showcase-page-repo-list
+OK: .slash-command-menu-item .command-description
+OK: .slash-command-menu-item[aria-selected="true"]
+OK: .slash-command-menu-item[aria-selected="true"] .command-description
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .modal-anchor::before{
+OK: .sortable-button-item:first-of-type .sortable-button[data-direction="up"], .sortable-button-item:last-of-type .sortable-button[data-direction="down"]
+OK (no selector)
+OK (no selector)
+OK: .sponsors-funded-dependencies-percent-circle-bg, .sponsors-funded-dependencies-percent-circle
+OK: .sponsors-funded-dependencies-percent-circle-bg
+OK: .sponsors-funded-dependencies-percent-circle
+OK: .sponsors-goal-progress-bar
+OK (no selector)
+OK: .sponsors-goals-heart-anim
+OK: .sponsors-goals-heart-anim.is-active
+OK: .open > .sponsors-foldable
+OK: .open .sponsors-foldable-opened
+OK: .open .sponsors-foldable-closed
+OK: .sponsors-foldable
+OK: .sponsors-foldable-opened
+OK: .sponsors-foldable-closed
+OK: .hx_status-indicator .status-indicator-spinner
+OK: .hx_status-indicator.status-indicator-loading
+OK: .hx_status-indicator.status-indicator-loading .status-indicator-spinner
+OK: .sponsors-fold
+OK: .sponsors-unfold
+OK: .sponsors-foldable-details[open] .sponsors-fold
+OK: .sponsors-foldable-details[open] .sponsors-unfold
+OK: .tab-size[data-tab-size="1"]
+OK: .tab-size[data-tab-size="2"]
+OK: .tab-size[data-tab-size="3"]
+OK: .tab-size[data-tab-size="4"]
+OK: .tab-size[data-tab-size="5"]
+OK: .tab-size[data-tab-size="6"]
+OK: .tab-size[data-tab-size="7"]
+OK: .tab-size[data-tab-size="8"]
+OK: .tab-size[data-tab-size="9"]
+OK: .tab-size[data-tab-size="10"]
+OK: .tab-size[data-tab-size="11"]
+OK: .tab-size[data-tab-size="12"]
+OK: .team-label-ldap
+OK: .team-label-ldap.header-label-ldap
+OK: .team-member-ellipsis
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .team-member-ellipsis:hover{
+OK: .team-listing .nested-teams-checkbox
+OK: .team-listing .nested-teams-checkbox.show
+OK: .team-listing .nested-teams-checkbox.indent-1
+OK: .team-listing .nested-teams-checkbox.indent-2
+OK: .team-listing .nested-teams-checkbox.indent-3
+OK: .team-listing .nested-teams-checkbox.indent-4
+OK: .team-listing .nested-teams-checkbox.indent-5
+OK: .team-listing .nested-teams-checkbox.indent-6
+OK: .team-listing .nested-teams-checkbox.indent-7
+OK: .team-listing .nested-teams-checkbox.indent-8
+OK: .team-listing .nested-teams-checkbox.indent-9
+OK: .team-listing .nested-teams-checkbox.indent-10
+OK: .team-listing .nested-teams-checkbox.indent-11
+OK: .team-listing .nested-teams-checkbox.indent-12
+OK: .team-listing .nested-teams-checkbox.indent-13
+OK: .team-listing .nested-teams-checkbox.indent-14
+OK: .team-listing .nested-teams-checkbox.indent-15
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-1
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-2
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-3
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-4
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-5
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-6
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-7
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-8
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-9
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-10
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-11
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-12
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-13
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-14
+OK: .team-listing .nested-enterprise-teams-checkbox.indent-15
+OK: .team-listing .team-short-info
+OK: .team-listing .nested-team-info
+OK: .team-listing .nested-team-name
+OK: .team-listing .shortened-teams-avatars
+OK: .team-listing .shortened-teams-avatars.width-0
+OK: .team-listing .shortened-teams-avatars.width-1
+OK: .team-listing .shortened-teams-avatars.width-2
+OK: .team-listing .shortened-teams-avatars.width-3
+OK: .team-listing .team-members-count
+OK: .team-listing .team-members-count-with-roles
+OK: .team-listing .team-roles-count
+OK: .team-listing .team-show-more-cell
+OK: .team-listing .team-buttons
+OK: .team-listing .octicon-wrapper
+OK: .team-listing .is-open.root-team
+OK: .team-listing .is-open .expand-nested-team
+OK: .team-listing .is-open .octicon-chevron-down
+OK: .svg-tip .date
+OK: .totals circle
+OK: .uniques circle
+OK: [data-dark-theme="dark_colorblind"] .uniques circle, [data-dark-theme="dark_tritanopia"] .uniques circle, [data-light-theme="light_colorblind"] .uniques circle, [data-dark-theme="light_tritanopia"] .uniques circle
+OK: ul.web-views li
+OK: ul.clones li
+OK: .typeahead-result
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): .typeahead-result::before{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "after",
+): .typeahead-result::after{
+OK: .typeahead-result:first-child
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "focus",
+): .typeahead-result:focus,.typeahead-result:hover,.typeahead-result[aria-selected=true],.typeahead-result.navigation-focus{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .typeahead-result[aria-selected=true],.typeahead-result:hover,.typeahead-result.navigation-focus{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .typeahead-result[aria-selected=true] .octicon-plus,.typeahead-result:hover .octicon-plus,.typeahead-result.navigation-focus .octicon-plus{
+OK: .typeahead-result.disabled
+OK: .member-suggestion
+OK: .member-suggestion .avatar
+OK: .member-suggestion .member-suggestion-info
+OK: .member-suggestion .member-name
+OK: .member-suggestion .member-email
+OK: .member-suggestion .octicon-plus, .member-suggestion .octicon-check
+OK: .member-suggestion .already-member-note, .member-suggestion .non-member-note, .member-suggestion .non-member-action
+OK: .member-suggestion .non-member-action
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .member-suggestion[aria-selected=true] .member-name,.member-suggestion[aria-selected=true] .non-member-note,.member-suggestion[aria-selected=true] .already-member-note,.member-suggestion[aria-selected=true] .non-member-action,.member-suggestion[aria-selected=true] .member-email,.member-suggestion:hover .member-name,.member-suggestion:hover .non-member-note,.member-suggestion:hover .already-member-note,.member-suggestion:hover .non-member-action,.member-suggestion:hover .member-email,.member-suggestion.navigation-focus .member-name,.member-suggestion.navigation-focus .non-member-note,.member-suggestion.navigation-focus .already-member-note,.member-suggestion.navigation-focus .non-member-action,.member-suggestion.navigation-focus .member-email{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .member-suggestion[aria-selected=true] .non-member-note,.member-suggestion:hover .non-member-note,.member-suggestion.navigation-focus .non-member-note{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .member-suggestion[aria-selected=true] .non-member-action,.member-suggestion:hover .non-member-action,.member-suggestion.navigation-focus .non-member-action{
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "hover",
+): .member-suggestion[aria-selected=true] .octicon,.member-suggestion:hover .octicon,.member-suggestion.navigation-focus .octicon{
+OK: .member-suggestion.not-a-member .member-info, .member-suggestion.disabled .member-info
+OK: .non-member-result
+OK: .email-suggestion
+OK: .email-suggestion .octicon-mail
+OK: .email-suggestion .member-suggestion-info
+OK: #user-content-toc
+OK: #user-content-toc tr
+OK: #user-content-toc td
+OK: #user-content-toc ul
+OK: #user-content-toc ul li
+OK: #user-content-toc ul ul
+Unexpected error occurred. Please report this to the developer
+UnsupportedPseudoClassOrElement(
+    "before",
+): #user-content-toc ul ul li::before{
+OK: #user-content-toc ul ul ul
+OK: #user-content-toctitle h2
+OK: .actions-workflow-table.sticky th
+OK: .actions-workflow-table th
+OK: .actions-workflow-table td
+OK: .actions-workflow-table td.compact
+OK: .actions-workflow-table th:first-child, .actions-workflow-table td:first-child
+OK (no selector)
+OK: .actions-workflow-table th:last-child, .actions-workflow-table td:last-child
+OK (no selector)
+OK: .annotation--contracted div:first-child
+OK: .annotation--expanded div:first-child
+Errs: 145
+Oks: 1071
