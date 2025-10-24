@@ -96,10 +96,10 @@ impl Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct HtmlFile(PathBuf);
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct CssFile(PathBuf);
 
 fn get_main_html<P: AsRef<Path>>(website: P) -> Result<HtmlFile> {
