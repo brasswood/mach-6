@@ -93,7 +93,7 @@ impl Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HtmlFile(PathBuf);
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
