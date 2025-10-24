@@ -23,7 +23,7 @@ use serde::Serialize;
 pub mod cssparser;
 
 pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> Result<Vec<DocumentMatches>> {
-    let websites_dir = fs::read_dir(websites)?;
+    let websites_dir = fs::read_dir(&websites)?; // IMPORTANT: LEAVE AMPERSAND OR ELSE `websites` DROPS TOO SOON
     let websites = get_websites(websites_dir)?;
     let documents = parse_websites(websites)?;
     documents.into_iter().map(|document| {
