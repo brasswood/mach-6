@@ -341,6 +341,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "cssparser",
+ "ego-tree",
  "insta",
  "scraper",
  "selectors 0.32.0",
@@ -555,6 +556,7 @@ dependencies = [
  "html5ever",
  "precomputed-hash",
  "selectors 0.31.0",
+ "serde",
  "tendril",
 ]
 

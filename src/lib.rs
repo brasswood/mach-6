@@ -6,14 +6,16 @@
  */
 use std::fs::DirEntry;
 use std::fs::ReadDir;
+use std::hash::DefaultHasher;
+use std::hash::Hasher as _;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::io;
 use std::fs;
 use std::path::Path;
-use scraper::node::Element;
 use scraper::Html;
 use scraper::Selector;
+use std::hash::Hash;
 use std::result;
 use thiserror::Error;
 use serde::Serialize;
@@ -141,22 +143,40 @@ fn parse_stylesheet(CssFile(stylesheet_path): &CssFile) -> io::Result<Vec<Select
     Ok(res)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Element(ego_tree::NodeId);
+
+impl From<scraper::ElementRef<'_>> for Element {
+    fn from(value: scraper::ElementRef) -> Self {
+        Self(value.id())
+    }
+}
+
+impl Serialize for Element {
+    fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        let mut hasher = DefaultHasher::new();
+        self.0.hash(&mut hasher);
+        serializer.serialize_u64(hasher.finish())
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct SelectorMatches {
     selector: Selector,
     matches: Vec<Element>,
 }
 
-#[derive(Debug, Clone)]
-pub struct DocumentMatches(Vec<(Selector, Vec<Element>)>);
+#[derive(Debug, Clone, Serialize)]
+pub struct DocumentMatches(Vec<SelectorMatches>);
 
 fn match_selectors<'a>(document: &'a Html, selectors: Vec<Selector>) -> DocumentMatches {
     let ret = selectors.into_iter().map(|selector| {
         let matches = document.select(&selector)
-            .map(|element_ref| element_ref.value())
-            .cloned()
+            .map(Element::from)
             .collect();
-        (selector, matches)
+        SelectorMatches{selector, matches}
     }).collect();
     DocumentMatches(ret)
 }
