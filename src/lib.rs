@@ -16,6 +16,7 @@ use scraper::Html;
 use scraper::Selector;
 use std::result;
 use thiserror::Error;
+use serde::Serialize;
 
 pub mod cssparser;
 
@@ -93,10 +94,10 @@ impl Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct HtmlFile(PathBuf);
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct CssFile(PathBuf);
 
 fn get_main_html<P: AsRef<Path>>(website: P) -> Result<HtmlFile> {
