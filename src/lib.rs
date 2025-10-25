@@ -29,9 +29,15 @@ pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> Result<Vec<DocumentMatche
     documents.into_iter().map(|document| {
         let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
         let selectors: Vec<Selector> = stylesheets.into_iter()
-            .map(|f| parse_stylesheet(&f))
-            .collect::<io::Result<Vec<_>>>()?
-            .into_iter()
+            .filter_map(|f| {
+                match parse_stylesheet(&f) {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
+                        None
+                    },
+                }
+            })
             .flatten()
             .collect();
         Ok(match_selectors(&document, selectors))
@@ -128,9 +134,12 @@ fn parse_website(HtmlFile(website): HtmlFile) -> io::Result<Html> {
 /// Returns the relative paths of stylesheets referenced by the given document.
 fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
     let selector = Selector::parse(r#"link[rel="stylesheet"]"#).unwrap();
-    document.select(&selector).map(|elt| {
-        let path = elt.attr("href").unwrap();
-        CssFile(PathBuf::from(path))
+    document.select(&selector).filter_map(|elt| {
+        let Some(path) = elt.attr("href") else {
+            eprintln!("WARNING: Found no href attribute in link element: {}. Skipping.", elt.html());
+            return None;
+        };
+        Some(CssFile(PathBuf::from(path)))
     }).collect()
 }
 
