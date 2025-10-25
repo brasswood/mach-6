@@ -184,7 +184,10 @@ pub struct SelectorMatches {
 #[derive(Debug, Clone, Serialize)]
 pub struct DocumentMatches(Vec<SelectorMatches>);
 
-fn match_selectors<'a>(document: &'a Html, selectors: Vec<Selector>) -> DocumentMatches {
+fn match_selectors<'a, I>(document: &'a Html, selectors: I) -> DocumentMatches
+where
+    I: IntoIterator<Item = Selector>,
+{
     let ret = selectors.into_iter().map(|selector| {
         let matches = document.select(&selector)
             .map(Element::from)
