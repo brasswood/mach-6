@@ -25,12 +25,12 @@ pub mod cssparser;
 pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> Result<Vec<DocumentMatches>> {
     let websites_dir = fs::read_dir(&websites)?; // IMPORTANT: LEAVE AMPERSAND OR ELSE `websites` DROPS TOO SOON
     let websites = get_websites(websites_dir)?;
-    let documents = parse_websites(websites)?;
-    documents.into_iter().map(|document| {
+    let documents = websites.iter().zip(parse_websites(&websites)?);
+    documents.into_iter().map(|(base, document)| {
         let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
         let selectors: Vec<Selector> = stylesheets.into_iter()
             .filter_map(|f| {
-                match parse_stylesheet(&f) {
+                match parse_stylesheet(base, &f) {
                     Ok(v) => Some(v),
                     Err(e) => {
                         eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
@@ -56,8 +56,12 @@ fn get_websites(websites: ReadDir) -> io::Result<Vec<PathBuf>> {
     }).collect()
 }
 
-fn parse_websites<P: AsRef<Path>>(websites: Vec<P>) -> Result<Vec<Html>> {
-    websites.iter().map(|website| {
+fn parse_websites<I, P>(websites: I)-> Result<Vec<Html>>
+where
+    P: AsRef<Path>,
+    I: IntoIterator<Item = P>,
+{
+    websites.into_iter().map(|website| {
         let main = get_main_html(website)?;
         parse_website(main).map_err(|e| e.into())
     }).collect()
@@ -143,8 +147,8 @@ fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
     }).collect()
 }
 
-fn parse_stylesheet(CssFile(stylesheet_path): &CssFile) -> io::Result<Vec<Selector>> {
-    let css = fs::read_to_string(stylesheet_path)?;
+fn parse_stylesheet<P: AsRef<Path>>(base: P, CssFile(stylesheet_path): &CssFile) -> io::Result<Vec<Selector>> {
+    let css = fs::read_to_string(base.as_ref().join(stylesheet_path))?;
     let res = cssparser::get_all_selectors(&css)
         .into_iter()
         .filter_map(|r| r.ok().flatten())
