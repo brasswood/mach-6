@@ -6,6 +6,7 @@
  */
 use std::path::PathBuf;
 use clap::Parser;
+use serde_yml;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -16,6 +17,7 @@ struct Args {
 
 fn main() -> mach_6::Result<()> {
     let Args{ websites } = Args::parse();
-    mach_6::do_all_websites(websites)?;
+    let result = mach_6::do_all_websites(websites)?;
+    println!("{}", serde_yml::to_string(&result).unwrap());
     Ok(())
 }
