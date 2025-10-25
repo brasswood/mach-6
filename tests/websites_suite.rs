@@ -6,10 +6,12 @@
  */
 use std::path::PathBuf;
 use mach_6::Result;
+use insta;
 
 #[test]
 fn does_all_websites() -> Result<()> {
     let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
     let result = mach_6::do_all_websites(websites)?;
+    insta::assert_yaml_snapshot!(result);
     Ok(())
 }
