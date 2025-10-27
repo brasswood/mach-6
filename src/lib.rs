@@ -23,8 +23,16 @@ use serde::Serialize;
 pub mod cssparser;
 
 pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> Result<Vec<DocumentMatches>> {
+    let result = get_documents_and_selectors(websites)?
+        .into_iter()
+        .map(|(h, s)| match_selectors(&h, s))
+        .collect();
+    Ok(result)
+}
+
+pub fn get_documents_and_selectors<P: AsRef<Path>>(websites: P) -> Result<Vec<(Html, Vec<Selector>)>> {
     let websites_dir = fs::read_dir(&websites)?; // IMPORTANT: LEAVE AMPERSAND OR ELSE `websites` DROPS TOO SOON
-    let websites = get_websites(websites_dir)?;
+    let websites = get_websites_dirs(websites_dir)?;
     let documents = websites.iter().zip(parse_websites(&websites)?);
     documents.into_iter().map(|(base, document)| {
         let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
@@ -40,11 +48,11 @@ pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> Result<Vec<DocumentMatche
             })
             .flatten()
             .collect();
-        Ok(match_selectors(&document, selectors))
+        Ok((document, selectors))
     }).collect()
 }
 
-fn get_websites(websites: ReadDir) -> io::Result<Vec<PathBuf>> {
+fn get_websites_dirs(websites: ReadDir) -> io::Result<Vec<PathBuf>> {
     websites.map(|website| {
         let website = website?;
         let website_path = website.path();
@@ -184,7 +192,7 @@ pub struct SelectorMatches {
 #[derive(Debug, Clone, Serialize)]
 pub struct DocumentMatches(Vec<SelectorMatches>);
 
-fn match_selectors<'a, I>(document: &'a Html, selectors: I) -> DocumentMatches
+pub fn match_selectors<'a, I>(document: &'a Html, selectors: I) -> DocumentMatches
 where
     I: IntoIterator<Item = Selector>,
 {
