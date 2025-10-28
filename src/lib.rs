@@ -24,12 +24,12 @@ pub mod cssparser;
 pub fn do_all_websites(websites: &Path) -> Result<impl Iterator<Item = Result<DocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(|r| {
-            r.map(|(h, s)| match_selectors(&h, s))
+            r.map(|(_, h, s)| match_selectors(&h, s))
         })
     )
 }
 
-pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(Html, Vec<Selector>)>>> {
+pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
     let websites_dir = fs::read_dir(&websites_path).map_err(|e| Error::with_io_error(e, Some(websites_path.to_path_buf())))?; 
     let websites = get_websites_dirs(websites_dir);
     let documents = websites.map(|r: io::Result<PathBuf>| {
@@ -51,7 +51,7 @@ pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator
                 })
                 .flatten()
                 .collect();
-            (document, selectors)
+            (base.file_name().unwrap().to_str().unwrap().to_owned(), document, selectors)
         })
     });
     Ok(documents_selectors)
