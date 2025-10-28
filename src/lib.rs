@@ -22,37 +22,43 @@ use serde::Serialize;
 
 pub mod cssparser;
 
-pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> Result<Vec<DocumentMatches>> {
-    let result = get_documents_and_selectors(websites)?
-        .into_iter()
-        .map(|(h, s)| match_selectors(&h, s))
-        .collect();
-    Ok(result)
+pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> io::Result<impl Iterator<Item = Result<DocumentMatches>>> {
+    Ok(get_documents_and_selectors(websites)?
+        .map(|r| {
+            r.map(|(h, s)| match_selectors(&h, s))
+        })
+    )
 }
 
-pub fn get_documents_and_selectors<P: AsRef<Path>>(websites: P) -> Result<Vec<(Html, Vec<Selector>)>> {
+pub fn get_documents_and_selectors<P: AsRef<Path>>(websites: P) -> io::Result<impl Iterator<Item = Result<(Html, Vec<Selector>)>>> {
     let websites_dir = fs::read_dir(&websites)?; // IMPORTANT: LEAVE AMPERSAND OR ELSE `websites` DROPS TOO SOON
-    let websites = get_websites_dirs(websites_dir)?;
-    let documents = websites.iter().zip(parse_websites(&websites)?);
-    documents.into_iter().map(|(base, document)| {
-        let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
-        let selectors: Vec<Selector> = stylesheets.into_iter()
-            .filter_map(|f| {
-                match parse_stylesheet(base, &f) {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
-                        None
-                    },
-                }
-            })
-            .flatten()
-            .collect();
-        Ok((document, selectors))
-    }).collect()
+    let websites = get_websites_dirs(websites_dir);
+    let documents = websites.map(|r: io::Result<PathBuf>| {
+        r.map_err(Error::from)
+            .and_then(|d: PathBuf| parse_website(&d).map(|html: Html| (d, html)))
+    });
+    let documents_selectors = documents.map(|r: Result<(PathBuf, Html)>| {
+        r.map(|(base, document): (PathBuf, Html)| {
+            let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
+            let selectors= stylesheets.into_iter()
+                .filter_map(|f| {
+                    match parse_stylesheet(&base, &f) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
+                            None
+                        },
+                    }
+                })
+                .flatten()
+                .collect();
+            (document, selectors)
+        })
+    });
+    Ok(documents_selectors)
 }
 
-fn get_websites_dirs(websites: ReadDir) -> io::Result<Vec<PathBuf>> {
+fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathBuf>> {
     websites.map(|website| {
         let website = website?;
         let website_path = website.path();
@@ -61,18 +67,15 @@ fn get_websites_dirs(websites: ReadDir) -> io::Result<Vec<PathBuf>> {
         } else {
             Ok(website_path)
         }
-    }).collect()
+    })
 }
 
-fn parse_websites<I, P>(websites: I)-> Result<Vec<Html>>
+fn parse_website<P>(website: P)-> Result<Html>
 where
     P: AsRef<Path>,
-    I: IntoIterator<Item = P>,
 {
-    websites.into_iter().map(|website| {
-        let main = get_main_html(website)?;
-        parse_website(main).map_err(|e| e.into())
-    }).collect()
+    let main = get_main_html(website)?;
+    parse_main_html(main).map_err(Error::from)
 }
 
 #[derive(Error, Debug)]
@@ -138,7 +141,7 @@ fn get_main_html<P: AsRef<Path>>(website: P) -> Result<HtmlFile> {
     }
 }
 
-fn parse_website(HtmlFile(website): HtmlFile) -> io::Result<Html> {
+fn parse_main_html(HtmlFile(website): HtmlFile) -> io::Result<Html> {
     let contents = fs::read_to_string(website)?;
     Ok(Html::parse_document(&contents))
 }
@@ -208,7 +211,7 @@ where
 #[cfg(test)]
 mod tests {
     use std::{fs, path::PathBuf};
-    use crate::{get_main_html, get_stylesheet_paths, parse_website, CssFile};
+    use crate::{get_main_html, get_stylesheet_paths, parse_main_html, CssFile};
 
     /// In all of these tests:
     ///   - Err() represents an unexpected error occurring during the test
@@ -246,7 +249,7 @@ mod tests {
         fs::write(website_path.join("index.html"), "<html><body><h1>Hello, World!</h1></body></html>")?;
         println!("{:?}", website_path);
         let main_html = get_main_html(website_path)?;
-        parse_website(main_html).unwrap();
+        parse_main_html(main_html).unwrap();
         Ok(())
     }
 
@@ -256,7 +259,7 @@ mod tests {
         let website_path = website_dir.path();
         fs::write(website_path.join("index.html"), r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"></head><body><h1>Hello, World!</h1></body></html>"#)?;
         let main_html = get_main_html(website_path)?;
-        let document = parse_website(main_html)?;
+        let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);
         let mut expected: Vec<_> = vec!["style1.css", "style2.css"]
             .into_iter()
@@ -274,7 +277,7 @@ mod tests {
         let website_path = website_dir.path();
         fs::write(website_path.join("index.html"), r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"><link rel="prerender" href="boogeyman"></head><body><h1>Hello, World!</h1></body></html>"#)?;
         let main_html = get_main_html(website_path)?;
-        let document = parse_website(main_html)?;
+        let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);
         let mut expected: Vec<_> = vec!["style1.css", "style2.css"]
             .into_iter()
