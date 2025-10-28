@@ -253,7 +253,7 @@ mod tests {
         fs::create_dir(website_path.join("index.html"))?;
         let main_res = get_main_html(website_path);
         let is_err = main_res.is_err_and(|e| {
-            e.is_html_and(|v| v.is_empty())
+            e.is_html_and(Vec::is_empty)
         });
         assert!(is_err);
         Ok(())
