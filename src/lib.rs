@@ -192,7 +192,7 @@ pub struct SelectorMatches {
 #[derive(Debug, Clone, Serialize)]
 pub struct DocumentMatches(Vec<SelectorMatches>);
 
-pub fn match_selectors<'a, I>(document: &'a Html, selectors: I) -> DocumentMatches
+pub fn match_selectors<I>(document: &Html, selectors: I) -> DocumentMatches
 where
     I: IntoIterator<Item = Selector>,
 {
