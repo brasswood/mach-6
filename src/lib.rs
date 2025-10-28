@@ -8,7 +8,6 @@ use std::fs::DirEntry;
 use std::fs::ReadDir;
 use std::hash::DefaultHasher;
 use std::hash::Hasher as _;
-use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::io;
 use std::fs;
@@ -22,7 +21,7 @@ use serde::Serialize;
 
 pub mod cssparser;
 
-pub fn do_all_websites(websites: &Path) -> io::Result<impl Iterator<Item = Result<DocumentMatches>>> {
+pub fn do_all_websites(websites: &Path) -> Result<impl Iterator<Item = Result<DocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(|r| {
             r.map(|(h, s)| match_selectors(&h, s))
@@ -30,11 +29,11 @@ pub fn do_all_websites(websites: &Path) -> io::Result<impl Iterator<Item = Resul
     )
 }
 
-pub fn get_documents_and_selectors(websites: &Path) -> io::Result<impl Iterator<Item = Result<(Html, Vec<Selector>)>>> {
-    let websites_dir = fs::read_dir(&websites)?; // IMPORTANT: LEAVE AMPERSAND OR ELSE `websites` DROPS TOO SOON
+pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(Html, Vec<Selector>)>>> {
+    let websites_dir = fs::read_dir(&websites_path).map_err(|e| Error::with_io_error(e, Some(websites_path.to_path_buf())))?; 
     let websites = get_websites_dirs(websites_dir);
     let documents = websites.map(|r: io::Result<PathBuf>| {
-        r.map_err(Error::from)
+        r.map_err(|e| Error::with_io_error(e, Some(websites_path.to_path_buf())))
             .and_then(|d: PathBuf| parse_website(&d).map(|html: Html| (d, html)))
     });
     let documents_selectors = documents.map(|r: Result<(PathBuf, Html)>| {
@@ -63,7 +62,7 @@ fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathB
         let website = website?;
         let website_path = website.path();
         if !website_path.is_dir() {
-            Err(io::Error::new(ErrorKind::NotADirectory, format!("Error: Expected {} to be a directory", website_path.display())))
+            Err(io::Error::new(io::ErrorKind::NotADirectory, format!("Error: Expected {} to be a directory", website_path.display())))
         } else {
             Ok(website_path)
         }
@@ -72,21 +71,33 @@ fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathB
 
 fn parse_website(website: &Path)-> Result<Html> {
     let main = get_main_html(website)?;
-    parse_main_html(main).map_err(Error::from)
+    parse_main_html(main)
 }
 
 #[derive(Error, Debug)]
-pub enum Error {
-    Io(#[from] io::Error),
-    NotOneHtmlFile(PathBuf, Vec<HtmlFile>),
+pub struct Error {
+    pub path: Option<PathBuf>,
+    pub error: ErrorKind,
+}
+
+#[derive(Debug)]
+pub enum ErrorKind {
+    Io(io::Error),
+    NotOneHtmlFile(Vec<HtmlFile>),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Io(io) => write!(f, "io error: {io}"),
-            Error::NotOneHtmlFile(w, v) => {
-                writeln!(f, "the number of html files for website {} was not one:", w.display())?;
+        match &self.error {
+            ErrorKind::Io(io) => {
+                write!(f, "io error: {io}")?;
+                if let Some(path) = &self.path {
+                    write!(f, " path: {}", path.display())?;
+                }
+                Ok(())
+            },
+            ErrorKind::NotOneHtmlFile(v) => {
+                writeln!(f, "the number of html files for website {} was not one:", self.path.as_ref().unwrap().display())?;
                 for HtmlFile(h) in v {
                     writeln!(f, "{}", h.display())?;
                 }
@@ -97,17 +108,24 @@ impl std::fmt::Display for Error {
 }
 
 impl Error {
-    pub fn is_io_and(self, f: impl FnOnce(io::Error) -> bool) -> bool {
-        match self {
-            Self::Io(e) => f(e),
+    pub fn is_io_and(&self, f: impl FnOnce(&io::Error) -> bool) -> bool {
+        match &self.error {
+            ErrorKind::Io(e) => f(&e),
             _ => false
         }
     }
 
-    pub fn is_html_and(self, f: impl FnOnce(PathBuf, Vec<HtmlFile>) -> bool) -> bool {
-        match self {
-            Self::NotOneHtmlFile(w, v) => f(w, v),
+    pub fn is_html_and(&self, f: impl FnOnce(&Vec<HtmlFile>) -> bool) -> bool {
+        match &self.error {
+            ErrorKind::NotOneHtmlFile(v) => f(&v),
             _ => false,
+        }
+    }
+
+    pub fn with_io_error(error: io::Error, path: Option<PathBuf>) -> Self {
+        Self {
+            path,
+            error: ErrorKind::Io(error),
         }
     }
 }
@@ -121,7 +139,8 @@ pub struct HtmlFile(PathBuf);
 pub struct CssFile(PathBuf);
 
 fn get_main_html(website: &Path) -> Result<HtmlFile> {
-    let files = fs::read_dir(website)?;
+    let err_map = |e: io::Error| Error::with_io_error(e, Some(website.to_path_buf()));
+    let files = fs::read_dir(website).map_err(err_map)?;
     let f = |entry: DirEntry| {
         let path = entry.path();
         if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("html") {
@@ -130,16 +149,16 @@ fn get_main_html(website: &Path) -> Result<HtmlFile> {
             None
         }
     };
-    let mut found: Vec<HtmlFile> = files.collect::<io::Result<Vec<_>>>()?.into_iter().filter_map(f).collect();
+    let mut found: Vec<HtmlFile> = files.collect::<io::Result<Vec<_>>>().map_err(err_map)?.into_iter().filter_map(f).collect();
     if found.len() == 1 {
         Ok(found.pop().unwrap())
     } else {
-        Err(Error::NotOneHtmlFile(website.to_owned(), found))
+        Err(Error{path: Some(website.to_path_buf()), error: ErrorKind::NotOneHtmlFile(found) })  
     }
 }
 
-fn parse_main_html(HtmlFile(website): HtmlFile) -> io::Result<Html> {
-    let contents = fs::read_to_string(website)?;
+fn parse_main_html(HtmlFile(website): HtmlFile) -> Result<Html> {
+    let contents = fs::read_to_string(&website).map_err(|e| Error::with_io_error(e, Some(website)))?;
     Ok(Html::parse_document(&contents))
 }
 
@@ -155,8 +174,9 @@ fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
     }).collect()
 }
 
-fn parse_stylesheet(base: &Path, CssFile(stylesheet_path): &CssFile) -> io::Result<Vec<Selector>> {
-    let css = fs::read_to_string(base.join(stylesheet_path))?;
+fn parse_stylesheet(base: &Path, CssFile(stylesheet_path): &CssFile) -> Result<Vec<Selector>> {
+    let full_path = base.join(stylesheet_path);
+    let css = fs::read_to_string(&full_path).map_err(|e| Error::with_io_error(e, Some(full_path)))?;
     let res = cssparser::get_all_selectors(&css)
         .into_iter()
         .filter_map(|r| r.ok().flatten())
@@ -208,7 +228,7 @@ where
 #[cfg(test)]
 mod tests {
     use std::{fs, path::PathBuf};
-    use crate::{get_main_html, get_stylesheet_paths, parse_main_html, CssFile};
+    use crate::{get_main_html, get_stylesheet_paths, parse_main_html, CssFile, Error};
 
     /// In all of these tests:
     ///   - Err() represents an unexpected error occurring during the test
@@ -217,10 +237,10 @@ mod tests {
 
     #[test]
     fn ensures_main_html_exists() -> super::Result<()> {
-        let website_dir = tempfile::tempdir()?;
+        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
         let website_path = website_dir.path();
         let is_err = get_main_html(website_path).is_err_and(|e| {
-            e.is_html_and(|_, v| v.is_empty())
+            e.is_html_and(Vec::is_empty)
         });
         assert!(is_err);
         Ok(())
@@ -233,7 +253,7 @@ mod tests {
         fs::create_dir(website_path.join("index.html"))?;
         let main_res = get_main_html(website_path);
         let is_err = main_res.is_err_and(|e| {
-            e.is_html_and(|_, v| v.is_empty())
+            e.is_html_and(|v| v.is_empty())
         });
         assert!(is_err);
         Ok(())
@@ -241,9 +261,10 @@ mod tests {
 
     #[test]
     fn parses_main_html() -> super::Result<()> {
-        let website_dir = tempfile::tempdir()?;
+        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
         let website_path = website_dir.path();
-        fs::write(website_path.join("index.html"), "<html><body><h1>Hello, World!</h1></body></html>")?;
+        fs::write(website_path.join("index.html"), "<html><body><h1>Hello, World!</h1></body></html>")
+            .map_err(|e| Error::with_io_error(e, Some(website_path.to_path_buf())))?;
         println!("{:?}", website_path);
         let main_html = get_main_html(website_path)?;
         parse_main_html(main_html).unwrap();
@@ -252,9 +273,10 @@ mod tests {
 
     #[test]
     fn gets_stylesheet_paths() -> super::Result<()> {
-        let website_dir = tempfile::tempdir()?;
+        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
         let website_path = website_dir.path();
-        fs::write(website_path.join("index.html"), r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"></head><body><h1>Hello, World!</h1></body></html>"#)?;
+        fs::write(website_path.join("index.html"), r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"></head><body><h1>Hello, World!</h1></body></html>"#)
+            .map_err(|e| Error::with_io_error(e, Some(website_path.to_path_buf())))?;
         let main_html = get_main_html(website_path)?;
         let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);
@@ -270,9 +292,10 @@ mod tests {
 
     #[test]
     fn excludes_non_stylesheet_paths() -> super::Result<()> {
-        let website_dir = tempfile::tempdir()?;
+        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
         let website_path = website_dir.path();
-        fs::write(website_path.join("index.html"), r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"><link rel="prerender" href="boogeyman"></head><body><h1>Hello, World!</h1></body></html>"#)?;
+        let index_html_path = website_path.join("index.html");
+        fs::write(&index_html_path, r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"><link rel="prerender" href="boogeyman"></head><body><h1>Hello, World!</h1></body></html>"#).map_err(|e| Error::with_io_error(e, Some(index_html_path)))?;
         let main_html = get_main_html(website_path)?;
         let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);

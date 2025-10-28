@@ -8,14 +8,14 @@ use std::io::{self, ErrorKind};
 use std::env;
 use std::fs;
 use tempfile::NamedTempFile;
-use mach_6::{self, Result};
+use mach_6::{self, Error, Result};
 
 #[test]
 fn ensures_websites_is_dir() -> io::Result<()> {
     // create a file
     let websites_file = NamedTempFile::new_in(env::current_dir()?)?;
     match mach_6::do_all_websites(websites_file.path()) {
-        Err(e) if e.kind() == ErrorKind::NotADirectory => Ok(()),
+        Err(e) if e.is_io_and(|e| e.kind() == ErrorKind::NotADirectory) => Ok(()),
         Err(e) => panic!("expected NotADirectory error, got {e}"),
         Ok(_) => panic!("expected NotADirectory error, got Ok"),
     }
@@ -23,14 +23,14 @@ fn ensures_websites_is_dir() -> io::Result<()> {
 
 #[test]
 fn ensures_each_website_is_dir() -> Result<()> {
-    let websites_dir = tempfile::tempdir()?;
+    let websites_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
     let websites_path = websites_dir.path();
     for i in 0..10 {
         let website_path = websites_path.join(format!("{i}"));
         if i == 5 {
-            fs::File::create_new(website_path)?;
+            fs::File::create_new(website_path.clone()).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
         } else {
-            fs::create_dir(website_path)?;
+            fs::create_dir(website_path.clone()).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
         }
     }
     let mut res = mach_6::do_all_websites(websites_path)?;
