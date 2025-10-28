@@ -22,7 +22,7 @@ use serde::Serialize;
 
 pub mod cssparser;
 
-pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> io::Result<impl Iterator<Item = Result<DocumentMatches>>> {
+pub fn do_all_websites(websites: &Path) -> io::Result<impl Iterator<Item = Result<DocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(|r| {
             r.map(|(h, s)| match_selectors(&h, s))
@@ -30,7 +30,7 @@ pub fn do_all_websites<P: AsRef<Path>>(websites: P) -> io::Result<impl Iterator<
     )
 }
 
-pub fn get_documents_and_selectors<P: AsRef<Path>>(websites: P) -> io::Result<impl Iterator<Item = Result<(Html, Vec<Selector>)>>> {
+pub fn get_documents_and_selectors(websites: &Path) -> io::Result<impl Iterator<Item = Result<(Html, Vec<Selector>)>>> {
     let websites_dir = fs::read_dir(&websites)?; // IMPORTANT: LEAVE AMPERSAND OR ELSE `websites` DROPS TOO SOON
     let websites = get_websites_dirs(websites_dir);
     let documents = websites.map(|r: io::Result<PathBuf>| {
@@ -70,10 +70,7 @@ fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathB
     })
 }
 
-fn parse_website<P>(website: P)-> Result<Html>
-where
-    P: AsRef<Path>,
-{
+fn parse_website(website: &Path)-> Result<Html> {
     let main = get_main_html(website)?;
     parse_main_html(main).map_err(Error::from)
 }
@@ -123,8 +120,8 @@ pub struct HtmlFile(PathBuf);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct CssFile(PathBuf);
 
-fn get_main_html<P: AsRef<Path>>(website: P) -> Result<HtmlFile> {
-    let files = fs::read_dir(website.as_ref())?;
+fn get_main_html(website: &Path) -> Result<HtmlFile> {
+    let files = fs::read_dir(website)?;
     let f = |entry: DirEntry| {
         let path = entry.path();
         if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("html") {
@@ -137,7 +134,7 @@ fn get_main_html<P: AsRef<Path>>(website: P) -> Result<HtmlFile> {
     if found.len() == 1 {
         Ok(found.pop().unwrap())
     } else {
-        Err(Error::NotOneHtmlFile(website.as_ref().to_owned(), found))
+        Err(Error::NotOneHtmlFile(website.to_owned(), found))
     }
 }
 
@@ -158,8 +155,8 @@ fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
     }).collect()
 }
 
-fn parse_stylesheet<P: AsRef<Path>>(base: P, CssFile(stylesheet_path): &CssFile) -> io::Result<Vec<Selector>> {
-    let css = fs::read_to_string(base.as_ref().join(stylesheet_path))?;
+fn parse_stylesheet(base: &Path, CssFile(stylesheet_path): &CssFile) -> io::Result<Vec<Selector>> {
+    let css = fs::read_to_string(base.join(stylesheet_path))?;
     let res = cssparser::get_all_selectors(&css)
         .into_iter()
         .filter_map(|r| r.ok().flatten())

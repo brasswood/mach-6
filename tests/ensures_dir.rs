@@ -33,7 +33,7 @@ fn ensures_each_website_is_dir() -> Result<()> {
             fs::create_dir(website_path)?;
         }
     }
-    let mut res = mach_6::do_all_websites(&websites_dir)?;
+    let mut res = mach_6::do_all_websites(websites_path)?;
     assert!(res.nth(5).unwrap().is_err_and(|e| e.is_io_and(|e| e.kind() == ErrorKind::NotADirectory)));
     Ok(())
 }

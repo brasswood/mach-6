@@ -11,7 +11,7 @@ use insta;
 #[test]
 fn does_all_websites() -> Result<()> {
     let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
-    let result: Result<Vec<DocumentMatches>> = mach_6::do_all_websites(websites)?.collect();
+    let result: Result<Vec<DocumentMatches>> = mach_6::do_all_websites(&websites)?.collect();
     let result = result?;
     insta::assert_yaml_snapshot!(result);
     Ok(())
