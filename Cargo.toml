@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.48", features = ["derive"] }
-scraper = { version = "0.24.0", features = ["serde"] }
+scraper = { path = "./scraper", features = ["serde"] }
 cssparser = "0.35.0"
 selectors = "0.32.0"
 thiserror = "2.0.17"
@@ -25,3 +25,7 @@ similar.opt-level = 3
 [[bench]]
 name = "all_websites"
 harness = false
+
+[workspace]
+resolver = "3"
+members = ["scraper"]
