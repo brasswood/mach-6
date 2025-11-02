@@ -7,8 +7,7 @@ pub use cssparser::ToCss;
 use html5ever::{LocalName, Namespace};
 use precomputed_hash::PrecomputedHash;
 use selectors::{
-    matching,
-    parser::{self, ParseRelative, SelectorList, SelectorParseErrorKind},
+    bloom::{BloomStorageU8, CountingBloomFilter}, matching, parser::{self, ParseRelative, SelectorList, SelectorParseErrorKind}
 };
 
 #[cfg(feature = "serde")]
@@ -20,10 +19,11 @@ use crate::ElementRef;
 /// Wrapper around CSS selectors.
 ///
 /// Represents a "selector group", i.e. a comma-separated list of selectors.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Selector {
     /// The CSS selectors.
     selectors: SelectorList<Simple>,
+    bloom_filter: CountingBloomFilter<BloomStorageU8>,
 }
 
 impl Selector {
@@ -33,7 +33,7 @@ impl Selector {
         let mut parser = cssparser::Parser::new(&mut parser_input);
 
         SelectorList::parse(&Parser, &mut parser, ParseRelative::No)
-            .map(|selectors| Self { selectors })
+            .map(|selectors| Self { selectors, bloom_filter: Default::default() })
             .map_err(SelectorErrorKind::from)
     }
 
@@ -58,10 +58,9 @@ impl Selector {
         scope: Option<ElementRef>,
         caches: &mut matching::SelectorCaches,
     ) -> bool {
-        let bloom_filter = Default::default();
         let mut context = matching::MatchingContext::new(
             matching::MatchingMode::Normal,
-            Some(&bloom_filter),
+            Some(&self.bloom_filter),
             caches,
             matching::QuirksMode::NoQuirks,
             matching::NeedsSelectorFlags::No,
