@@ -58,9 +58,10 @@ impl Selector {
         scope: Option<ElementRef>,
         caches: &mut matching::SelectorCaches,
     ) -> bool {
+        let bloom_filter = Default::default();
         let mut context = matching::MatchingContext::new(
             matching::MatchingMode::Normal,
-            None,
+            Some(&bloom_filter),
             caches,
             matching::QuirksMode::NoQuirks,
             matching::NeedsSelectorFlags::No,
