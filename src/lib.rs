@@ -21,10 +21,10 @@ use serde::Serialize;
 
 pub mod cssparser;
 
-pub fn do_all_websites(websites: &Path) -> Result<impl Iterator<Item = Result<DocumentMatches>>> {
+pub fn do_all_websites(websites: &Path) -> Result<impl Iterator<Item = Result<OwnedDocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(|r| {
-            r.map(|(_, h, s)| match_selectors(&h, s))
+            r.map(|(_, h, s)| match_selectors(&h, &s).into())
         })
     )
 }
@@ -204,17 +204,41 @@ impl Serialize for Element {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct SelectorMatches {
-    selector: Selector,
+pub struct SelectorMatches<'a> {
+    selector: &'a Selector,
     matches: Vec<Element>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct DocumentMatches(Vec<SelectorMatches>);
+pub struct OwnedSelectorMatches {
+    selector: Selector,
+    matches: Vec<Element>,
+}
 
-pub fn match_selectors<I>(document: &Html, selectors: I) -> DocumentMatches
+impl From<SelectorMatches<'_>> for OwnedSelectorMatches {
+    fn from(value: SelectorMatches<'_>) -> Self {
+        Self {
+            selector: value.selector.clone(),
+            matches: value.matches,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DocumentMatches<'a>(Vec<SelectorMatches<'a>>);
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OwnedDocumentMatches(Vec<OwnedSelectorMatches>);
+
+impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
+    fn from(value: DocumentMatches<'_>) -> Self {
+        Self(value.0.into_iter().map(OwnedSelectorMatches::from).collect())
+    }
+}
+
+pub fn match_selectors<'a, 'b, I>(document: &'b Html, selectors: I) -> DocumentMatches<'a>
 where
-    I: IntoIterator<Item = Selector>,
+    I: IntoIterator<Item = &'a Selector>,
 {
     let ret = selectors.into_iter().map(|selector| {
         let matches = document.select(&selector)
