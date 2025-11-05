@@ -22,7 +22,7 @@ fn ensures_websites_is_dir() -> io::Result<()> {
 }
 
 #[test]
-fn ensures_each_website_is_dir() -> Result<()> {
+fn skips_non_dir_websites() -> Result<()> {
     let websites_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
     let websites_path = websites_dir.path();
     for i in 0..10 {
@@ -33,7 +33,7 @@ fn ensures_each_website_is_dir() -> Result<()> {
             fs::create_dir(website_path.clone()).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
         }
     }
-    let mut res = mach_6::do_all_websites(websites_path)?;
-    assert!(res.nth(5).unwrap().is_err_and(|e| e.is_io_and(|e| e.kind() == ErrorKind::NotADirectory)));
+    let res = mach_6::do_all_websites(websites_path)?;
+    assert_eq!(res.count(), 9);
     Ok(())
 }

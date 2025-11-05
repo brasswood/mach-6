@@ -58,14 +58,11 @@ pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator
 }
 
 fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathBuf>> {
-    websites.map(|website| {
-        let website = website?;
-        let website_path = website.path();
-        if !website_path.is_dir() {
-            Err(io::Error::new(io::ErrorKind::NotADirectory, format!("Error: Expected {} to be a directory", website_path.display())))
-        } else {
-            Ok(website_path)
-        }
+    websites.filter_map(|website| {
+        website.map(|website| {
+            let website_path = website.path();
+            website_path.is_dir().then(|| website_path)
+        }).transpose()
     })
 }
 
