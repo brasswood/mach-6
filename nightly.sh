@@ -10,10 +10,11 @@ git submodule update --init
 # Run benchmarks
 cargo bench
 
-# make report/index.html accessible in the criterion/ directory
-if [ -e target/criterion/report/index.html ]; then
-    # create a symlink in target/criterion, which will point to "report/index.html" as interpreted from target/criterion
-    cat > target/criterion/index.html <<'EOF'
+# copy criterion report to its own report directory
+rsync -a --delete target/criterion/ criterion_report/
+if [ -e criterion_report/report/index.html ]; then
+    # create a main html page that will redirect to report/index.html (thanks, ChatGPT)
+    cat > criterion_report/index.html <<'EOF'
 <!DOCTYPE html>
 <html>
 <head>
@@ -26,5 +27,5 @@ if [ -e target/criterion/report/index.html ]; then
 </html>
 EOF
 else
-    echo "<html><body>Hey! Something went wrong and <code>target/criterion/report/index.html</code> doesn't exist!</body></html>" > target/criterion/index.html
+    echo "<html><body>Hey! Something went wrong and <code>criterion_report/report/index.html</code> doesn't exist!</body></html>" > criterion_report/index.html
 fi
