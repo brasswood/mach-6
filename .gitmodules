@@ -1,3 +1,6 @@
 [submodule "websites"]
 	path = websites
 	url = git@github.com:brasswood/websites-mach-6
+[submodule "stylo"]
+	path = stylo
+	url = git@github.com:brasswood/stylo

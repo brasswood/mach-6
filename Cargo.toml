@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.48", features = ["derive"] }
 scraper = { path = "./scraper", features = ["serde"] }
-cssparser = "0.35.0"
-selectors = "0.32.0"
+cssparser = "0.36.0"
+selectors = { path = "./stylo/selectors" }
 thiserror = "2.0.17"
 serde = { version = "1.0.228", features = ["derive"] }
 ego-tree = "0.10.0"
@@ -29,3 +29,4 @@ harness = false
 [workspace]
 resolver = "3"
 members = ["scraper"]
+exclude = ["stylo"]
