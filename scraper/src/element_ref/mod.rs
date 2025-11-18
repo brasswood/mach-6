@@ -207,6 +207,7 @@ impl<'a> Iterator for Text<'a> {
 impl FusedIterator for Text<'_> {}
 
 mod element;
+mod selector_map;
 mod serializable;
 
 #[cfg(test)]

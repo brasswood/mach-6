@@ -21,6 +21,8 @@ precomputed-hash = "0.1.1"
 selectors = { path = "../stylo/selectors" }
 style = { path = "../stylo/style", package = "stylo" }
 serde = { version = "1.0.228", optional = true }
+euclid = "0.22"
+app_units = "0.7.8"
 tendril = "0.4.3"
 
 [dependencies.getopts]

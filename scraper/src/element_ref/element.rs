@@ -10,7 +10,7 @@ use crate::selector::{CssLocalName, CssString, NonTSPseudoClass, PseudoElement, 
 
 /// Note: will never match against non-tree-structure pseudo-classes.
 impl Element for ElementRef<'_> {
-    type Impl = Simple;
+    type Impl = style::selector_parser::SelectorImpl;
 
     fn opaque(&self) -> OpaqueElement {
         OpaqueElement::new(self.node.value())
