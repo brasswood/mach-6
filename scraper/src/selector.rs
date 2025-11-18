@@ -22,7 +22,7 @@ use crate::ElementRef;
 #[derive(Debug, Clone)]
 pub struct Selector {
     /// The CSS selectors.
-    selectors: SelectorList<Simple>,
+    selectors: SelectorList<style::selector_parser::SelectorImpl>,
     bloom_filter: CountingBloomFilter<BloomStorageU8>,
 }
 
@@ -117,7 +117,7 @@ impl Visitor<'_> for SelectorVisitor {
 #[derive(Clone, Copy, Debug)]
 pub struct Parser;
 impl<'i> parser::Parser<'i> for Parser {
-    type Impl = Simple;
+    type Impl = style::selector_parser::SelectorImpl;
     type Error = SelectorParseErrorKind<'i>;
 
     fn parse_is_and_where(&self) -> bool {
