@@ -3,7 +3,7 @@ use crate::ElementRef;
 
 impl SelectorMapElement for ElementRef<'_> {
     fn id(&self) -> Option<&style::Atom> {
-        todo!()
+        self.value().id_atom()
     }
 
     fn each_class<F>(&self, callback: F)

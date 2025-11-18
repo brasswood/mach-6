@@ -6,6 +6,7 @@ use std::slice::Iter as SliceIter;
 
 use crate::{CaseSensitivity, StrTendril};
 use html5ever::{Attribute, LocalName, QualName};
+use style::Atom;
 use std::cell::OnceCell;
 
 /// An HTML node.
@@ -215,7 +216,7 @@ pub type Attributes = indexmap::IndexMap<QualName, StrTendril>;
 /// Please enable the `deterministic` feature for order-preserving
 /// (de)serialization.
 #[cfg(not(feature = "deterministic"))]
-pub type Attributes = Vec<(QualName, StrTendril)>;
+pub type Attributes = Vec<(QualName, Atom)>;
 
 /// An HTML element.
 #[derive(Clone, PartialEq, Eq)]
@@ -226,7 +227,7 @@ pub struct Element {
     /// The element attributes.
     pub attrs: Attributes,
 
-    id: OnceCell<Option<StrTendril>>,
+    id: OnceCell<Option<Atom>>,
 
     classes: OnceCell<Box<[LocalName]>>,
 }
@@ -237,7 +238,7 @@ impl Element {
         #[allow(unused_mut)]
         let mut attrs = attributes
             .into_iter()
-            .map(|attr| (attr.name, crate::tendril_util::make(attr.value)))
+            .map(|attr| (attr.name, Atom::from(&*attr.value)))
             .collect::<Attributes>();
 
         #[cfg(not(feature = "deterministic"))]
@@ -256,8 +257,7 @@ impl Element {
         self.name.local.deref()
     }
 
-    /// Returns the element ID.
-    pub fn id(&self) -> Option<&str> {
+    pub(crate) fn id_atom(&self) -> Option<&Atom> {
         self.id
             .get_or_init(|| {
                 self.attrs
@@ -265,7 +265,12 @@ impl Element {
                     .find(|(name, _)| name.local.as_ref() == "id")
                     .map(|(_, value)| value.clone())
             })
-            .as_deref()
+            .as_ref()
+    }
+
+    /// Returns the element ID.
+    pub fn id(&self) -> Option<&str> {
+        self.id_atom().map(|v| &**v)
     }
 
     /// Returns true if element has the class.
@@ -341,7 +346,7 @@ pub type AttributesIter<'a> = indexmap::map::Iter<'a, QualName, StrTendril>;
 
 /// An iterator over a node's attributes.
 #[cfg(not(feature = "deterministic"))]
-pub type AttributesIter<'a> = SliceIter<'a, (QualName, StrTendril)>;
+pub type AttributesIter<'a> = SliceIter<'a, (QualName, Atom)>;
 
 /// Iterator over attributes.
 #[allow(missing_debug_implementations)]

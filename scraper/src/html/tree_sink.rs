@@ -8,6 +8,7 @@ use html5ever::Attribute;
 use html5ever::QualName;
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
+use style::Atom;
 
 /// Wraps `Html` instances as sinks to drive parsing
 #[derive(Debug)]
@@ -230,7 +231,7 @@ impl TreeSink for HtmlTreeSink {
             {
                 element
                     .attrs
-                    .insert(idx, (attr.name, make_tendril(attr.value)));
+                    .insert(idx, (attr.name, Atom::from(&*attr.value)));
             }
 
             #[cfg(feature = "deterministic")]
