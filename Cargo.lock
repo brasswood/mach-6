@@ -1271,6 +1271,7 @@ dependencies = [
  "serde",
  "stylo",
  "tendril",
+ "web_atoms 0.2.0",
 ]
 
 [[package]]

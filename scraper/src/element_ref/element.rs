@@ -4,6 +4,7 @@ use selectors::{
     bloom::BloomFilter,
     matching, Element, OpaqueElement,
 };
+use style::values::AtomIdent;
 
 use super::ElementRef;
 use crate::selector::{CssLocalName, CssString, NonTSPseudoClass, PseudoElement, Simple};
@@ -32,7 +33,7 @@ impl Element for ElementRef<'_> {
         false
     }
 
-    fn is_part(&self, _name: &CssLocalName) -> bool {
+    fn is_part(&self, _name: &AtomIdent) -> bool {
         false
     }
 
@@ -40,7 +41,7 @@ impl Element for ElementRef<'_> {
         self.value().name == other.value().name
     }
 
-    fn imported_part(&self, _: &CssLocalName) -> Option<CssLocalName> {
+    fn imported_part(&self, _: &AtomIdent) -> Option<AtomIdent> {
         None
     }
 
@@ -67,30 +68,30 @@ impl Element for ElementRef<'_> {
         self.value().name.ns == ns!(html)
     }
 
-    fn has_local_name(&self, name: &CssLocalName) -> bool {
-        self.value().name.local == name.0
+    fn has_local_name(&self, name: &web_atoms::LocalName) -> bool {
+        *self.value().name.local == *name
     }
 
-    fn has_namespace(&self, namespace: &Namespace) -> bool {
-        &self.value().name.ns == namespace
+    fn has_namespace(&self, namespace: &web_atoms::Namespace) -> bool {
+        *self.value().name.ns == *namespace
     }
 
     fn attr_matches(
         &self,
-        ns: &NamespaceConstraint<&Namespace>,
-        local_name: &CssLocalName,
-        operation: &AttrSelectorOperation<&CssString>,
+        ns: &NamespaceConstraint<&style::Namespace>,
+        local_name: &style::LocalName,
+        operation: &AttrSelectorOperation<&style::values::AtomString>,
     ) -> bool {
         self.value().attrs.iter().any(|(key, value)| {
-            !matches!(*ns, NamespaceConstraint::Specific(url) if *url != key.ns)
-                && local_name.0 == key.local
+            !matches!(*ns, NamespaceConstraint::Specific(url) if **url != *key.ns)
+                && local_name.0 == *key.local
                 && operation.eval_str(value)
         })
     }
 
     fn match_non_ts_pseudo_class(
         &self,
-        _pc: &NonTSPseudoClass,
+        _pc: &style::servo::selector_parser::NonTSPseudoClass,
         _context: &mut matching::MatchingContext<'_, Self::Impl>,
     ) -> bool {
         false
@@ -98,7 +99,7 @@ impl Element for ElementRef<'_> {
 
     fn match_pseudo_element(
         &self,
-        _pe: &PseudoElement,
+        _pe: &style::servo::selector_parser::PseudoElement,
         _context: &mut matching::MatchingContext<Self::Impl>,
     ) -> bool {
         false
@@ -112,18 +113,18 @@ impl Element for ElementRef<'_> {
         true
     }
 
-    fn has_id(&self, id: &CssLocalName, case_sensitivity: CaseSensitivity) -> bool {
+    fn has_id(&self, id: &AtomIdent, case_sensitivity: CaseSensitivity) -> bool {
         match self.value().id() {
             Some(val) => case_sensitivity.eq(id.0.as_bytes(), val.as_bytes()),
             None => false,
         }
     }
 
-    fn has_class(&self, name: &CssLocalName, case_sensitivity: CaseSensitivity) -> bool {
+    fn has_class(&self, name: &AtomIdent, case_sensitivity: CaseSensitivity) -> bool {
         self.value().has_class(&name.0, case_sensitivity)
     }
 
-    fn has_custom_state(&self, _name: &CssLocalName) -> bool {
+    fn has_custom_state(&self, _name: &AtomIdent) -> bool {
         false
     }
 
@@ -150,6 +151,7 @@ impl Element for ElementRef<'_> {
 mod tests {
     use crate::html::Html;
     use crate::selector::{CssLocalName, Selector};
+    use style::values::AtomIdent;
     use selectors::attr::CaseSensitivity;
     use selectors::Element;
 
@@ -161,7 +163,7 @@ mod tests {
 
         let element = fragment.select(&sel).next().unwrap();
         assert!(element.has_id(
-            &CssLocalName::from("link_id_456"),
+            &AtomIdent::from("link_id_456"),
             CaseSensitivity::CaseSensitive
         ));
 
@@ -169,7 +171,7 @@ mod tests {
         let fragment = Html::parse_fragment(html);
         let element = fragment.select(&sel).next().unwrap();
         assert!(!element.has_id(
-            &CssLocalName::from("any_link_id"),
+            &AtomIdent::from("any_link_id"),
             CaseSensitivity::CaseSensitive
         ));
     }
@@ -196,7 +198,7 @@ mod tests {
         let sel = Selector::parse("p").unwrap();
         let element = fragment.select(&sel).next().unwrap();
         assert!(element.has_class(
-            &CssLocalName::from("my_class"),
+            &AtomIdent::from("my_class"),
             CaseSensitivity::CaseSensitive
         ));
 
@@ -205,7 +207,7 @@ mod tests {
         let sel = Selector::parse("p").unwrap();
         let element = fragment.select(&sel).next().unwrap();
         assert!(!element.has_class(
-            &CssLocalName::from("my_class"),
+            &AtomIdent::from("my_class"),
             CaseSensitivity::CaseSensitive
         ));
     }
