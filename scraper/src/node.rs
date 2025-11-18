@@ -6,7 +6,7 @@ use std::slice::Iter as SliceIter;
 
 use crate::{CaseSensitivity, StrTendril};
 use html5ever::{Attribute, LocalName, QualName};
-use style::Atom;
+use style::{Atom, values::GenericAtomIdent};
 use std::cell::OnceCell;
 
 /// An HTML node.
@@ -229,7 +229,7 @@ pub struct Element {
 
     id: OnceCell<Option<Atom>>,
 
-    classes: OnceCell<Box<[LocalName]>>,
+    classes: OnceCell<Box<[style::values::AtomIdent]>>,
 }
 
 impl Element {
@@ -279,24 +279,35 @@ impl Element {
             .any(|c| case_sensitive.eq(c.as_bytes(), class.as_bytes()))
     }
 
-    /// Returns an iterator over the element's classes.
-    pub fn classes(&self) -> Classes<'_> {
+    pub(crate) fn classes_atom(&self) -> ClassesAtom<'_> {
         let classes = self.classes.get_or_init(|| {
             let mut classes = self
                 .attrs
                 .iter()
                 .filter(|(name, _)| name.local.as_ref() == "class")
-                .flat_map(|(_, value)| value.split_ascii_whitespace().map(LocalName::from))
+                .map(|(_, value)| value)
                 .collect::<Vec<_>>();
 
             classes.sort_unstable();
             classes.dedup();
 
-            classes.into_boxed_slice()
+            classes
+                .into_iter()
+                .map(|v| GenericAtomIdent(v.clone()))
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
         });
 
+        ClassesAtom {
+            inner: classes.iter()
+        }
+    }
+
+    /// Returns an iterator over the element's classes.
+    pub fn classes(&self) -> Classes<'_> {
+
         Classes {
-            inner: classes.iter(),
+            inner: self.classes_atom(),
         }
     }
 
@@ -329,14 +340,31 @@ impl Element {
 #[allow(missing_debug_implementations)]
 #[derive(Clone)]
 pub struct Classes<'a> {
-    inner: SliceIter<'a, LocalName>,
+    inner: ClassesAtom<'a>,
 }
 
 impl<'a> Iterator for Classes<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<&'a str> {
-        self.inner.next().map(Deref::deref)
+        self.inner.next().map(|v| &***v)
+        // first deref: &GenericAtomIdent -> GenericAtomIdent
+        // second deref: GenericAtomIdent -> Atom
+        // third deref: Atom -> str
+    }
+}
+
+#[allow(missing_debug_implementations)]
+#[derive(Clone)]
+pub(crate) struct ClassesAtom<'a> {
+    inner: SliceIter<'a, style::values::AtomIdent>,
+}
+
+impl<'a> Iterator for ClassesAtom<'a> {
+    type Item = &'a style::values::AtomIdent;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
     }
 }
 

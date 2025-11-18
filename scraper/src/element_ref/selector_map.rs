@@ -6,10 +6,12 @@ impl SelectorMapElement for ElementRef<'_> {
         self.value().id_atom()
     }
 
-    fn each_class<F>(&self, callback: F)
+    fn each_class<F>(&self, mut callback: F)
     where
         F: FnMut(&style::values::AtomIdent) {
-        todo!()
+        for class in self.value().classes_atom() {
+            callback(class)
+        }
     }
 
     fn each_attr_name<F>(&self, callback: F)
