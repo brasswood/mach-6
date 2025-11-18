@@ -22,7 +22,7 @@ impl SelectorMapElement for ElementRef<'_> {
         todo!()
     }
 
-    fn state(&self) -> ElementState {
+    fn state(&self) -> stylo_dom::ElementState {
         todo!()
     }
 
@@ -35,7 +35,7 @@ impl SelectorMapElement for ElementRef<'_> {
         todo!()
     }
 
-    fn borrow_data(&self) -> Option<AtomicRef<'_, style::data::ElementData>> {
+    fn borrow_data(&self) -> Option<atomic_refcell::AtomicRef<'_, style::data::ElementData>> {
         todo!()
     }
 

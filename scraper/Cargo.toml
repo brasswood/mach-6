@@ -25,6 +25,8 @@ euclid = "0.22"
 app_units = "0.7.8"
 web_atoms = "0.2.0"
 tendril = "0.4.3"
+stylo_dom = { path = "../stylo/stylo_dom" }
+atomic_refcell = "0.1"
 
 [dependencies.getopts]
 version = "0.2.24"

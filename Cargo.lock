@@ -1260,6 +1260,7 @@ name = "scraper"
 version = "0.24.0"
 dependencies = [
  "app_units",
+ "atomic_refcell",
  "cssparser",
  "ego-tree",
  "euclid",
@@ -1270,6 +1271,7 @@ dependencies = [
  "selectors",
  "serde",
  "stylo",
+ "stylo_dom",
  "tendril",
  "web_atoms 0.2.0",
 ]
