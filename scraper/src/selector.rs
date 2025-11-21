@@ -7,7 +7,8 @@ pub use cssparser::ToCss;
 use html5ever::{LocalName, Namespace};
 use precomputed_hash::PrecomputedHash;
 use selectors::{
-    bloom::{BloomStorageU8, CountingBloomFilter}, matching, parser::{self, ParseRelative, SelectorList, SelectorParseErrorKind}
+    matching,
+    parser::{self, ParseRelative, SelectorList, SelectorParseErrorKind},
 };
 
 #[cfg(feature = "serde")]
@@ -23,7 +24,6 @@ use crate::ElementRef;
 pub struct Selector {
     /// The CSS selectors.
     pub selectors: SelectorList<style::selector_parser::SelectorImpl>,
-    bloom_filter: CountingBloomFilter<BloomStorageU8>,
 }
 
 impl Selector {
@@ -33,7 +33,7 @@ impl Selector {
         let mut parser = cssparser::Parser::new(&mut parser_input);
 
         SelectorList::parse(&Parser, &mut parser, ParseRelative::No)
-            .map(|selectors| Self { selectors, bloom_filter: Default::default() })
+            .map(|selectors| Self { selectors })
             .map_err(SelectorErrorKind::from)
     }
 
@@ -60,7 +60,7 @@ impl Selector {
     ) -> bool {
         let mut context = matching::MatchingContext::new(
             matching::MatchingMode::Normal,
-            Some(&self.bloom_filter),
+            None,
             caches,
             matching::QuirksMode::NoQuirks,
             matching::NeedsSelectorFlags::No,

@@ -15,14 +15,21 @@ use std::path::Path;
 use scraper::ElementRef;
 use scraper::Html;
 use scraper::Selector;
+use selectors::bloom::CountingBloomFilter;
+use selectors::context::SelectorCaches;
+use selectors::matching;
+use style::rule_tree::CascadeLevel;
 use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
+use style::stylist::CascadeData;
 use style::stylist::Rule;
+use style::stylist::Stylist;
 use std::hash::Hash;
 use std::result;
 use thiserror::Error;
 use serde::Serialize;
 use style::selector_map::SelectorMap;
+use smallvec::SmallVec;
 
 pub mod cssparser;
 
@@ -264,7 +271,7 @@ where
         .enumerate();
     for (i, selector) in iter {
         use style::context::QuirksMode;
-        let hashes = selectors::parser::AncestorHashes::new(&selector, QuirksMode::NoQuirks); // needed to avoid borrow after move
+        let hashes = selectors::parser::AncestorHashes::new(&selector, QuirksMode::NoQuirks); // needed to avoid borrow after move. TODO: look at what this does.
         let rule = Rule {
             selector,
             hashes, 
@@ -278,6 +285,35 @@ where
         selector_map.insert(rule, QuirksMode::NoQuirks).unwrap();
     }
     selector_map
+}
+
+pub fn match_selectors_with_selector_map<'a, I>(elements: I, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches
+where
+    I: IntoIterator<Item = ElementRef<'a>>
+{
+    let bloom_filter = CountingBloomFilter::default(); // TODO: see what I need to do here
+    let mut caches = SelectorCaches::default();
+    let mut context = matching::MatchingContext::new(
+        matching::MatchingMode::Normal,
+        Some(&bloom_filter), // TODO: interior mutability IIRC
+        &mut caches,
+        matching::QuirksMode::NoQuirks,
+        matching::NeedsSelectorFlags::No,
+        matching::MatchingForInvalidation::No,
+    );
+    for element in elements {
+        let mut applicable_declarations = SmallVec::new();
+        selector_map.get_all_matching_rules(
+            element,
+            element, // TODO: ????
+            &mut applicable_declarations,
+            &mut context,
+            CascadeLevel::UANormal, // TODO: ??????
+            &CascadeData::new(),
+            &Stylist::new(todo!(), matching::QuirksMode::NoQuirks)
+        )
+    }
+    todo!()
 }
 
 #[cfg(test)]
