@@ -22,7 +22,7 @@ use crate::ElementRef;
 #[derive(Debug, Clone)]
 pub struct Selector {
     /// The CSS selectors.
-    selectors: SelectorList<style::selector_parser::SelectorImpl>,
+    pub selectors: SelectorList<style::selector_parser::SelectorImpl>,
     bloom_filter: CountingBloomFilter<BloomStorageU8>,
 }
 

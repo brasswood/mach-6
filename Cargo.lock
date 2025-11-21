@@ -829,6 +829,7 @@ dependencies = [
  "selectors",
  "serde",
  "serde_yml",
+ "stylo",
  "tempfile",
  "thiserror",
 ]

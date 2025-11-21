@@ -12,12 +12,17 @@ use std::path::PathBuf;
 use std::io;
 use std::fs;
 use std::path::Path;
+use scraper::ElementRef;
 use scraper::Html;
 use scraper::Selector;
+use style::servo_arc::Arc;
+use style::shared_lock::SharedRwLock;
+use style::stylist::Rule;
 use std::hash::Hash;
 use std::result;
 use thiserror::Error;
 use serde::Serialize;
+use style::selector_map::SelectorMap;
 
 pub mod cssparser;
 
@@ -233,6 +238,7 @@ impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
     }
 }
 
+
 pub fn match_selectors<'a, 'b, I>(document: &'b Html, selectors: I) -> DocumentMatches<'a>
 where
     I: IntoIterator<Item = &'a Selector>,
@@ -244,6 +250,34 @@ where
         SelectorMatches{selector, matches}
     }).collect();
     DocumentMatches(ret)
+}
+
+pub fn build_selector_map<'a, I>(selectors: I) -> SelectorMap<Rule>
+where
+    I: IntoIterator<Item = &'a Selector>,
+{
+    let mut selector_map: SelectorMap<Rule> = SelectorMap::new();
+    let iter = selectors.into_iter()
+        .map(|selector_list| selector_list.selectors.slice().into_iter())
+        .flatten()
+        .map(Clone::clone)
+        .enumerate();
+    for (i, selector) in iter {
+        use style::context::QuirksMode;
+        let hashes = selectors::parser::AncestorHashes::new(&selector, QuirksMode::NoQuirks); // needed to avoid borrow after move
+        let rule = Rule {
+            selector,
+            hashes, 
+            source_order: i.try_into().unwrap(),
+            layer_id: style::stylist::LayerId::root(),
+            container_condition_id: style::stylist::ContainerConditionId::none(),
+            is_starting_style: false,
+            scope_condition_id: style::stylist::ScopeConditionId::none(),
+            style_source: style::rule_tree::StyleSource::from_declarations(Arc::new(SharedRwLock::new().wrap(Default::default()))),
+        };
+        selector_map.insert(rule, QuirksMode::NoQuirks).unwrap();
+    }
+    selector_map
 }
 
 #[cfg(test)]
