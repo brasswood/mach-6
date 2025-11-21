@@ -824,6 +824,7 @@ dependencies = [
  "criterion",
  "cssparser",
  "ego-tree",
+ "euclid",
  "insta",
  "scraper",
  "selectors",

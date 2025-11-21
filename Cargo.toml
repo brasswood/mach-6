@@ -7,6 +7,7 @@ edition = "2024"
 clap = { version = "4.5.48", features = ["derive"] }
 scraper = { path = "./scraper", features = ["serde"] }
 cssparser = "0.36.0"
+euclid = "0.22"
 selectors = { path = "./stylo/selectors" }
 thiserror = "2.0.17"
 serde = { version = "1.0.228", features = ["derive"] }
