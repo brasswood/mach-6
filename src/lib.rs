@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+use ::cssparser::ToCss as _;
 use std::fs::DirEntry;
 use std::fs::ReadDir;
 use std::hash::DefaultHasher;
@@ -35,6 +36,7 @@ use style::values::computed::{Length, CSSPixelLength, font::QueryFontMetricsFlag
 use std::hash::Hash;
 use std::result;
 use thiserror::Error;
+use serde::ser::{SerializeSeq, Serializer};
 use serde::Serialize;
 use style::selector_map::SelectorMap;
 use smallvec::SmallVec;
@@ -282,6 +284,27 @@ impl From<SelectorMatches<'_>> for OwnedSelectorMatches {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct OwnedSelectorMatchesTranspose {
+    element: Element,
+    #[serde(serialize_with = "serialize_selectors")]
+    matched_selectors: SmallVec<[selectors::parser::Selector<style::selector_parser::SelectorImpl>; 16]>,
+}
+
+fn serialize_selectors<S>(
+    selectors: &SmallVec<[selectors::parser::Selector<style::selector_parser::SelectorImpl>; 16]>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut seq = serializer.serialize_seq(Some(selectors.len()))?;
+    for selector in selectors {
+        seq.serialize_element(&selector.to_css_string())?;
+    }
+    seq.end()
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct DocumentMatches<'a>(Vec<SelectorMatches<'a>>);
 
 #[derive(Debug, Clone, Serialize)]
@@ -292,6 +315,9 @@ impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
         Self(value.0.into_iter().map(OwnedSelectorMatches::from).collect())
     }
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OwnedDocumentMatchesTranspose(Vec<OwnedSelectorMatchesTranspose>);
 
 
 pub fn match_selectors<'a, 'b, I>(document: &'b Html, selectors: I) -> DocumentMatches<'a>
@@ -335,7 +361,7 @@ where
     selector_map
 }
 
-pub fn match_selectors_with_selector_map<'a, I>(elements: I, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches
+pub fn match_selectors_with_selector_map<'a, I>(elements: I, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatchesTranspose
 where
     I: IntoIterator<Item = ElementRef<'a>>
 {
@@ -349,19 +375,22 @@ where
         matching::NeedsSelectorFlags::No,
         matching::MatchingForInvalidation::No,
     );
+    let mut result = Vec::new();
     for element in elements {
-        let mut applicable_declarations = SmallVec::new();
+        let mut matched_selectors = SmallVec::new();
         selector_map.get_all_matching_rules(
             element,
             element, // TODO: ????
-            &mut applicable_declarations,
+            &mut SmallVec::new(),
+            &mut Some(&mut matched_selectors),
             &mut context,
             CascadeLevel::UANormal, // TODO: ??????
             &CascadeData::new(),
             &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
-        )
+        );
+        result.push(OwnedSelectorMatchesTranspose{ element: Element::from(element), matched_selectors })
     }
-    todo!()
+    OwnedDocumentMatchesTranspose(result)
 }
 
 #[cfg(test)]
