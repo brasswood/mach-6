@@ -43,45 +43,6 @@ use smallvec::SmallVec;
 
 pub mod cssparser;
 
-#[derive(Debug)]
-struct TestFontMetricsProvider;
-
-impl FontMetricsProvider for TestFontMetricsProvider {
-    fn query_font_metrics(
-        &self,
-        _vertical: bool,
-        _font: &Font,
-        _base_size: CSSPixelLength,
-        _flags: QueryFontMetricsFlags,
-    ) -> style::font_metrics::FontMetrics {
-        style::font_metrics::FontMetrics {
-            x_height: Some(CSSPixelLength::new(1.0)),
-            zero_advance_measure: Some(CSSPixelLength::new(1.0)),
-            cap_height: Some(CSSPixelLength::new(1.0)),
-            ic_width: Some(CSSPixelLength::new(1.0)),
-            ascent: CSSPixelLength::new(1.0),
-            script_percent_scale_down: None,
-            script_script_percent_scale_down: None,
-        } // TODO: Idk
-    }
-
-    fn base_size_for_generic(&self, _generic: GenericFontFamily) -> Length {
-        CSSPixelLength::new(1.0)
-    }
-}
-
-fn mock_device() -> Device {
-    let default_font = Font::initial_values();
-    Device::new(
-        MediaType::screen(),
-        matching::QuirksMode::NoQuirks,
-        euclid::Size2D::new(1200.0, 800.0),
-        euclid::Scale::new(1.0),
-        Box::new(TestFontMetricsProvider),
-        ComputedValues::initial_values_with_font_override(default_font),
-        PrefersColorScheme::Light,
-    )
-}
 
 pub fn do_all_websites(websites: &Path) -> Result<impl Iterator<Item = Result<OwnedDocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
@@ -241,6 +202,46 @@ fn parse_stylesheet(base: &Path, CssFile(stylesheet_path): &CssFile) -> Result<V
         .filter_map(|r| r.ok().flatten())
         .collect();
     Ok(res)
+}
+
+#[derive(Debug)]
+struct TestFontMetricsProvider;
+
+impl FontMetricsProvider for TestFontMetricsProvider {
+    fn query_font_metrics(
+        &self,
+        _vertical: bool,
+        _font: &Font,
+        _base_size: CSSPixelLength,
+        _flags: QueryFontMetricsFlags,
+    ) -> style::font_metrics::FontMetrics {
+        style::font_metrics::FontMetrics {
+            x_height: Some(CSSPixelLength::new(1.0)),
+            zero_advance_measure: Some(CSSPixelLength::new(1.0)),
+            cap_height: Some(CSSPixelLength::new(1.0)),
+            ic_width: Some(CSSPixelLength::new(1.0)),
+            ascent: CSSPixelLength::new(1.0),
+            script_percent_scale_down: None,
+            script_script_percent_scale_down: None,
+        } // TODO: Idk
+    }
+
+    fn base_size_for_generic(&self, _generic: GenericFontFamily) -> Length {
+        CSSPixelLength::new(1.0)
+    }
+}
+
+fn mock_device() -> Device {
+    let default_font = Font::initial_values();
+    Device::new(
+        MediaType::screen(),
+        matching::QuirksMode::NoQuirks,
+        euclid::Size2D::new(1200.0, 800.0),
+        euclid::Scale::new(1.0),
+        Box::new(TestFontMetricsProvider),
+        ComputedValues::initial_values_with_font_override(default_font),
+        PrefersColorScheme::Light,
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
