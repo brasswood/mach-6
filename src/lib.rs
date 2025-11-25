@@ -47,9 +47,16 @@ pub mod cssparser;
 pub fn do_all_websites(websites: &Path) -> Result<impl Iterator<Item = Result<OwnedDocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(|r| {
-            r.map(|(_, h, s)| match_selectors(&h, &s).into())
+            r.map(|(_, h, s)| {
+                let elements = get_elements(&h);
+                match_selectors(&elements, &s).into()
+            })
         })
     )
+}
+
+pub fn get_elements<'a>(document: &'a Html) -> Vec<ElementRef<'a>> {
+    document.tree.nodes().filter_map(ElementRef::wrap).collect()
 }
 
 pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
@@ -318,7 +325,7 @@ impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
     }
 }
 
-pub fn match_selectors<'a>(document: &Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
+pub fn match_selectors<'a>(elements: &[ElementRef], selectors: &'a [Selector]) -> DocumentMatches<'a>
 {
     let mut caches: SelectorCaches = Default::default();
     let mut context = matching::MatchingContext::new(
@@ -329,14 +336,13 @@ pub fn match_selectors<'a>(document: &Html, selectors: &'a [Selector]) -> Docume
         matching::NeedsSelectorFlags::No,
         matching::MatchingForInvalidation::No,
     );
-    let ret = document.tree.nodes().filter_map(|elt| {
-        let elt_ref = ElementRef::wrap(elt)?;
-        let selectors = selectors.iter().filter(|s| {
-            matching::matches_selector(s, 0, None, &elt_ref, &mut context)
+    let result = elements.iter().map(|element| {
+        let matched_selectors = selectors.iter().filter(|s| {
+            matching::matches_selector(s, 0, None, element, &mut context)
         }).collect();
-        Some(ElementMatches{ element: elt_ref.into(), selectors })
+        ElementMatches{ element: (*element).into(), selectors: matched_selectors }
     }).collect();
-    DocumentMatches(ret)
+    DocumentMatches(result)
 }
 
 pub fn build_selector_map<'a, I>(selectors: I) -> SelectorMap<Rule>
@@ -365,10 +371,7 @@ where
     selector_map
 }
 
-pub fn match_selectors_with_selector_map<'a, I>(elements: I, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches
-where
-    I: IntoIterator<Item = ElementRef<'a>>
-{
+pub fn match_selectors_with_selector_map(elements: &[ElementRef], selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
     let bloom_filter = CountingBloomFilter::default(); // TODO: see what I need to do here
     let mut caches = SelectorCaches::default();
     let mut context = matching::MatchingContext::new(
@@ -379,8 +382,7 @@ where
         matching::NeedsSelectorFlags::No,
         matching::MatchingForInvalidation::No,
     );
-    let mut result = Vec::new();
-    for element in elements {
+    let result = elements.iter().map(|&element| {
         let mut matched_selectors = SmallVec::new();
         selector_map.get_all_matching_rules(
             element,
@@ -392,8 +394,8 @@ where
             &CascadeData::new(),
             &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
         );
-        result.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors })
-    }
+        OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors }
+    }).collect();
     OwnedDocumentMatches(result)
 }
 

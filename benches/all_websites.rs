@@ -11,8 +11,9 @@ pub fn bench_all_websites(c: &mut Criterion) {
     for res in documents_selectors {
         match res {
             Ok((name, document, selectors)) => {
+                let elements = mach_6::get_elements(&document);
                 c.bench_function(&name, |b| b.iter(|| {
-                    mach_6::match_selectors(&document, &selectors);
+                    mach_6::match_selectors(&elements, &selectors);
                 }));
             },
             Err(e) => {
