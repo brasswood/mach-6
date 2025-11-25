@@ -76,9 +76,9 @@ pub fn get_elements<'a>(document: &'a Html) -> Vec<ElementRef<'a>> {
 pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
     let websites_dir = fs::read_dir(&websites_path).map_err(|e| Error::with_io_error(e, Some(websites_path.to_path_buf())))?; 
     let websites = get_websites_dirs(websites_dir);
-    let documents = websites.map(|r: io::Result<PathBuf>| {
+    let documents = websites.filter_map(|r: io::Result<PathBuf>| {
         r.map_err(|e| Error::with_io_error(e, Some(websites_path.to_path_buf())))
-            .and_then(|d: PathBuf| parse_website(&d).map(|html: Html| (d, html)))
+            .and_then(|d: PathBuf| parse_website(&d).map(|html: Option<Html>| html.map(|html| (d, html)))).transpose()
     });
     let documents_selectors = documents.map(|r: Result<(PathBuf, Html)>| {
         r.map(|(base, document): (PathBuf, Html)| {
@@ -105,14 +105,19 @@ fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathB
     websites.filter_map(|website| {
         website.map(|website| {
             let website_path = website.path();
-            website_path.is_dir().then(|| website_path)
+            if website_path.is_dir() {
+                Some(website_path)
+            } else {
+                eprintln!("WARNING: ignoring {} because it is not a directory", website_path.display());
+                None
+            }
         }).transpose()
     })
 }
 
-fn parse_website(website: &Path)-> Result<Html> {
+fn parse_website(website: &Path)-> Result<Option<Html>> {
     let main = get_main_html(website)?;
-    parse_main_html(main)
+    main.map(parse_main_html).transpose()
 }
 
 #[derive(Error, Debug)]
@@ -124,7 +129,7 @@ pub struct Error {
 #[derive(Debug)]
 pub enum ErrorKind {
     Io(io::Error),
-    NotOneHtmlFile(Vec<HtmlFile>),
+    MultipleHtmlFiles(Vec<HtmlFile>),
 }
 
 impl std::fmt::Display for Error {
@@ -137,8 +142,8 @@ impl std::fmt::Display for Error {
                 }
                 Ok(())
             },
-            ErrorKind::NotOneHtmlFile(v) => {
-                writeln!(f, "the number of html files for website {} was not one:", self.path.as_ref().unwrap().display())?;
+            ErrorKind::MultipleHtmlFiles(v) => {
+                writeln!(f, "website {} has more than one html file:", self.path.as_ref().unwrap().display())?;
                 for HtmlFile(h) in v {
                     writeln!(f, "{}", h.display())?;
                 }
@@ -158,7 +163,7 @@ impl Error {
 
     pub fn is_html_and(&self, f: impl FnOnce(&Vec<HtmlFile>) -> bool) -> bool {
         match &self.error {
-            ErrorKind::NotOneHtmlFile(v) => f(&v),
+            ErrorKind::MultipleHtmlFiles(v) => f(&v),
             _ => false,
         }
     }
@@ -179,7 +184,7 @@ pub struct HtmlFile(PathBuf);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct CssFile(PathBuf);
 
-fn get_main_html(website: &Path) -> Result<HtmlFile> {
+fn get_main_html(website: &Path) -> Result<Option<HtmlFile>> {
     let err_map = |e: io::Error| Error::with_io_error(e, Some(website.to_path_buf()));
     let files = fs::read_dir(website).map_err(err_map)?;
     let f = |entry: DirEntry| {
@@ -191,10 +196,13 @@ fn get_main_html(website: &Path) -> Result<HtmlFile> {
         }
     };
     let mut found: Vec<HtmlFile> = files.collect::<io::Result<Vec<_>>>().map_err(err_map)?.into_iter().filter_map(f).collect();
-    if found.len() == 1 {
-        Ok(found.pop().unwrap())
-    } else {
-        Err(Error{path: Some(website.to_path_buf()), error: ErrorKind::NotOneHtmlFile(found) })  
+    match found.len() {
+        0 => {
+            eprintln!("WARNING: ignoring {}, no html file found", website.display());
+            Ok(None)
+        },
+        1 => Ok(Some(found.pop().unwrap())),
+        _ => Err(Error{path: Some(website.to_path_buf()), error: ErrorKind::MultipleHtmlFiles(found) })  
     }
 }
 
@@ -460,9 +468,20 @@ mod tests {
     fn ensures_main_html_exists() -> super::Result<()> {
         let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
         let website_path = website_dir.path();
-        let is_err = get_main_html(website_path).is_err_and(|e| {
-            e.is_html_and(Vec::is_empty)
-        });
+        let is_err = get_main_html(website_path).is_ok_and(|h| h.is_none());
+        assert!(is_err);
+        Ok(())
+    }
+
+    #[test]
+    fn ensures_not_multiple_main_html() -> super::Result<()> {
+        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
+        let website_path = website_dir.path();
+        for i in 1..=2 {
+            let html_path = website_path.join(format!("{i}.html"));
+            fs::File::create_new(&html_path).map_err(|e| Error::with_io_error(e, Some(html_path)))?;
+        }
+        let is_err = get_main_html(website_path).is_err_and(|e| e.is_html_and(|_| true));
         assert!(is_err);
         Ok(())
     }
@@ -473,9 +492,7 @@ mod tests {
         let website_path = website_dir.path();
         fs::create_dir(website_path.join("index.html"))?;
         let main_res = get_main_html(website_path);
-        let is_err = main_res.is_err_and(|e| {
-            e.is_html_and(Vec::is_empty)
-        });
+        let is_err = matches!(main_res, Ok(None));
         assert!(is_err);
         Ok(())
     }
@@ -487,7 +504,7 @@ mod tests {
         fs::write(website_path.join("index.html"), "<html><body><h1>Hello, World!</h1></body></html>")
             .map_err(|e| Error::with_io_error(e, Some(website_path.to_path_buf())))?;
         println!("{:?}", website_path);
-        let main_html = get_main_html(website_path)?;
+        let main_html = get_main_html(website_path)?.unwrap();
         parse_main_html(main_html).unwrap();
         Ok(())
     }
@@ -498,7 +515,7 @@ mod tests {
         let website_path = website_dir.path();
         fs::write(website_path.join("index.html"), r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"></head><body><h1>Hello, World!</h1></body></html>"#)
             .map_err(|e| Error::with_io_error(e, Some(website_path.to_path_buf())))?;
-        let main_html = get_main_html(website_path)?;
+        let main_html = get_main_html(website_path)?.unwrap();
         let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);
         let mut expected: Vec<_> = vec!["style1.css", "style2.css"]
@@ -517,7 +534,7 @@ mod tests {
         let website_path = website_dir.path();
         let index_html_path = website_path.join("index.html");
         fs::write(&index_html_path, r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"><link rel="prerender" href="boogeyman"></head><body><h1>Hello, World!</h1></body></html>"#).map_err(|e| Error::with_io_error(e, Some(index_html_path)))?;
-        let main_html = get_main_html(website_path)?;
+        let main_html = get_main_html(website_path)?.unwrap();
         let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);
         let mut expected: Vec<_> = vec!["style1.css", "style2.css"]

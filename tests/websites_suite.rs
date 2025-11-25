@@ -10,13 +10,15 @@ use insta;
 
 #[test]
 fn does_all_websites() -> Result<()> {
-    let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
-    let results = mach_6::do_all_websites(&websites, Algorithm::Naive)?;
-    for web_result in results {
-        let (website, match_result) = web_result?;
-        insta::assert_yaml_snapshot!(website, match_result);
-    }
-    Ok(())
+    let websites_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
+    let results = mach_6::do_all_websites(&websites_path, Algorithm::Naive)?;
+    insta::with_settings!({ snapshot_path => websites_path.join("snapshots")}, {
+        for web_result in results {
+            let (website, match_result) = web_result?;
+            insta::assert_yaml_snapshot!(website, match_result);
+        }
+        Ok(())
+    })
 }
 
 #[test]

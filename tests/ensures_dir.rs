@@ -28,9 +28,11 @@ fn skips_non_dir_websites() -> Result<()> {
     for i in 0..10 {
         let website_path = websites_path.join(format!("{i}"));
         if i == 5 {
-            fs::File::create_new(website_path.clone()).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
+            fs::File::create_new(&website_path).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
         } else {
-            fs::create_dir(website_path.clone()).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
+            fs::create_dir(&website_path).map_err(|e| Error::with_io_error(e, Some(website_path.clone())))?;
+            let html_path = website_path.join("index.html");
+            fs::File::create_new(&html_path).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
         }
     }
     let res = mach_6::do_all_websites(websites_path, Algorithm::Naive)?;
