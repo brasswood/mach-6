@@ -5,13 +5,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use std::path::PathBuf;
-use mach_6::{Algorithm, OwnedDocumentMatches, Result, SetDocumentMatches};
+use mach_6::{Algorithm, Result, SetDocumentMatches};
 use insta;
 
 #[test]
 fn does_all_websites() -> Result<()> {
     let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
-    let result: Result<Vec<OwnedDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
+    let result: Result<Vec<SetDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
     let result = result?;
     insta::assert_yaml_snapshot!(result);
     Ok(())
@@ -21,13 +21,11 @@ fn does_all_websites() -> Result<()> {
 fn selector_map_correct() -> Result<()> {
     let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
 
-    let result1: Result<Vec<OwnedDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
+    let result1: Result<Vec<SetDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
     let result1 = result1?;
-    let result1: Vec<SetDocumentMatches> = result1.into_iter().map(From::from).collect();
 
-    let result2: Result<Vec<OwnedDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMap)?.collect();
+    let result2: Result<Vec<SetDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMap)?.collect();
     let result2 = result2?;
-    let result2: Vec<SetDocumentMatches> = result2.into_iter().map(From::from).collect();
     assert_eq!(result1, result2);
     Ok(())
 }

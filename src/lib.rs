@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use ::cssparser::ToCss as _;
-use std::borrow::Borrow;
+use serde::ser::SerializeStruct as _;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::DirEntry;
@@ -38,7 +38,6 @@ use style::values::computed::{Length, CSSPixelLength, font::QueryFontMetricsFlag
 use std::hash::Hash;
 use std::result;
 use thiserror::Error;
-use serde::ser::{SerializeSeq, Serializer};
 use serde::Serialize;
 use style::selector_map::SelectorMap;
 use smallvec::SmallVec;
@@ -51,7 +50,7 @@ pub enum Algorithm {
     WithSelectorMap,
 }
 
-pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<OwnedDocumentMatches>>> {
+pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<SetDocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(move |r| {
             r.map(|(_, h, s)| {
@@ -62,7 +61,7 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
                         let selector_map = build_selector_map(&s);
                         match_selectors_with_selector_map(&elements, &selector_map)
                     }
-                }
+                }.into()
             })
         })
     )
@@ -269,12 +268,18 @@ fn mock_device() -> Device {
     )
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Element(ego_tree::NodeId);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Element {
+    id: ego_tree::NodeId,
+    html: String,
+}
 
 impl From<scraper::ElementRef<'_>> for Element {
     fn from(value: scraper::ElementRef) -> Self {
-        Self(value.id())
+        Self{
+            id: value.id(),
+            html: value.html(),
+        }
     }
 }
 
@@ -282,24 +287,24 @@ impl Serialize for Element {
     fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer {
+        let mut st = serializer.serialize_struct("Element", 2)?; // I'm cheating a bit here...
         let mut hasher = DefaultHasher::new();
-        self.0.hash(&mut hasher);
-        serializer.serialize_u64(hasher.finish())
-        // TODO: print the actual element here too for easy verification
+        self.id.hash(&mut hasher);
+        st.serialize_field("id", &hasher.finish())?;
+        st.serialize_field("html", &self.html)?;
+        st.end()
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct ElementMatches<'a> {
     element: Element,
-    #[serde(serialize_with = "serialize_selectors")]
     selectors: SmallVec<[&'a Selector; 16]>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct OwnedElementMatches {
     element: Element,
-    #[serde(serialize_with = "serialize_selectors")]
     selectors: SmallVec<[Selector; 16]>,
 }
 
@@ -312,49 +317,23 @@ impl From<ElementMatches<'_>> for OwnedElementMatches {
     }
 }
 
-fn serialize_selectors<'a, S, T>(
-    selectors: &SmallVec<[T; 16]>,
-    serializer: S,
-) -> std::result::Result<S::Ok, S::Error>
-where
-    S: Serializer,
-    T: Borrow<Selector>,
-{
-    let mut seq = serializer.serialize_seq(None)?;
-    for selector in selectors {
-        seq.serialize_element(&selector.borrow().to_css_string())?;
-    }
-    seq.end()
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct SetElementMatches {
-    element: Element,
-    selectors: HashSet<String>,
-}
-
-impl From<OwnedElementMatches> for SetElementMatches {
-    fn from(OwnedElementMatches{ element, selectors }: OwnedElementMatches) -> Self {
-        SetElementMatches {
-            element,
-            selectors: selectors.into_iter().map(|s| s.to_css_string()).collect(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct SetDocumentMatches(HashMap<Element, SetElementMatches>);
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct SetDocumentMatches(HashMap<Element, HashSet<String>>);
 
 impl From<OwnedDocumentMatches> for SetDocumentMatches {
     fn from(OwnedDocumentMatches(v): OwnedDocumentMatches) -> Self {
-        SetDocumentMatches(v.into_iter().map(|sem| (sem.element, SetElementMatches::from(sem))).collect())
+        SetDocumentMatches(v.into_iter().map(|oem| {
+            let OwnedElementMatches{ element, selectors } = oem;
+            let set = selectors.iter().map(Selector::to_css_string).collect();
+            (element, set)
+        }).collect())
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct DocumentMatches<'a>(Vec<ElementMatches<'a>>);
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct OwnedDocumentMatches(Vec<OwnedElementMatches>);
 
 impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
