@@ -8,13 +8,13 @@ use std::io::{self, ErrorKind};
 use std::env;
 use std::fs;
 use tempfile::NamedTempFile;
-use mach_6::{self, Error, Result};
+use mach_6::{self, Algorithm, Error, Result};
 
 #[test]
 fn ensures_websites_is_dir() -> io::Result<()> {
     // create a file
     let websites_file = NamedTempFile::new_in(env::current_dir()?)?;
-    match mach_6::do_all_websites(websites_file.path()) {
+    match mach_6::do_all_websites(websites_file.path(), Algorithm::Naive) {
         Err(e) if e.is_io_and(|e| e.kind() == ErrorKind::NotADirectory) => Ok(()),
         Err(e) => panic!("expected NotADirectory error, got {e}"),
         Ok(_) => panic!("expected NotADirectory error, got Ok"),
@@ -33,7 +33,7 @@ fn skips_non_dir_websites() -> Result<()> {
             fs::create_dir(website_path.clone()).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
         }
     }
-    let res = mach_6::do_all_websites(websites_path)?;
+    let res = mach_6::do_all_websites(websites_path, Algorithm::Naive)?;
     assert_eq!(res.count(), 9);
     Ok(())
 }

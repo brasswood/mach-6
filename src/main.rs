@@ -6,7 +6,7 @@
  */
 use std::path::PathBuf;
 use clap::Parser;
-use mach_6::{Result, OwnedDocumentMatches};
+use mach_6::{Algorithm, Result, OwnedDocumentMatches};
 use serde_yml;
 
 #[derive(Parser, Debug)]
@@ -18,7 +18,7 @@ struct Args {
 
 fn main() -> mach_6::Result<()> {
     let Args{ websites } = Args::parse();
-    let result: Result<Vec<OwnedDocumentMatches>> = mach_6::do_all_websites(&websites)?.collect();
+    let result: Result<Vec<OwnedDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
     let result = result?;
     println!("{}", serde_yml::to_string(&result).unwrap());
     Ok(())

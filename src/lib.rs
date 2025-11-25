@@ -6,6 +6,8 @@
  */
 use ::cssparser::ToCss as _;
 use std::borrow::Borrow;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::DirEntry;
 use std::fs::ReadDir;
 use std::hash::DefaultHasher;
@@ -43,13 +45,24 @@ use smallvec::SmallVec;
 
 pub mod cssparser;
 
+#[derive(Debug, Clone, Copy)]
+pub enum Algorithm {
+    Naive,
+    WithSelectorMap,
+}
 
-pub fn do_all_websites(websites: &Path) -> Result<impl Iterator<Item = Result<OwnedDocumentMatches>>> {
+pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<OwnedDocumentMatches>>> {
     Ok(get_documents_and_selectors(websites)?
-        .map(|r| {
+        .map(move |r| {
             r.map(|(_, h, s)| {
                 let elements = get_elements(&h);
-                match_selectors(&elements, &s).into()
+                match algorithm {
+                    Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&elements, &s)),
+                    Algorithm::WithSelectorMap => {
+                        let selector_map = build_selector_map(&s);
+                        match_selectors_with_selector_map(&elements, &selector_map)
+                    }
+                }
             })
         })
     )
@@ -256,7 +269,7 @@ fn mock_device() -> Device {
     )
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Element(ego_tree::NodeId);
 
 impl From<scraper::ElementRef<'_>> for Element {
@@ -272,6 +285,7 @@ impl Serialize for Element {
         let mut hasher = DefaultHasher::new();
         self.0.hash(&mut hasher);
         serializer.serialize_u64(hasher.finish())
+        // TODO: print the actual element here too for easy verification
     }
 }
 
@@ -311,6 +325,30 @@ where
         seq.serialize_element(&selector.borrow().to_css_string())?;
     }
     seq.end()
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct SetElementMatches {
+    element: Element,
+    selectors: HashSet<String>,
+}
+
+impl From<OwnedElementMatches> for SetElementMatches {
+    fn from(OwnedElementMatches{ element, selectors }: OwnedElementMatches) -> Self {
+        SetElementMatches {
+            element,
+            selectors: selectors.into_iter().map(|s| s.to_css_string()).collect(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct SetDocumentMatches(HashMap<Element, SetElementMatches>);
+
+impl From<OwnedDocumentMatches> for SetDocumentMatches {
+    fn from(OwnedDocumentMatches(v): OwnedDocumentMatches) -> Self {
+        SetDocumentMatches(v.into_iter().map(|sem| (sem.element, SetElementMatches::from(sem))).collect())
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
