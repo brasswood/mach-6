@@ -5,6 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use ::cssparser::ToCss as _;
+use std::borrow::Borrow;
 use std::fs::DirEntry;
 use std::fs::ReadDir;
 use std::hash::DefaultHasher;
@@ -15,7 +16,6 @@ use std::fs;
 use std::path::Path;
 use scraper::ElementRef;
 use scraper::Html;
-use scraper::Selector;
 use selectors::bloom::CountingBloomFilter;
 use selectors::context::SelectorCaches;
 use selectors::matching;
@@ -184,7 +184,7 @@ fn parse_main_html(HtmlFile(website): HtmlFile) -> Result<Html> {
 
 /// Returns the relative paths of stylesheets referenced by the given document.
 fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
-    let selector = Selector::parse(r#"link[rel="stylesheet"]"#).unwrap();
+    let selector = scraper::Selector::parse(r#"link[rel="stylesheet"]"#).unwrap();
     document.select(&selector).filter_map(|elt| {
         let Some(path) = elt.attr("href") else {
             eprintln!("WARNING: Found no href attribute in link element: {}. Skipping.", elt.html());
@@ -194,12 +194,17 @@ fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
     }).collect()
 }
 
+pub type Selector = selectors::parser::Selector<style::selector_parser::SelectorImpl>;
+
 fn parse_stylesheet(base: &Path, CssFile(stylesheet_path): &CssFile) -> Result<Vec<Selector>> {
     let full_path = base.join(stylesheet_path);
     let css = fs::read_to_string(&full_path).map_err(|e| Error::with_io_error(e, Some(full_path)))?;
     let res = cssparser::get_all_selectors(&css)
         .into_iter()
-        .filter_map(|r| r.ok().flatten())
+        .filter_map(|r| {
+            r.ok().flatten().map(|sel_list| sel_list.selectors.slice().iter().cloned().collect::<Vec<_>>().into_iter())
+        })
+        .flatten()
         .collect();
     Ok(res)
 }
@@ -264,72 +269,72 @@ impl Serialize for Element {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct SelectorMatches<'a> {
-    selector: &'a Selector,
-    matches: Vec<Element>,
+pub struct ElementMatches<'a> {
+    element: Element,
+    #[serde(serialize_with = "serialize_selectors")]
+    selectors: SmallVec<[&'a Selector; 16]>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct OwnedSelectorMatches {
-    selector: Selector,
-    matches: Vec<Element>,
+pub struct OwnedElementMatches {
+    element: Element,
+    #[serde(serialize_with = "serialize_selectors")]
+    selectors: SmallVec<[Selector; 16]>,
 }
 
-impl From<SelectorMatches<'_>> for OwnedSelectorMatches {
-    fn from(value: SelectorMatches<'_>) -> Self {
+impl From<ElementMatches<'_>> for OwnedElementMatches {
+    fn from(value: ElementMatches<'_>) -> Self {
         Self {
-            selector: value.selector.clone(),
-            matches: value.matches,
+            element: value.element,
+            selectors: value.selectors.into_iter().cloned().collect(),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct OwnedSelectorMatchesTranspose {
-    element: Element,
-    #[serde(serialize_with = "serialize_selectors")]
-    matched_selectors: SmallVec<[selectors::parser::Selector<style::selector_parser::SelectorImpl>; 16]>,
-}
-
-fn serialize_selectors<S>(
-    selectors: &SmallVec<[selectors::parser::Selector<style::selector_parser::SelectorImpl>; 16]>,
+fn serialize_selectors<'a, S, T>(
+    selectors: &SmallVec<[T; 16]>,
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error>
 where
     S: Serializer,
+    T: Borrow<Selector>,
 {
-    let mut seq = serializer.serialize_seq(Some(selectors.len()))?;
+    let mut seq = serializer.serialize_seq(None)?;
     for selector in selectors {
-        seq.serialize_element(&selector.to_css_string())?;
+        seq.serialize_element(&selector.borrow().to_css_string())?;
     }
     seq.end()
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct DocumentMatches<'a>(Vec<SelectorMatches<'a>>);
+pub struct DocumentMatches<'a>(Vec<ElementMatches<'a>>);
 
 #[derive(Debug, Clone, Serialize)]
-pub struct OwnedDocumentMatches(Vec<OwnedSelectorMatches>);
+pub struct OwnedDocumentMatches(Vec<OwnedElementMatches>);
 
 impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
     fn from(value: DocumentMatches<'_>) -> Self {
-        Self(value.0.into_iter().map(OwnedSelectorMatches::from).collect())
+        Self(value.0.into_iter().map(OwnedElementMatches::from).collect())
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct OwnedDocumentMatchesTranspose(Vec<OwnedSelectorMatchesTranspose>);
-
-
-pub fn match_selectors<'a, 'b, I>(document: &'b Html, selectors: I) -> DocumentMatches<'a>
-where
-    I: IntoIterator<Item = &'a Selector>,
+pub fn match_selectors<'a>(document: &Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
 {
-    let ret = selectors.into_iter().map(|selector| {
-        let matches = document.select(&selector)
-            .map(Element::from)
-            .collect();
-        SelectorMatches{selector, matches}
+    let mut caches: SelectorCaches = Default::default();
+    let mut context = matching::MatchingContext::new(
+        matching::MatchingMode::Normal,
+        None,
+        &mut caches,
+        matching::QuirksMode::NoQuirks,
+        matching::NeedsSelectorFlags::No,
+        matching::MatchingForInvalidation::No,
+    );
+    let ret = document.tree.nodes().filter_map(|elt| {
+        let elt_ref = ElementRef::wrap(elt)?;
+        let selectors = selectors.iter().filter(|s| {
+            matching::matches_selector(s, 0, None, &elt_ref, &mut context)
+        }).collect();
+        Some(ElementMatches{ element: elt_ref.into(), selectors })
     }).collect();
     DocumentMatches(ret)
 }
@@ -340,8 +345,6 @@ where
 {
     let mut selector_map: SelectorMap<Rule> = SelectorMap::new();
     let iter = selectors.into_iter()
-        .map(|selector_list| selector_list.selectors.slice().into_iter())
-        .flatten()
         .map(Clone::clone)
         .enumerate();
     for (i, selector) in iter {
@@ -362,7 +365,7 @@ where
     selector_map
 }
 
-pub fn match_selectors_with_selector_map<'a, I>(elements: I, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatchesTranspose
+pub fn match_selectors_with_selector_map<'a, I>(elements: I, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches
 where
     I: IntoIterator<Item = ElementRef<'a>>
 {
@@ -389,9 +392,9 @@ where
             &CascadeData::new(),
             &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
         );
-        result.push(OwnedSelectorMatchesTranspose{ element: Element::from(element), matched_selectors })
+        result.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors })
     }
-    OwnedDocumentMatchesTranspose(result)
+    OwnedDocumentMatches(result)
 }
 
 #[cfg(test)]
