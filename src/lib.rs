@@ -51,18 +51,19 @@ pub enum Algorithm {
     WithSelectorMap,
 }
 
-pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<SetDocumentMatches>>> {
+pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches)>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(move |r| {
-            r.map(|(_, h, s)| {
+            r.map(|(w, h, s)| {
                 let elements = get_elements(&h);
-                match algorithm {
+                let matches = match algorithm {
                     Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&elements, &s)),
                     Algorithm::WithSelectorMap => {
                         let selector_map = build_selector_map(&s);
                         match_selectors_with_selector_map(&elements, &selector_map)
                     }
-                }.into()
+                };
+                (w, SetDocumentMatches::from(matches))
             })
         })
     )

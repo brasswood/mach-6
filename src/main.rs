@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
 use mach_6::{Algorithm, Result, SetDocumentMatches};
 use serde_yml;
@@ -18,8 +18,8 @@ struct Args {
 
 fn main() -> mach_6::Result<()> {
     let Args{ websites } = Args::parse();
-    let result: Result<Vec<SetDocumentMatches>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
-    let result = result?;
+    let result: Result<Vec<(String, SetDocumentMatches)>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
+    let result: HashMap<String, SetDocumentMatches> = result?.into_iter().collect();
     println!("{}", serde_yml::to_string(&result).unwrap());
     Ok(())
 }
