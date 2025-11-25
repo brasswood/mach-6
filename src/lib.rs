@@ -8,6 +8,7 @@ use ::cssparser::ToCss as _;
 use serde::ser::SerializeStruct as _;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Write as _;
 use std::fs::DirEntry;
 use std::fs::ReadDir;
 use std::hash::DefaultHasher;
@@ -276,9 +277,19 @@ pub struct Element {
 
 impl From<scraper::ElementRef<'_>> for Element {
     fn from(value: scraper::ElementRef) -> Self {
+        fn get_start_tag(el: ElementRef<'_>) -> String {
+            let name = el.value().name();
+            let mut out = String::new();
+            write!(&mut out, "<{name}").unwrap();
+            for (k, v) in el.value().attrs() {
+                write!(&mut out, " {k}=\"{v}\"").unwrap();
+            }
+            out.push('>');
+            out
+        } // thanks, ChatGPT
         Self{
             id: value.id(),
-            html: value.html(),
+            html: get_start_tag(value),
         }
     }
 }
@@ -287,7 +298,7 @@ impl Serialize for Element {
     fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer {
-        let mut st = serializer.serialize_struct("Element", 2)?; // I'm cheating a bit here...
+        let mut st = serializer.serialize_struct("Element", 2)?;
         let mut hasher = DefaultHasher::new();
         self.id.hash(&mut hasher);
         st.serialize_field("id", &hasher.finish())?;
