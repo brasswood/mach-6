@@ -15,7 +15,7 @@ readme = "README.md"
 [dependencies]
 cssparser = "0.36.0"
 ego-tree = "0.10.0"
-html5ever = "0.35.0"
+html5ever = "0.36"
 indexmap = { version = "2.11.4", optional = true }
 precomputed-hash = "0.1.1"
 selectors = { path = "../stylo/selectors" }

@@ -1,6 +1,5 @@
 use style::selector_map::SelectorMapElement;
 use crate::ElementRef;
-use log_once::warn_once;
 
 impl SelectorMapElement for ElementRef<'_> {
     fn id(&self) -> Option<&style::Atom> {
@@ -15,42 +14,40 @@ impl SelectorMapElement for ElementRef<'_> {
         }
     }
 
-    fn each_attr_name<F>(&self, callback: F)
+    fn each_attr_name<F>(&self, mut callback: F)
     where
         F: FnMut(&style::LocalName) {
-        warn_once!("WARNING: <ElementRef as SelectorMapElement>::each_attr_name unimplemented.");
+        for (attr, _) in self.value().attrs_atom() {
+            callback(&style::values::GenericAtomIdent(attr.local.clone()))
+        }
     }
 
     fn local_name(&self) -> &web_atoms::LocalName {
-        warn_once!("WARNING: <ElementRef as SelectorMapElement>::local_name unimplemented.");
-        Box::leak(Box::new(web_atoms::LocalName::from("")))
+        &self.value().name.local
     }
 
     fn state(&self) -> stylo_dom::ElementState {
-        warn_once!("WARNING: <ElementRef as SelectorMapElement>::state unimplemented.");
-        stylo_dom::ElementState::from_bits(0).unwrap()
+        stylo_dom::ElementState::from_bits(0).unwrap() // TODO: This is probably right?
     }
 
     fn namespace(&self) -> &web_atoms::Namespace {
-        warn_once!("WARNING: <ElementRef as SelectorMapElement>::namespace unimplemented.");
-        Box::leak(Box::new(web_atoms::Namespace::from("")))
+        &self.value().name.ns
     }
 
     fn traversal_parent(&self) -> Option<Self> {
-        warn_once!("WARNING: <ElementRef as SelectorMapElement>::traversal_parent unimplemented.");
-        None
+        self.node.parent().map(|n| ElementRef::wrap(n).unwrap()) // TODO: only Element parents, or could there be text/other node type parents as well? Does this only return Element parents? Should it?
     }
 
     fn borrow_data(&self) -> Option<atomic_refcell::AtomicRef<'_, style::data::ElementData>> {
-        warn_once!("WARNING: <ElementRef as SelectorMapElement>::borrow_data unimplemented.");
-        None
+        None // TODO: ElementData probably unnecessary?
     }
 
     fn query_container_size(
         &self,
-        display: &style::values::computed::Display,
+        _display: &style::values::computed::Display,
     ) -> euclid::default::Size2D<Option<app_units::Au>> {
-        warn_once!("WARNING: <ElementRef as SelectorMapElement>::query_container_size unimplemented.");
-        euclid::Size2D::new(None, None)
+        // TODO: I don't see anything to do with container queries
+        // in trait Element that I can reference. Is what I have here OK?
+        euclid::Size2D::new(None, None) 
     }
 }

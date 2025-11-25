@@ -310,6 +310,10 @@ impl Element {
             inner: self.classes_atom(),
         }
     }
+    
+    pub(crate) fn attrs_atom(&self) -> AttributesIter<'_> {
+        self.attrs.iter()
+    }
 
     /// Returns the value of an attribute.
     pub fn attr(&self, attr: &str) -> Option<&str> {
