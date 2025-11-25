@@ -270,7 +270,7 @@ fn mock_device() -> Device {
     )
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Eq, Ord)]
 pub struct Element {
     id: ego_tree::NodeId,
     html: String,
@@ -305,6 +305,24 @@ impl Serialize for Element {
         st.serialize_field("id", &hasher.finish())?;
         st.serialize_field("html", &self.html)?;
         st.end()
+    }
+}
+
+impl PartialOrd for Element {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.id.partial_cmp(&other.id)
+    }
+}
+
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for Element {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
     }
 }
 
