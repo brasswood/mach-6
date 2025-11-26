@@ -5,7 +5,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use ::cssparser::ToCss as _;
-use serde::ser::SerializeStruct as _;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
@@ -303,19 +302,6 @@ impl From<scraper::ElementRef<'_>> for Element {
     }
 }
 
-impl Serialize for Element {
-    fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer {
-        let mut st = serializer.serialize_struct("Element", 2)?;
-        let mut hasher = DefaultHasher::new();
-        self.id.hash(&mut hasher);
-        st.serialize_field("id", &hasher.finish())?;
-        st.serialize_field("html", &self.html)?;
-        st.end()
-    }
-}
-
 impl PartialOrd for Element {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.id.partial_cmp(&other.id)
@@ -355,7 +341,8 @@ impl From<ElementMatches<'_>> for OwnedElementMatches {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(into = "SerSetDocumentMatches")]
 pub struct SetDocumentMatches(HashMap<Element, HashSet<String>>);
 
 impl From<OwnedDocumentMatches> for SetDocumentMatches {
@@ -366,6 +353,28 @@ impl From<OwnedDocumentMatches> for SetDocumentMatches {
             (element, set)
         }).collect())
     }
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SerSetDocumentMatches(HashMap<u64, SerSetElementMatches>);
+
+impl From<SetDocumentMatches> for SerSetDocumentMatches {
+    fn from(value: SetDocumentMatches) -> Self {
+        SerSetDocumentMatches(
+            value.0.into_iter().map(|(k, v)| {
+                let mut hasher = DefaultHasher::new();
+                k.id.hash(&mut hasher);
+                let id = hasher.finish();
+                (id, SerSetElementMatches{ html: k.html, selectors: v })
+            }).collect()
+        )
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SerSetElementMatches {
+    html: String,
+    selectors: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
