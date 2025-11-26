@@ -341,6 +341,18 @@ impl From<ElementMatches<'_>> for OwnedElementMatches {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DocumentMatches<'a>(Vec<ElementMatches<'a>>);
+
+#[derive(Debug, Clone)]
+pub struct OwnedDocumentMatches(Vec<OwnedElementMatches>);
+
+impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
+    fn from(value: DocumentMatches<'_>) -> Self {
+        Self(value.0.into_iter().map(OwnedElementMatches::from).collect())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(into = "SerSetDocumentMatches")]
 pub struct SetDocumentMatches(HashMap<Element, HashSet<String>>);
@@ -375,18 +387,6 @@ impl From<SetDocumentMatches> for SerSetDocumentMatches {
 struct SerSetElementMatches {
     html: String,
     selectors: HashSet<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct DocumentMatches<'a>(Vec<ElementMatches<'a>>);
-
-#[derive(Debug, Clone)]
-pub struct OwnedDocumentMatches(Vec<OwnedElementMatches>);
-
-impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
-    fn from(value: DocumentMatches<'_>) -> Self {
-        Self(value.0.into_iter().map(OwnedElementMatches::from).collect())
-    }
 }
 
 pub fn match_selectors<'a>(elements: &[ElementRef], selectors: &'a [Selector]) -> DocumentMatches<'a>
