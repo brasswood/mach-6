@@ -5,6 +5,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use ::cssparser::ToCss as _;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
@@ -354,7 +356,7 @@ impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(into = "SerSetDocumentMatches")]
+#[serde(into = "SerDocumentMatches")]
 pub struct SetDocumentMatches(HashMap<Element, HashSet<String>>);
 
 impl From<OwnedDocumentMatches> for SetDocumentMatches {
@@ -368,25 +370,26 @@ impl From<OwnedDocumentMatches> for SetDocumentMatches {
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct SerSetDocumentMatches(HashMap<u64, SerSetElementMatches>);
+struct SerDocumentMatches(BTreeMap<u64, SerElementMatches>);
 
-impl From<SetDocumentMatches> for SerSetDocumentMatches {
+impl From<SetDocumentMatches> for SerDocumentMatches {
     fn from(value: SetDocumentMatches) -> Self {
-        SerSetDocumentMatches(
+        SerDocumentMatches(
             value.0.into_iter().map(|(k, v)| {
                 let mut hasher = DefaultHasher::new();
                 k.id.hash(&mut hasher);
                 let id = hasher.finish();
-                (id, SerSetElementMatches{ html: k.html, selectors: v })
+                let selectors = BTreeSet::from_iter(v.into_iter());
+                (id, SerElementMatches{ html: k.html, selectors })
             }).collect()
         )
     }
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct SerSetElementMatches {
+struct SerElementMatches {
     html: String,
-    selectors: HashSet<String>,
+    selectors: BTreeSet<String>,
 }
 
 pub fn match_selectors<'a>(elements: &[ElementRef], selectors: &'a [Selector]) -> DocumentMatches<'a>
