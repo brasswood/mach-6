@@ -369,8 +369,20 @@ impl From<OwnedDocumentMatches> for SetDocumentMatches {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct SerElementKey(u64);
+
+impl Serialize for SerElementKey {
+    fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        serializer.serialize_str(&format!("element_{}", self.0))
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
-struct SerDocumentMatches(BTreeMap<u64, SerElementMatches>);
+struct SerDocumentMatches(BTreeMap<SerElementKey, SerElementMatches>);
 
 impl From<SetDocumentMatches> for SerDocumentMatches {
     fn from(value: SetDocumentMatches) -> Self {
@@ -380,7 +392,7 @@ impl From<SetDocumentMatches> for SerDocumentMatches {
                 k.id.hash(&mut hasher);
                 let id = hasher.finish();
                 let selectors = BTreeSet::from_iter(v.into_iter());
-                (id, SerElementMatches{ html: k.html, selectors })
+                (SerElementKey(id), SerElementMatches{ html: k.html, selectors })
             }).collect()
         )
     }
