@@ -26,7 +26,11 @@ fn selector_map_correct() -> Result<()> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let websites = workspace.join("websites");
     let equality_failures = workspace.join("tests/equality_failures");
-    std::fs::create_dir_all(&equality_failures).into_result(Some(equality_failures.clone()))?;
+    match std::fs::remove_dir_all(&equality_failures) {
+        Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound) => (),
+        other => other.into_result(Some(equality_failures.clone()))?
+    };
+    std::fs::create_dir(&equality_failures).into_result(Some(equality_failures.clone()))?;
 
     let results1 = mach_6::do_all_websites(&websites, Algorithm::Naive)?;
     let results2 = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMap)?;
