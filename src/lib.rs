@@ -75,10 +75,10 @@ pub fn get_elements<'a>(document: &'a Html) -> Vec<ElementRef<'a>> {
 }
 
 pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
-    let websites_dir = fs::read_dir(&websites_path).map_err(|e| Error::with_io_error(e, Some(websites_path.to_path_buf())))?; 
+    let websites_dir = fs::read_dir(&websites_path).into_result(Some(websites_path.to_path_buf()))?; 
     let websites = get_websites_dirs(websites_dir);
     let documents = websites.filter_map(|r: io::Result<PathBuf>| {
-        r.map_err(|e| Error::with_io_error(e, Some(websites_path.to_path_buf())))
+        r.into_result(Some(websites_path.to_path_buf()))
             .and_then(|d: PathBuf| parse_website(&d).map(|html: Option<Html>| html.map(|html| (d, html)))).transpose()
     });
     let documents_selectors = documents.map(|r: Result<(PathBuf, Html)>| {
@@ -168,16 +168,32 @@ impl Error {
             _ => false,
         }
     }
+}
 
-    pub fn with_io_error(error: io::Error, path: Option<PathBuf>) -> Self {
-        Self {
+pub trait IntoErrorExt<T> {
+    fn into_error(self, path: Option<PathBuf>) -> Error;
+}
+
+impl<T> IntoErrorExt<T> for io::Error {
+    fn into_error(self, path: Option<PathBuf>) -> Error {
+        Error {
             path,
-            error: ErrorKind::Io(error),
+            error: ErrorKind::Io(self),
         }
     }
 }
 
 pub type Result<T> = result::Result<T, Error>;
+
+pub trait IntoResultExt<T> {
+    fn into_result(self, path: Option<PathBuf>) -> Result<T>;
+}
+
+impl<T> IntoResultExt<T> for io::Result<T> {
+    fn into_result(self, path: Option<PathBuf>) -> Result<T> {
+        self.map_err(|e| <io::Error as IntoErrorExt<T>>::into_error(e, path))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct HtmlFile(PathBuf);
@@ -186,8 +202,8 @@ pub struct HtmlFile(PathBuf);
 pub struct CssFile(PathBuf);
 
 fn get_main_html(website: &Path) -> Result<Option<HtmlFile>> {
-    let err_map = |e: io::Error| Error::with_io_error(e, Some(website.to_path_buf()));
-    let files = fs::read_dir(website).map_err(err_map)?;
+    let website_path = Some(website.to_path_buf());
+    let files = fs::read_dir(website).into_result(website_path.clone())?;
     let f = |entry: DirEntry| {
         let path = entry.path();
         if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("html") {
@@ -196,7 +212,7 @@ fn get_main_html(website: &Path) -> Result<Option<HtmlFile>> {
             None
         }
     };
-    let mut found: Vec<HtmlFile> = files.collect::<io::Result<Vec<_>>>().map_err(err_map)?.into_iter().filter_map(f).collect();
+    let mut found: Vec<HtmlFile> = files.collect::<io::Result<Vec<_>>>().into_result(website_path)?.into_iter().filter_map(f).collect();
     match found.len() {
         0 => {
             eprintln!("WARNING: ignoring {}, no html file found", website.display());
@@ -208,7 +224,7 @@ fn get_main_html(website: &Path) -> Result<Option<HtmlFile>> {
 }
 
 fn parse_main_html(HtmlFile(website): HtmlFile) -> Result<Html> {
-    let contents = fs::read_to_string(&website).map_err(|e| Error::with_io_error(e, Some(website)))?;
+    let contents = fs::read_to_string(&website).into_result(Some(website))?;
     Ok(Html::parse_document(&contents))
 }
 
@@ -228,7 +244,7 @@ pub type Selector = selectors::parser::Selector<style::selector_parser::Selector
 
 fn parse_stylesheet(base: &Path, CssFile(stylesheet_path): &CssFile) -> Result<Vec<Selector>> {
     let full_path = base.join(stylesheet_path);
-    let css = fs::read_to_string(&full_path).map_err(|e| Error::with_io_error(e, Some(full_path)))?;
+    let css = fs::read_to_string(&full_path).into_result(Some(full_path))?;
     let res = cssparser::get_all_selectors(&css)
         .into_iter()
         .filter_map(|r| {
@@ -481,7 +497,7 @@ pub fn match_selectors_with_selector_map(elements: &[ElementRef], selector_map: 
 #[cfg(test)]
 mod tests {
     use std::{fs, path::PathBuf};
-    use crate::{get_main_html, get_stylesheet_paths, parse_main_html, CssFile, Error};
+    use crate::{CssFile, IntoResultExt, get_main_html, get_stylesheet_paths, parse_main_html};
 
     /// In all of these tests:
     ///   - Err() represents an unexpected error occurring during the test
@@ -490,7 +506,7 @@ mod tests {
 
     #[test]
     fn ensures_main_html_exists() -> super::Result<()> {
-        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
+        let website_dir = tempfile::tempdir().into_result(None)?;
         let website_path = website_dir.path();
         let is_err = get_main_html(website_path).is_ok_and(|h| h.is_none());
         assert!(is_err);
@@ -499,11 +515,11 @@ mod tests {
 
     #[test]
     fn ensures_not_multiple_main_html() -> super::Result<()> {
-        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
+        let website_dir = tempfile::tempdir().into_result(None)?;
         let website_path = website_dir.path();
         for i in 1..=2 {
             let html_path = website_path.join(format!("{i}.html"));
-            fs::File::create_new(&html_path).map_err(|e| Error::with_io_error(e, Some(html_path)))?;
+            fs::File::create_new(&html_path).into_result(Some(html_path))?;
         }
         let is_err = get_main_html(website_path).is_err_and(|e| e.is_html_and(|_| true));
         assert!(is_err);
@@ -523,10 +539,9 @@ mod tests {
 
     #[test]
     fn parses_main_html() -> super::Result<()> {
-        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
+        let website_dir = tempfile::tempdir().into_result(None)?;
         let website_path = website_dir.path();
-        fs::write(website_path.join("index.html"), "<html><body><h1>Hello, World!</h1></body></html>")
-            .map_err(|e| Error::with_io_error(e, Some(website_path.to_path_buf())))?;
+        fs::write(website_path.join("index.html"), "<html><body><h1>Hello, World!</h1></body></html>").into_result(Some(website_path.to_path_buf()))?;
         println!("{:?}", website_path);
         let main_html = get_main_html(website_path)?.unwrap();
         parse_main_html(main_html).unwrap();
@@ -535,10 +550,10 @@ mod tests {
 
     #[test]
     fn gets_stylesheet_paths() -> super::Result<()> {
-        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
+        let website_dir = tempfile::tempdir().into_result(None)?;
         let website_path = website_dir.path();
         fs::write(website_path.join("index.html"), r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"></head><body><h1>Hello, World!</h1></body></html>"#)
-            .map_err(|e| Error::with_io_error(e, Some(website_path.to_path_buf())))?;
+            .into_result(Some(website_path.to_path_buf()))?;
         let main_html = get_main_html(website_path)?.unwrap();
         let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);
@@ -554,10 +569,10 @@ mod tests {
 
     #[test]
     fn excludes_non_stylesheet_paths() -> super::Result<()> {
-        let website_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
+        let website_dir = tempfile::tempdir().into_result(None)?;
         let website_path = website_dir.path();
         let index_html_path = website_path.join("index.html");
-        fs::write(&index_html_path, r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"><link rel="prerender" href="boogeyman"></head><body><h1>Hello, World!</h1></body></html>"#).map_err(|e| Error::with_io_error(e, Some(index_html_path)))?;
+        fs::write(&index_html_path, r#"<html><head><link rel="stylesheet" href="style1.css"><link rel="stylesheet" href="style2.css"><link rel="prerender" href="boogeyman"></head><body><h1>Hello, World!</h1></body></html>"#).into_result(Some(index_html_path))?;
         let main_html = get_main_html(website_path)?.unwrap();
         let document = parse_main_html(main_html)?;
         let mut stylesheets = get_stylesheet_paths(&document);

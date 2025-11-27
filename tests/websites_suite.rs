@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use std::path::PathBuf;
-use mach_6::{Algorithm, Result};
+use mach_6::{Algorithm, IntoResultExt, Result};
 use insta;
 
 #[test]
@@ -26,7 +26,7 @@ fn selector_map_correct() -> Result<()> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let websites = workspace.join("websites");
     let equality_failures = workspace.join("tests/equality_failures");
-    std::fs::create_dir_all(&equality_failures).map_err(|e| mach_6::Error::with_io_error(e, Some(equality_failures.clone())))?;
+    std::fs::create_dir_all(&equality_failures).into_result(Some(equality_failures.clone()))?;
 
     let results1 = mach_6::do_all_websites(&websites, Algorithm::Naive)?;
     let results2 = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMap)?;
@@ -37,10 +37,9 @@ fn selector_map_correct() -> Result<()> {
         if website1 != website2 {
             for (algorithm, website) in [("Naive", website1), ("SelectorMap", website2)] {
                 let website_folder = equality_failures.join(&website.0);
-                std::fs::create_dir_all(&website_folder).map_err(|e| mach_6::Error::with_io_error(e, Some(website_folder.clone())))?;
+                std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
                 let yaml_path = website_folder.join(format!("{web}.{alg}.yaml", web=website.0, alg=algorithm));
-                let f = std::fs::File::create(&yaml_path);
-                let f = f.map_err(|e| mach_6::Error::with_io_error(e, Some(yaml_path)))?;
+                let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
                 serde_yml::to_writer(f, &website.1).unwrap(); // I don't wanna mess with it
             }
             panic!();

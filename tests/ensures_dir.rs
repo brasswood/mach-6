@@ -8,7 +8,7 @@ use std::io::{self, ErrorKind};
 use std::env;
 use std::fs;
 use tempfile::NamedTempFile;
-use mach_6::{self, Algorithm, Error, Result};
+use mach_6::{self, Algorithm, IntoResultExt, Result};
 
 #[test]
 fn ensures_websites_is_dir() -> io::Result<()> {
@@ -23,16 +23,16 @@ fn ensures_websites_is_dir() -> io::Result<()> {
 
 #[test]
 fn skips_non_dir_websites() -> Result<()> {
-    let websites_dir = tempfile::tempdir().map_err(|e| Error::with_io_error(e, None))?;
+    let websites_dir = tempfile::tempdir().into_result(None)?;
     let websites_path = websites_dir.path();
     for i in 0..10 {
         let website_path = websites_path.join(format!("{i}"));
         if i == 5 {
-            fs::File::create_new(&website_path).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
+            fs::File::create_new(&website_path).into_result(Some(website_path))?;
         } else {
-            fs::create_dir(&website_path).map_err(|e| Error::with_io_error(e, Some(website_path.clone())))?;
+            fs::create_dir(&website_path).into_result(Some(website_path.clone()))?;
             let html_path = website_path.join("index.html");
-            fs::File::create_new(&html_path).map_err(|e| Error::with_io_error(e, Some(website_path)))?;
+            fs::File::create_new(&html_path).into_result(Some(website_path))?;
         }
     }
     let res = mach_6::do_all_websites(websites_path, Algorithm::Naive)?;
