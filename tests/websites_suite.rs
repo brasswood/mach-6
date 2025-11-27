@@ -26,6 +26,7 @@ fn selector_map_correct() -> Result<()> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let websites = workspace.join("websites");
     let equality_failures = workspace.join("tests/equality_failures");
+    let mut failed = false;
     match std::fs::remove_dir_all(&equality_failures) {
         Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound) => (),
         other => other.into_result(Some(equality_failures.clone()))?
@@ -46,8 +47,9 @@ fn selector_map_correct() -> Result<()> {
                 let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
                 serde_yml::to_writer(f, &website.1).unwrap(); // I don't wanna mess with it
             }
-            panic!();
+            failed = true;
         }
     }
+    assert!(!failed);
     Ok(())
 }
