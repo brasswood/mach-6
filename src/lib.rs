@@ -297,7 +297,7 @@ fn mock_device() -> Device {
 
 #[derive(Debug, Clone, Eq, Ord)]
 pub struct Element {
-    id: ego_tree::NodeId,
+    id: u64,
     html: String,
 }
 
@@ -313,8 +313,13 @@ impl From<scraper::ElementRef<'_>> for Element {
             out.push('>');
             out
         } // thanks, ChatGPT
+
+        let mut hasher = DefaultHasher::new();
+        value.id().hash(&mut hasher);
+        let id = hasher.finish();
+ 
         Self{
-            id: value.id(),
+            id,
             html: get_start_tag(value),
         }
     }
@@ -404,11 +409,8 @@ impl From<SetDocumentMatches> for SerDocumentMatches {
     fn from(value: SetDocumentMatches) -> Self {
         SerDocumentMatches(
             value.0.into_iter().map(|(k, v)| {
-                let mut hasher = DefaultHasher::new();
-                k.id.hash(&mut hasher);
-                let id = hasher.finish();
                 let selectors = BTreeSet::from_iter(v.into_iter());
-                (SerElementKey(id), SerElementMatches{ html: k.html, selectors })
+                (SerElementKey(k.id), SerElementMatches{ html: k.html, selectors })
             }).collect()
         )
     }
