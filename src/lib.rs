@@ -469,7 +469,7 @@ where
 }
 
 pub fn match_selectors_with_selector_map(elements: &[ElementRef], selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
-    let bloom_filter = CountingBloomFilter::default(); // TODO: see what I need to do here
+    let bloom_filter = CountingBloomFilter::new(); // TODO: see what I need to do here
     let mut caches = SelectorCaches::default();
     let mut context = matching::MatchingContext::new(
         matching::MatchingMode::Normal,
