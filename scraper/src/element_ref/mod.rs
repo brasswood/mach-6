@@ -208,6 +208,7 @@ impl FusedIterator for Text<'_> {}
 
 mod element;
 mod selector_map;
+mod bloom_filter;
 mod serializable;
 
 #[cfg(test)]
