@@ -21,6 +21,9 @@ pub fn bench_all_websites(c: &mut Criterion) {
                 group.bench_function("With SelectorMap", |b| b.iter(|| {
                     mach_6::match_selectors_with_selector_map(&elements, &selector_map);
                 }));
+                group.bench_function("With SelectorMap and Bloom Filter", |b| b.iter(|| {
+                    mach_6::match_selectors_with_selector_map_and_bloom_filter(&document, &selector_map);
+                }));
             },
             Err(e) => {
                 eprintln!("ERROR: {e}");
