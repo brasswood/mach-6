@@ -48,6 +48,9 @@ fn compare_with_naive(algorithm: Algorithm) -> Result<bool> {
             failed = true;
         }
     }
+    if !failed {
+        std::fs::remove_dir(&equality_failures_alg).into_result(Some(equality_failures_alg.clone()))?;
+    }
     Ok(!failed)
 
 }
