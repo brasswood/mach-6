@@ -1,5 +1,5 @@
 use style::selector_map::SelectorMapElement;
-use crate::ElementRef;
+use crate::{ElementRef, Node};
 
 impl SelectorMapElement for ElementRef<'_> {
     fn id(&self) -> Option<&style::Atom> {
@@ -35,7 +35,12 @@ impl SelectorMapElement for ElementRef<'_> {
     }
 
     fn traversal_parent(&self) -> Option<Self> {
-        self.node.parent().map(|n| ElementRef::wrap(n).unwrap()) // TODO: only Element parents, or could there be text/other node type parents as well? Does this only return Element parents? Should it?
+        let parent_node = self.node.parent()?;
+        match parent_node.value() {
+            Node::Document => None,
+            Node::Element(_) => Some(ElementRef::new(parent_node)),
+            other => panic!("Did not expect parent of element to be {:?}.", other),
+        }
     }
 
     fn borrow_data(&self) -> Option<atomic_refcell::AtomicRef<'_, style::data::ElementData>> {
