@@ -21,37 +21,43 @@ fn does_all_websites() -> Result<()> {
     })
 }
 
-#[test]
-fn all_algorithms_correct() -> Result<()> {
+fn compare_with_naive(algorithm: Algorithm) -> Result<bool> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let websites = workspace.join("websites");
-    let equality_failures = workspace.join("tests/equality_failures");
+    let equality_failures_alg = workspace.join(format!("tests/equality_failures/{algorithm}"));
     let mut failed = false;
-    match std::fs::remove_dir_all(&equality_failures) {
+    match std::fs::remove_dir_all(&equality_failures_alg) {
         Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound) => (),
-        other => other.into_result(Some(equality_failures.clone()))?
+        other => other.into_result(Some(equality_failures_alg.clone()))?
     };
-    std::fs::create_dir(&equality_failures).into_result(Some(equality_failures.clone()))?;
+    std::fs::create_dir_all(&equality_failures_alg).into_result(Some(equality_failures_alg.clone()))?;
 
     let results1 = mach_6::do_all_websites(&websites, Algorithm::Naive)?;
-    let results2 = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMap)?;
-    let results3 = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMapAndBloomFilter)?;
-
-    for ((result1, result2), result3) in results1.zip(results2).zip(results3) {
+    let results2 = mach_6::do_all_websites(&websites, algorithm)?;
+    for (result1, result2) in results1.zip(results2) {
         let website1 = result1?;
         let website2 = result2?;
-        let website3 = result3?;
-        if website1 != website2 || website1 != website3 {
-            for (algorithm, website) in [("Naive", website1), ("SelectorMap", website2), ("SelectorMapWithBloomFilter", website3)] {
-                let website_folder = equality_failures.join(&website.0);
+        if website1 != website2 {
+            for (algorithm, website) in [(Algorithm::Naive, website1), (algorithm, website2)] {
+                let website_folder = equality_failures_alg.join(&website.0);
                 std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
                 let yaml_path = website_folder.join(format!("{web}.{alg}.yaml", web=website.0, alg=algorithm));
                 let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
-                serde_yml::to_writer(f, &website.1).unwrap(); // I don't wanna mess with it
+                serde_yml::to_writer(f, &website.1).unwrap(); // TODO: make a mach_6::Result and propagate instead of unwrapping
             }
             failed = true;
         }
     }
-    assert!(!failed);
+    Ok(!failed)
+
+}
+
+#[test]
+fn all_algorithms_correct() -> Result<()> {
+    let mut succeeded = true;
+    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithSelectorMapAndBloomFilter] {
+        succeeded &= compare_with_naive(algorithm)?;
+    }
+    assert!(succeeded);
     Ok(())
 }

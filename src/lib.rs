@@ -5,6 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use ::cssparser::ToCss as _;
+use derive_more::Display;
 use style::bloom::StyleBloom;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -46,7 +47,7 @@ use smallvec::SmallVec;
 
 pub mod cssparser;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Display, Clone, Copy)]
 pub enum Algorithm {
     Naive,
     WithSelectorMap,
