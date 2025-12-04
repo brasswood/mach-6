@@ -22,7 +22,7 @@ fn does_all_websites() -> Result<()> {
 }
 
 #[test]
-fn selector_map_correct() -> Result<()> {
+fn all_algorithms_correct() -> Result<()> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let websites = workspace.join("websites");
     let equality_failures = workspace.join("tests/equality_failures");
@@ -35,12 +35,14 @@ fn selector_map_correct() -> Result<()> {
 
     let results1 = mach_6::do_all_websites(&websites, Algorithm::Naive)?;
     let results2 = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMap)?;
+    let results3 = mach_6::do_all_websites(&websites, Algorithm::WithSelectorMapAndBloomFilter)?;
 
-    for (result1, result2) in results1.zip(results2) {
+    for ((result1, result2), result3) in results1.zip(results2).zip(results3) {
         let website1 = result1?;
         let website2 = result2?;
-        if website1 != website2 {
-            for (algorithm, website) in [("Naive", website1), ("SelectorMap", website2)] {
+        let website3 = result3?;
+        if website1 != website2 || website1 != website3 {
+            for (algorithm, website) in [("Naive", website1), ("SelectorMap", website2), ("SelectorMapWithBloomFilter", website3)] {
                 let website_folder = equality_failures.join(&website.0);
                 std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
                 let yaml_path = website_folder.join(format!("{web}.{alg}.yaml", web=website.0, alg=algorithm));

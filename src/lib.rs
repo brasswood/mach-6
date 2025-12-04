@@ -50,18 +50,22 @@ pub mod cssparser;
 pub enum Algorithm {
     Naive,
     WithSelectorMap,
+    WithSelectorMapAndBloomFilter,
 }
 
 pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches)>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(move |r| {
             r.map(|(w, h, s)| {
-                let elements = get_elements(&h);
                 let matches = match algorithm {
-                    Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&elements, &s)),
+                    Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&get_elements(&h), &s)),
                     Algorithm::WithSelectorMap => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_selector_map(&elements, &selector_map)
+                        match_selectors_with_selector_map(&get_elements(&h), &selector_map)
+                    }
+                    Algorithm::WithSelectorMapAndBloomFilter => {
+                        let selector_map = build_selector_map(&s);
+                        match_selectors_with_selector_map_and_bloom_filter(&h, &selector_map)
                     }
                 };
                 (w, SetDocumentMatches::from(matches))
