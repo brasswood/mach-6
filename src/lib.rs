@@ -59,10 +59,10 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
         .map(move |r| {
             r.map(|(w, h, s)| {
                 let matches = match algorithm {
-                    Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&get_elements(&h), &s)),
+                    Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&h, &s)),
                     Algorithm::WithSelectorMap => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_selector_map(&get_elements(&h), &selector_map)
+                        match_selectors_with_selector_map(&h, &selector_map)
                     }
                     Algorithm::WithSelectorMapAndBloomFilter => {
                         let selector_map = build_selector_map(&s);
@@ -73,10 +73,6 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
             })
         })
     )
-}
-
-pub fn get_elements<'a>(document: &'a Html) -> Vec<ElementRef<'a>> {
-    document.tree.nodes().filter_map(ElementRef::wrap).collect()
 }
 
 pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
@@ -427,23 +423,35 @@ struct SerElementMatches {
     selectors: BTreeSet<String>,
 }
 
-pub fn match_selectors<'a>(elements: &[ElementRef], selectors: &'a [Selector]) -> DocumentMatches<'a>
+pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
 {
+    fn preorder_traversal<'a>(
+        element: ElementRef<'a>, 
+        selectors: &'a [Selector],
+        matches: &mut Vec<ElementMatches<'a>>,
+        caches: &mut SelectorCaches,
+    ) {
+        // 1. do thing
+        // 1.1: create a MatchingContext
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            None,
+            caches,
+            matching::QuirksMode::NoQuirks,
+            matching::NeedsSelectorFlags::No,
+            matching::MatchingForInvalidation::No,
+        );
+        // 1.2: get matching selectors naively
+        let matched_selectors = selectors.iter().filter(|s| matching::matches_selector(s, 0, None, &element, &mut context)).collect();
+        matches.push(ElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        // 2. traverse children
+        for child in element.child_elements() {
+            preorder_traversal(child, selectors, matches, caches);
+        }
+    }
     let mut caches: SelectorCaches = Default::default();
-    let mut context = matching::MatchingContext::new(
-        matching::MatchingMode::Normal,
-        None,
-        &mut caches,
-        matching::QuirksMode::NoQuirks,
-        matching::NeedsSelectorFlags::No,
-        matching::MatchingForInvalidation::No,
-    );
-    let result = elements.iter().map(|element| {
-        let matched_selectors = selectors.iter().filter(|s| {
-            matching::matches_selector(s, 0, None, element, &mut context)
-        }).collect();
-        ElementMatches{ element: (*element).into(), selectors: matched_selectors }
-    }).collect();
+    let mut result = Vec::new();
+    preorder_traversal(document.root_element(), selectors, &mut result, &mut caches);
     DocumentMatches(result)
 }
 
@@ -473,19 +481,24 @@ where
     selector_map
 }
 
-pub fn match_selectors_with_selector_map(elements: &[ElementRef], selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
-    let mut caches = SelectorCaches::default();
-    // TODO: Actual Stylo creates a new `MatchingContext` for every element.
-    // Even though it's not necessary to do it here, should I emulate this behavior?
-    let mut context = matching::MatchingContext::new(
-        matching::MatchingMode::Normal,
-        None,
-        &mut caches,
-        matching::QuirksMode::NoQuirks,
-        matching::NeedsSelectorFlags::No,
-        matching::MatchingForInvalidation::No,
-    );
-    let result = elements.iter().map(|&element| {
+pub fn match_selectors_with_selector_map(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
+    fn preorder_traversal<'a>(
+        element: ElementRef<'a>, 
+        matches: &mut Vec<OwnedElementMatches>,
+        selector_map: &SelectorMap<Rule>,
+        caches: &mut SelectorCaches,
+    ) {
+        // 1. do thing
+        // 1.1: create a MatchingContext
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            None,
+            caches,
+            matching::QuirksMode::NoQuirks,
+            matching::NeedsSelectorFlags::No,
+            matching::MatchingForInvalidation::No,
+        );
+        // 1.2: Use the selector map to get matching rules
         let mut matched_selectors = SmallVec::new();
         selector_map.get_all_matching_rules(
             element,
@@ -497,8 +510,16 @@ pub fn match_selectors_with_selector_map(elements: &[ElementRef], selector_map: 
             &CascadeData::new(),
             &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
         );
-        OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors }
-    }).collect();
+        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        // 2. traverse children
+        for child in element.child_elements() {
+            preorder_traversal(child, matches, selector_map, caches);
+        }
+    }
+
+    let mut caches = SelectorCaches::default();
+    let mut result = Vec::new();
+    preorder_traversal(document.root_element(), &mut result, selector_map, &mut caches);
     OwnedDocumentMatches(result)
 }
 
