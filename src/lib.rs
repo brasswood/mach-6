@@ -5,6 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use ::cssparser::ToCss as _;
+use style::bloom::StyleBloom;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
@@ -20,7 +21,6 @@ use std::fs;
 use std::path::Path;
 use scraper::ElementRef;
 use scraper::Html;
-use selectors::bloom::CountingBloomFilter;
 use selectors::context::SelectorCaches;
 use selectors::matching;
 use style::media_queries::Device;
@@ -469,11 +469,12 @@ where
 }
 
 pub fn match_selectors_with_selector_map(elements: &[ElementRef], selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
-    let bloom_filter = CountingBloomFilter::new(); // TODO: see what I need to do here
     let mut caches = SelectorCaches::default();
+    // TODO: Actual Stylo creates a new `MatchingContext` for every element.
+    // Even though it's not necessary to do it here, should I emulate this behavior?
     let mut context = matching::MatchingContext::new(
         matching::MatchingMode::Normal,
-        Some(&bloom_filter), // TODO: interior mutability IIRC
+        None,
         &mut caches,
         matching::QuirksMode::NoQuirks,
         matching::NeedsSelectorFlags::No,
@@ -493,6 +494,52 @@ pub fn match_selectors_with_selector_map(elements: &[ElementRef], selector_map: 
         );
         OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors }
     }).collect();
+    OwnedDocumentMatches(result)
+}
+
+pub fn match_selectors_with_selector_map_and_bloom_filter(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
+    fn preorder_traversal<'a>(
+        element: ElementRef<'a>, 
+        element_depth: usize,
+        matches: &mut Vec<OwnedElementMatches>,
+        selector_map: &SelectorMap<Rule>,
+        style_bloom: &mut StyleBloom<ElementRef<'a>>,
+        caches: &mut SelectorCaches,
+    ) {
+        // 1. do thing
+        // 1.1: update the bloom filter with the current element
+        style_bloom.insert_parents_recovering(element, element_depth);
+        // 1.2: create a MatchingContext (after updating style_bloom to avoid borrow check error)
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            Some(style_bloom.filter()),
+            caches,
+            matching::QuirksMode::NoQuirks,
+            matching::NeedsSelectorFlags::No,
+            matching::MatchingForInvalidation::No,
+        );
+        // 1.3: Use the selector map to get matching rules
+        let mut matched_selectors = SmallVec::new();
+        selector_map.get_all_matching_rules(
+            element,
+            element, // TODO: ????
+            &mut SmallVec::new(),
+            &mut Some(&mut matched_selectors),
+            &mut context,
+            CascadeLevel::UANormal, // TODO: ??????
+            &CascadeData::new(),
+            &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
+        );
+        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        // 2. traverse children
+        for child in element.child_elements() {
+            preorder_traversal(child, element_depth+1, matches, selector_map, style_bloom, caches);
+        }
+    }
+    let mut bloom_filter = StyleBloom::new();
+    let mut caches = SelectorCaches::default();
+    let mut result = Vec::new();
+    preorder_traversal(document.root_element(), 0, &mut result, selector_map, &mut bloom_filter, &mut caches);
     OwnedDocumentMatches(result)
 }
 
