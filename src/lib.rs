@@ -423,6 +423,7 @@ struct SerElementMatches {
     selectors: BTreeSet<String>,
 }
 
+// TODO: figure out why iteration yields more elements than traversal
 pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
 {
     fn preorder_traversal<'a>(
