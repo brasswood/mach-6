@@ -1,4 +1,7 @@
 use style::selector_map::SelectorMapElement;
+use std::hash::Hash as _;
+use std::hash::DefaultHasher;
+use std::hash::Hasher as _;
 use crate::{ElementRef, Node};
 
 impl SelectorMapElement for ElementRef<'_> {
@@ -54,5 +57,12 @@ impl SelectorMapElement for ElementRef<'_> {
         // TODO: I don't see anything to do with container queries
         // in trait Element that I can reference. Is what I have here OK?
         euclid::Size2D::new(None, None) 
+    }
+
+    #[cfg(debug_assertions)]
+    fn node_id(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        ego_tree::NodeRef::id(self).hash(&mut hasher);
+        hasher.finish()
     }
 }
