@@ -12,14 +12,13 @@ pub fn bench_all_websites(c: &mut Criterion) {
     for res in documents_selectors {
         match res {
             Ok((name, document, selectors)) => {
-                let elements = mach_6::get_elements(&document);
                 let selector_map = mach_6::build_selector_map(&selectors);
                 let mut group = c.benchmark_group(&name);
                 group.bench_function("Naive", |b| b.iter(|| {
-                    mach_6::match_selectors(&elements, &selectors);
+                    mach_6::match_selectors(&document, &selectors);
                 }));
                 group.bench_function("With SelectorMap", |b| b.iter(|| {
-                    mach_6::match_selectors_with_selector_map(&elements, &selector_map);
+                    mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 }));
                 group.bench_function("With SelectorMap and Bloom Filter", |b| b.iter(|| {
                     mach_6::match_selectors_with_selector_map_and_bloom_filter(&document, &selector_map);
