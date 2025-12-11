@@ -84,10 +84,23 @@ pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator
     });
     let documents_selectors = documents.map(|r: Result<(PathBuf, Html)>| {
         r.map(|(base, document): (PathBuf, Html)| {
-            let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
-            let selectors= stylesheets.into_iter()
+            let style_tag_selector = scraper::Selector::parse("style").unwrap();
+            let style_tags = document.select(&style_tag_selector);
+            let selectors_from_style_tags = style_tags.filter_map(|elt| {
+                match parse_stylesheet(&elt.inner_html()) {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        eprintln!("WARNING: error parsing a style tag from website {}: {}. Skipping.", base.display(), e);
+                        None
+                    }
+                }
+            })
+            .flatten();
+
+            let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document); // TODO: also get from <style> in main html
+            let selectors_from_stylesheets = stylesheets.into_iter()
                 .filter_map(|f| {
-                    match parse_stylesheet(&base, &f) {
+                    match parse_css_file(&base, &f) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
@@ -95,8 +108,8 @@ pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator
                         },
                     }
                 })
-                .flatten()
-                .collect();
+                .flatten();
+            let selectors = selectors_from_style_tags.chain(selectors_from_stylesheets).collect();
             (base.file_name().unwrap().to_str().unwrap().to_owned(), document, selectors)
         })
     });
@@ -243,9 +256,14 @@ fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
 
 pub type Selector = selectors::parser::Selector<style::selector_parser::SelectorImpl>;
 
-fn parse_stylesheet(base: &Path, CssFile(stylesheet_path): &CssFile) -> Result<Vec<Selector>> {
+// TODO: returning iterator from these would probably be ideal.
+fn parse_css_file(base: &Path, CssFile(stylesheet_path): &CssFile) -> Result<Vec<Selector>> {
     let full_path = base.join(stylesheet_path);
     let css = fs::read_to_string(&full_path).into_result(Some(full_path))?;
+    parse_stylesheet(&css)
+}
+
+fn parse_stylesheet(css: &str) -> Result<Vec<Selector>> {
     let res = cssparser::get_all_selectors(&css)
         .into_iter()
         .filter_map(|r| {
