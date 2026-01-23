@@ -70,7 +70,7 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
                     }
                     Algorithm::WithSelectorMapAndBloomFilter => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_selector_map_and_bloom_filter(&h, &selector_map)
+                        match_selectors_with_bloom_filter(&h, &selector_map)
                     }
                 };
                 (w, SetDocumentMatches::from(matches))
@@ -546,7 +546,69 @@ pub fn match_selectors_with_selector_map(document: &Html, selector_map: &Selecto
     OwnedDocumentMatches(result)
 }
 
-pub fn match_selectors_with_selector_map_and_bloom_filter(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
+pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
+    fn preorder_traversal<'a>(
+        element: ElementRef<'a>, 
+        element_depth: usize,
+        matches: &mut Vec<OwnedElementMatches>,
+        selector_map: &SelectorMap<Rule>,
+        style_bloom: &mut StyleBloom<ElementRef<'a>>,
+        caches: &mut SelectorCaches,
+    ) {
+        // 1. do thing
+        // 1.1: update the bloom filter with the current element
+        style_bloom.insert_parents_recovering(element, element_depth);
+        // 1.2: create a MatchingContext (after updating style_bloom to avoid borrow check error)
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            Some(style_bloom.filter()),
+            caches,
+            matching::QuirksMode::NoQuirks,
+            matching::NeedsSelectorFlags::No,
+            matching::MatchingForInvalidation::No,
+        );
+        // 1.3: Use the selector map to get matching rules
+        let mut matched_selectors = SmallVec::new();
+        selector_map.get_all_matching_rules(
+            element,
+            element, // TODO: ????
+            &mut SmallVec::new(),
+            &mut Some(&mut matched_selectors),
+            &mut context,
+            CascadeLevel::UANormal, // TODO: ??????
+            &CascadeData::new(),
+            &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
+        );
+        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        // 2. traverse children
+        if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
+            println!("PRINT ME element encountered!");
+            println!("I am {:?}", element);
+            println!("My children are:");
+            for child in element.children() {
+                println!("  {:?}", child.value());
+            }
+        }
+        for child in element.child_elements() {
+            // assert that all of my children's parent is me
+            if child.traversal_parent().unwrap() != element {
+                let mut msg = String::new();
+                writeln!(&mut msg, "me: {:?}", element);
+                writeln!(&mut msg, "my child: {:?}", child);
+                writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
+                panic!("child's traversal_parent was not equal to me!\n{msg}");
+            }
+            preorder_traversal(child, element_depth+1, matches, selector_map, style_bloom, caches);
+        }
+    }
+    let mut bloom_filter = StyleBloom::new();
+    let mut caches = SelectorCaches::default();
+    let mut result = Vec::new();
+    preorder_traversal(document.root_element(), 0, &mut result, selector_map, &mut bloom_filter, &mut caches);
+    OwnedDocumentMatches(result)
+}
+
+pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>, 
         element_depth: usize,

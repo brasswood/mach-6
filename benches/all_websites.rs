@@ -21,7 +21,10 @@ pub fn bench_all_websites(c: &mut Criterion) {
                     mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 }));
                 group.bench_function("With SelectorMap and Bloom Filter", |b| b.iter(|| {
-                    mach_6::match_selectors_with_selector_map_and_bloom_filter(&document, &selector_map);
+                    mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
+                }));
+                group.bench_function("With SelectorMap, Bloom Filter, and Style Sharing", |b| b.iter(|| {
+                    mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 }));
             },
             Err(e) => {
