@@ -6,6 +6,8 @@
  */
 use ::cssparser::ToCss as _;
 use derive_more::Display;
+use serde::de;
+use selectors::Element as _;
 use style::bloom::StyleBloom;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -30,12 +32,14 @@ use style::properties::ComputedValues;
 use style::properties::style_structs::Font;
 use style::queries::values::PrefersColorScheme;
 use style::rule_tree::CascadeLevel;
+use style::selector_map::SelectorMapElement as _;
 use style::servo::media_queries::FontMetricsProvider;
 use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
 use style::stylist::Stylist;
+use style::values::AtomIdent;
 use style::values::computed::font::GenericFontFamily;
 use style::values::computed::{Length, CSSPixelLength, font::QueryFontMetricsFlags};
 use std::hash::Hash;
@@ -577,7 +581,23 @@ pub fn match_selectors_with_selector_map_and_bloom_filter(document: &Html, selec
         );
         matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
         // 2. traverse children
+        if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
+            println!("PRINT ME element encountered!");
+            println!("I am {:?}", element);
+            println!("My children are:");
+            for child in element.children() {
+                println!("  {:?}", child.value());
+            }
+        }
         for child in element.child_elements() {
+            // assert that all of my children's parent is me
+            if child.traversal_parent().unwrap() != element {
+                let mut msg = String::new();
+                writeln!(&mut msg, "me: {:?}", element);
+                writeln!(&mut msg, "my child: {:?}", child);
+                writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
+                panic!("child's traversal_parent was not equal to me!\n{msg}");
+            }
             preorder_traversal(child, element_depth+1, matches, selector_map, style_bloom, caches);
         }
     }
