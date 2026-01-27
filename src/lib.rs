@@ -9,6 +9,9 @@ use derive_more::Display;
 use serde::de;
 use selectors::Element as _;
 use style::bloom::StyleBloom;
+use style::context::SharedStyleContext;
+use style::context::ThreadLocalStyleContext;
+use style::traversal_flags::TraversalFlags;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
@@ -22,10 +25,12 @@ use std::path::PathBuf;
 use std::io;
 use std::fs;
 use std::path::Path;
+use std::time::Instant;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
 use selectors::matching;
+use style::context::{StyleContext, RegisteredSpeculativePainters};
 use style::media_queries::Device;
 use style::media_queries::MediaType;
 use style::properties::ComputedValues;
@@ -47,6 +52,7 @@ use std::result;
 use thiserror::Error;
 use serde::Serialize;
 use style::selector_map::SelectorMap;
+use style::sharing::StyleSharingElement;
 use smallvec::SmallVec;
 
 pub mod cssparser;
@@ -608,10 +614,20 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
     OwnedDocumentMatches(result)
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MyRegisteredSpeculativePainters;
+impl RegisteredSpeculativePainters for MyRegisteredSpeculativePainters {
+    /// Look up a speculative painter
+    fn get(&self, name: &Atom) -> Option<&dyn RegisteredSpeculativePainter> {
+        panic!("Oh, WOW. We actually used RegisteredSpeculativePainters and I have to do something.");
+    }
+}
+
 pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>, 
         element_depth: usize,
+        context: &mut StyleContext<ElementRef<'a>>,
         matches: &mut Vec<OwnedElementMatches>,
         selector_map: &SelectorMap<Rule>,
         style_bloom: &mut StyleBloom<ElementRef<'a>>,
@@ -620,8 +636,10 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         // 1. do thing
         // 1.1: update the bloom filter with the current element
         style_bloom.insert_parents_recovering(element, element_depth);
-        // 1.2: create a MatchingContext (after updating style_bloom to avoid borrow check error)
-        let mut context = matching::MatchingContext::new(
+        // 1.2: Check if we can share styles
+        let mut target = StyleSharingElement::new(element);
+        // 1.3: create a MatchingContext (after updating style_bloom to avoid borrow check error)
+        let mut matching_context = matching::MatchingContext::new(
             matching::MatchingMode::Normal,
             Some(style_bloom.filter()),
             caches,
@@ -629,17 +647,17 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             matching::NeedsSelectorFlags::No,
             matching::MatchingForInvalidation::No,
         );
-        // 1.3: Use the selector map to get matching rules
+        // 1.4: Use the selector map to get matching rules
         let mut matched_selectors = SmallVec::new();
         selector_map.get_all_matching_rules(
             element,
             element, // TODO: ????
             &mut SmallVec::new(),
             &mut Some(&mut matched_selectors),
-            &mut context,
+            &mut matching_context,
             CascadeLevel::UANormal, // TODO: ??????
             &CascadeData::new(),
-            &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
+            context.shared.stylist,
         );
         matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
         // 2. traverse children
@@ -660,13 +678,38 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
                 panic!("child's traversal_parent was not equal to me!\n{msg}");
             }
-            preorder_traversal(child, element_depth+1, matches, selector_map, style_bloom, caches);
+            preorder_traversal(child, element_depth+1, context, matches, selector_map, style_bloom, caches);
         }
     }
     let mut bloom_filter = StyleBloom::new();
+    let stylist = Stylist::new(mock_device(), matching::QuirksMode::NoQuirks);
+    let shared_style_context = SharedStyleContext {
+        stylist: &stylist,
+        visited_styles_enabled: true,
+        options: StyleSystemOptions {
+            disable_style_sharing_cache: false,
+            dump_style_statistics: false, // TODO: maybe change this later
+            style_statistics_threshold: 0, // TODO: maybe change this later
+        },
+        guards: StyleSheetGuards {
+            author: SharedRwLockReadGuard(SharedRwLock::new()),
+            ua_or_user: SharedRwLockReadGuard(SharedRwLock::new()),
+        },
+        current_time_for_animations: 0.0,
+        traversal_flags: TraversalFlags::empty(),
+        snapshot_map: SnapshotMap::new(),
+        animations: DocumentAnimationSet {
+            sets: Arc::new(RwLock::new(FxHashMap::new())),
+        },
+        registered_speculative_painters: &MyRegisteredSpeculativePainters,
+    };
+    let mut style_context = StyleContext {
+        shared: &shared_style_context,
+        thread_local: &mut ThreadLocalStyleContext::new(),
+    };
     let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
-    preorder_traversal(document.root_element(), 0, &mut result, selector_map, &mut bloom_filter, &mut caches);
+    preorder_traversal(document.root_element(), 0, &mut style_context, &mut result, selector_map, &mut bloom_filter, &mut caches);
     OwnedDocumentMatches(result)
 }
 
