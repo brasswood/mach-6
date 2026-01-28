@@ -52,7 +52,7 @@ use std::result;
 use thiserror::Error;
 use serde::Serialize;
 use style::selector_map::SelectorMap;
-use style::sharing::StyleSharingElement;
+use style::sharing::StyleSharingTarget;
 use smallvec::SmallVec;
 
 pub mod cssparser;
@@ -372,16 +372,33 @@ impl Hash for Element {
     }
 }
 
+/// When we try to share styles, we circumvent selector matching entirely. The
+/// algorithm does not give us the selectors that matched, but rather, the
+/// element which this one is similar to. This enum can report this information,
+/// so we can trace back to the element we are sharing styles with and therefore
+/// the selectors that would have matched.
+#[derive(Clone, Debug)]
+pub enum SelectorsOrSharedStyles {
+    Selectors(SmallVec<[&'a Selector; 16]>),
+    SharedWithElement(u64),
+}
+
 #[derive(Debug, Clone)]
 pub struct ElementMatches<'a> {
     element: Element,
-    selectors: SmallVec<[&'a Selector; 16]>,
+    selectors: SelectorsOrSharedStyles, 
+}
+
+#[derive(Clone, Debug)]
+pub enum OwnedSelectorsOrSharedStyles {
+    Selectors(SmallVec<[Selector; 16]>),
+    SharedWithElement(u64),
 }
 
 #[derive(Debug, Clone)]
 pub struct OwnedElementMatches {
     element: Element,
-    selectors: SmallVec<[Selector; 16]>,
+    selectors: OwnedSelectorsOrSharedStyles,
 }
 
 impl From<ElementMatches<'_>> for OwnedElementMatches {
@@ -539,7 +556,7 @@ pub fn match_selectors_with_selector_map(document: &Html, selector_map: &Selecto
             &CascadeData::new(),
             &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
         );
-        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
         for child in element.child_elements() {
             preorder_traversal(child, matches, selector_map, caches);
@@ -585,7 +602,7 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
             &CascadeData::new(),
             &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
         );
-        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
         if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
             println!("PRINT ME element encountered!");
@@ -637,29 +654,39 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         // 1.1: update the bloom filter with the current element
         style_bloom.insert_parents_recovering(element, element_depth);
         // 1.2: Check if we can share styles
-        let mut target = StyleSharingElement::new(element);
-        // 1.3: create a MatchingContext (after updating style_bloom to avoid borrow check error)
-        let mut matching_context = matching::MatchingContext::new(
-            matching::MatchingMode::Normal,
-            Some(style_bloom.filter()),
-            caches,
-            matching::QuirksMode::NoQuirks,
-            matching::NeedsSelectorFlags::No,
-            matching::MatchingForInvalidation::No,
-        );
-        // 1.4: Use the selector map to get matching rules
-        let mut matched_selectors = SmallVec::new();
-        selector_map.get_all_matching_rules(
-            element,
-            element, // TODO: ????
-            &mut SmallVec::new(),
-            &mut Some(&mut matched_selectors),
-            &mut matching_context,
-            CascadeLevel::UANormal, // TODO: ??????
-            &CascadeData::new(),
-            context.shared.stylist,
-        );
-        matches.push(OwnedElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        let mut target = StyleSharingTarget::new(element);
+        match target.share_style_if_possible(context) {
+            Some((elt, _shared_styles)) => {
+                // If we can share styles, do that.
+                let element = Element::from(element);
+                matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(element.id) })
+            },
+            None => {
+                // If we can't share styles, go through the selector map and bloom filter.
+                // 1.2.1: create a MatchingContext (after updating style_bloom to avoid borrow check error)
+                let mut matching_context = matching::MatchingContext::new(
+                    matching::MatchingMode::Normal,
+                    Some(style_bloom.filter()),
+                    caches,
+                    matching::QuirksMode::NoQuirks,
+                    matching::NeedsSelectorFlags::No,
+                    matching::MatchingForInvalidation::No,
+                );
+                // 1.2.2: Use the selector map to get matching rules
+                let mut matched_selectors = SmallVec::new();
+                selector_map.get_all_matching_rules(
+                    element,
+                    element, // TODO: ????
+                    &mut SmallVec::new(),
+                    &mut Some(&mut matched_selectors),
+                    &mut matching_context,
+                    CascadeLevel::UANormal, // TODO: ??????
+                    &CascadeData::new(),
+                    context.shared.stylist,
+                );
+                matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
+            }
+        }
         // 2. traverse children
         if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
             println!("PRINT ME element encountered!");
