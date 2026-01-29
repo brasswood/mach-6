@@ -701,10 +701,11 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         // 1.2: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         match target.share_style_if_possible(context) {
-            Some((elt, _shared_styles)) => {
+            Some((other_element, _shared_styles)) => {
                 // If we can share styles, do that.
                 let element = Element::from(element);
-                matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(element.id) })
+                let other_element = Element::from(other_element);
+                matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) })
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
