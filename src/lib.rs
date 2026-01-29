@@ -6,11 +6,17 @@
  */
 use ::cssparser::ToCss as _;
 use derive_more::Display;
-use serde::de;
+use rustc_hash::FxBuildHasher;
 use selectors::Element as _;
+use style::Atom;
+use style::animation::DocumentAnimationSet;
 use style::bloom::StyleBloom;
+use style::context::RegisteredSpeculativePainter;
 use style::context::SharedStyleContext;
+use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
+use style::selector_parser::SnapshotMap;
+use style::shared_lock::StylesheetGuards;
 use style::traversal_flags::TraversalFlags;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -25,7 +31,6 @@ use std::path::PathBuf;
 use std::io;
 use std::fs;
 use std::path::Path;
-use std::time::Instant;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
@@ -378,7 +383,7 @@ impl Hash for Element {
 /// so we can trace back to the element we are sharing styles with and therefore
 /// the selectors that would have matched.
 #[derive(Clone, Debug)]
-pub enum SelectorsOrSharedStyles {
+pub enum SelectorsOrSharedStyles<'a> {
     Selectors(SmallVec<[&'a Selector; 16]>),
     SharedWithElement(u64),
 }
@@ -386,13 +391,22 @@ pub enum SelectorsOrSharedStyles {
 #[derive(Debug, Clone)]
 pub struct ElementMatches<'a> {
     element: Element,
-    selectors: SelectorsOrSharedStyles, 
+    selectors: SelectorsOrSharedStyles<'a>, 
 }
 
 #[derive(Clone, Debug)]
 pub enum OwnedSelectorsOrSharedStyles {
     Selectors(SmallVec<[Selector; 16]>),
     SharedWithElement(u64),
+}
+
+impl From<SelectorsOrSharedStyles<'_>> for OwnedSelectorsOrSharedStyles {
+    fn from(value: SelectorsOrSharedStyles<'_>) -> Self {
+        match value {
+            SelectorsOrSharedStyles::Selectors(selectors) => Self::Selectors(selectors.into_iter().cloned().collect()),
+            SelectorsOrSharedStyles::SharedWithElement(id) => Self::SharedWithElement(id),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -405,7 +419,7 @@ impl From<ElementMatches<'_>> for OwnedElementMatches {
     fn from(value: ElementMatches<'_>) -> Self {
         Self {
             element: value.element,
-            selectors: value.selectors.into_iter().cloned().collect(),
+            selectors: value.selectors.into(),
         }
     }
 }
@@ -423,14 +437,30 @@ impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(into = "SerSelectorsOrSharedStyles")]
+pub enum SetSelectorsOrSharedStyles {
+    Selectors(HashSet<String>),
+    SharedWithElement(u64),
+}
+
+impl From<OwnedSelectorsOrSharedStyles> for SetSelectorsOrSharedStyles {
+    fn from(value: OwnedSelectorsOrSharedStyles) -> Self {
+        match value {
+            OwnedSelectorsOrSharedStyles::Selectors(selectors) => SetSelectorsOrSharedStyles::Selectors(selectors.iter().map(Selector::to_css_string).collect()),
+            OwnedSelectorsOrSharedStyles::SharedWithElement(id) => SetSelectorsOrSharedStyles::SharedWithElement(id),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(into = "SerDocumentMatches")]
-pub struct SetDocumentMatches(HashMap<Element, HashSet<String>>);
+pub struct SetDocumentMatches(HashMap<Element, SetSelectorsOrSharedStyles>);
 
 impl From<OwnedDocumentMatches> for SetDocumentMatches {
     fn from(OwnedDocumentMatches(v): OwnedDocumentMatches) -> Self {
         SetDocumentMatches(v.into_iter().map(|oem| {
             let OwnedElementMatches{ element, selectors } = oem;
-            let set = selectors.iter().map(Selector::to_css_string).collect();
+            let set = selectors.into();
             (element, set)
         }).collect())
     }
@@ -455,17 +485,32 @@ impl From<SetDocumentMatches> for SerDocumentMatches {
     fn from(value: SetDocumentMatches) -> Self {
         SerDocumentMatches(
             value.0.into_iter().map(|(k, v)| {
-                let selectors = BTreeSet::from_iter(v.into_iter());
-                (SerElementKey(k.id), SerElementMatches{ html: k.html, selectors })
+                (SerElementKey(k.id), SerElementMatches{ html: k.html, selectors: v.into() })
             }).collect()
         )
     }
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
+enum SerSelectorsOrSharedStyles {
+    Selectors(BTreeSet<String>),
+    SharedWithElement(u64),
+}
+
+impl From<SetSelectorsOrSharedStyles> for SerSelectorsOrSharedStyles {
+    fn from(value: SetSelectorsOrSharedStyles) -> Self {
+        match value {
+            SetSelectorsOrSharedStyles::Selectors(selectors) => SerSelectorsOrSharedStyles::Selectors(BTreeSet::from_iter(selectors.into_iter())),
+            SetSelectorsOrSharedStyles::SharedWithElement(id) => SerSelectorsOrSharedStyles::SharedWithElement(id),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct SerElementMatches {
     html: String,
-    selectors: BTreeSet<String>,
+    selectors: SerSelectorsOrSharedStyles,
 }
 
 // TODO: figure out why iteration yields more elements than traversal
@@ -489,7 +534,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
         );
         // 1.2: get matching selectors naively
         let matched_selectors = selectors.iter().filter(|s| matching::matches_selector(s, 0, None, &element, &mut context)).collect();
-        matches.push(ElementMatches{ element: Element::from(element), selectors: matched_selectors });
+        matches.push(ElementMatches{ element: Element::from(element), selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
         for child in element.child_elements() {
             preorder_traversal(child, selectors, matches, caches);
@@ -635,7 +680,7 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
 struct MyRegisteredSpeculativePainters;
 impl RegisteredSpeculativePainters for MyRegisteredSpeculativePainters {
     /// Look up a speculative painter
-    fn get(&self, name: &Atom) -> Option<&dyn RegisteredSpeculativePainter> {
+    fn get(&self, _name: &Atom) -> Option<&dyn RegisteredSpeculativePainter> {
         panic!("Oh, WOW. We actually used RegisteredSpeculativePainters and I have to do something.");
     }
 }
@@ -710,6 +755,8 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     }
     let mut bloom_filter = StyleBloom::new();
     let stylist = Stylist::new(mock_device(), matching::QuirksMode::NoQuirks);
+    let author_lock = SharedRwLock::new();
+    let ua_or_user_lock = SharedRwLock::new();
     let shared_style_context = SharedStyleContext {
         stylist: &stylist,
         visited_styles_enabled: true,
@@ -718,15 +765,15 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             dump_style_statistics: false, // TODO: maybe change this later
             style_statistics_threshold: 0, // TODO: maybe change this later
         },
-        guards: StyleSheetGuards {
-            author: SharedRwLockReadGuard(SharedRwLock::new()),
-            ua_or_user: SharedRwLockReadGuard(SharedRwLock::new()),
+        guards: StylesheetGuards {
+            author: &author_lock.read(),
+            ua_or_user: &ua_or_user_lock.read()
         },
         current_time_for_animations: 0.0,
         traversal_flags: TraversalFlags::empty(),
-        snapshot_map: SnapshotMap::new(),
+        snapshot_map: &SnapshotMap::new(),
         animations: DocumentAnimationSet {
-            sets: Arc::new(RwLock::new(FxHashMap::new())),
+            sets: Arc::new(parking_lot::RwLock::new(HashMap::with_hasher(FxBuildHasher))),
         },
         registered_speculative_painters: &MyRegisteredSpeculativePainters,
     };
