@@ -1,7 +1,4 @@
 use style::sharing::StyleSharingElement;
-use style::properties::declaration_block::parse_style_attribute;
-use style::context::QuirksMode;
-use style::stylesheets::{CssRuleType, UrlExtraData};
 use crate::ElementRef;
 
 impl StyleSharingElement for ElementRef<'_> {
@@ -11,22 +8,22 @@ impl StyleSharingElement for ElementRef<'_> {
 
     fn synthesize_presentational_hints_for_legacy_attributes<V>(
         &self,
-        visited_handling: selectors::context::VisitedHandlingMode,
-        hints: &mut V,
+        _visited_handling: selectors::context::VisitedHandlingMode,
+        _hints: &mut V,
     ) where
         V: selectors::sink::Push<style::applicable_declarations::ApplicableDeclarationBlock> {
-        todo!()
+        // TODO: something here?
     }
 
     fn has_part_attr(&self) -> bool {
-        todo!()
+        self.value().attr("part").is_some()
     }
 
     fn exports_any_part(&self) -> bool {
-        todo!()
+        self.value().attr("exportparts").is_some()
     }
 
-    fn has_animations(&self, context: &style::context::SharedStyleContext) -> bool {
-        todo!()
+    fn has_animations(&self, _context: &style::context::SharedStyleContext) -> bool {
+        false // TODO: something here?
     }
 }
