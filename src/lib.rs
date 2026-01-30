@@ -8,10 +8,8 @@ use ::cssparser::ToCss as _;
 use derive_more::Display;
 use rustc_hash::FxBuildHasher;
 use selectors::Element as _;
-use style::Atom;
 use style::animation::DocumentAnimationSet;
 use style::bloom::StyleBloom;
-use style::context::RegisteredSpeculativePainter;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
@@ -30,23 +28,15 @@ use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
 use selectors::matching;
-use style::context::{StyleContext, RegisteredSpeculativePainters};
-use style::media_queries::Device;
-use style::media_queries::MediaType;
-use style::properties::ComputedValues;
-use style::properties::style_structs::Font;
-use style::queries::values::PrefersColorScheme;
+use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMapElement as _;
-use style::servo::media_queries::FontMetricsProvider;
 use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
 use style::stylist::Stylist;
 use style::values::AtomIdent;
-use style::values::computed::font::GenericFontFamily;
-use style::values::computed::{Length, CSSPixelLength, font::QueryFontMetricsFlags};
 use std::hash::Hash;
 use serde::Serialize;
 use style::selector_map::SelectorMap;
@@ -54,6 +44,7 @@ use style::sharing::StyleSharingTarget;
 use smallvec::SmallVec;
 
 mod parse;
+mod stylo_interface;
 mod result;
 
 pub use parse::get_documents_and_selectors;
@@ -84,46 +75,6 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
                 (w, SetDocumentMatches::from(matches))
             })
         })
-    )
-}
-
-#[derive(Debug)]
-struct TestFontMetricsProvider;
-
-impl FontMetricsProvider for TestFontMetricsProvider {
-    fn query_font_metrics(
-        &self,
-        _vertical: bool,
-        _font: &Font,
-        _base_size: CSSPixelLength,
-        _flags: QueryFontMetricsFlags,
-    ) -> style::font_metrics::FontMetrics {
-        style::font_metrics::FontMetrics {
-            x_height: Some(CSSPixelLength::new(1.0)),
-            zero_advance_measure: Some(CSSPixelLength::new(1.0)),
-            cap_height: Some(CSSPixelLength::new(1.0)),
-            ic_width: Some(CSSPixelLength::new(1.0)),
-            ascent: CSSPixelLength::new(1.0),
-            script_percent_scale_down: None,
-            script_script_percent_scale_down: None,
-        } // TODO: Idk
-    }
-
-    fn base_size_for_generic(&self, _generic: GenericFontFamily) -> Length {
-        CSSPixelLength::new(1.0)
-    }
-}
-
-fn mock_device() -> Device {
-    let default_font = Font::initial_values();
-    Device::new(
-        MediaType::screen(),
-        matching::QuirksMode::NoQuirks,
-        euclid::Size2D::new(1200.0, 800.0),
-        euclid::Scale::new(1.0),
-        Box::new(TestFontMetricsProvider),
-        ComputedValues::initial_values_with_font_override(default_font),
-        PrefersColorScheme::Light,
     )
 }
 
@@ -399,7 +350,7 @@ pub fn match_selectors_with_selector_map(document: &Html, selector_map: &Selecto
             &mut context,
             CascadeLevel::UANormal, // TODO: ??????
             &CascadeData::new(),
-            &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
+            &Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks)
         );
         matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
@@ -445,7 +396,7 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
             &mut context,
             CascadeLevel::UANormal, // TODO: ??????
             &CascadeData::new(),
-            &Stylist::new(mock_device(), matching::QuirksMode::NoQuirks)
+            &Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks)
         );
         matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
@@ -474,15 +425,6 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
     let mut result = Vec::new();
     preorder_traversal(document.root_element(), 0, &mut result, selector_map, &mut bloom_filter, &mut caches);
     OwnedDocumentMatches(result)
-}
-
-#[derive(Debug, Clone, Copy)]
-struct MyRegisteredSpeculativePainters;
-impl RegisteredSpeculativePainters for MyRegisteredSpeculativePainters {
-    /// Look up a speculative painter
-    fn get(&self, _name: &Atom) -> Option<&dyn RegisteredSpeculativePainter> {
-        panic!("Oh, WOW. We actually used RegisteredSpeculativePainters and I have to do something.");
-    }
 }
 
 pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
@@ -555,7 +497,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         }
     }
     let mut bloom_filter = StyleBloom::new();
-    let stylist = Stylist::new(mock_device(), matching::QuirksMode::NoQuirks);
+    let stylist = Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
     let author_lock = SharedRwLock::new();
     let ua_or_user_lock = SharedRwLock::new();
     let shared_style_context = SharedStyleContext {
@@ -576,7 +518,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         animations: DocumentAnimationSet {
             sets: Arc::new(parking_lot::RwLock::new(HashMap::with_hasher(FxBuildHasher))),
         },
-        registered_speculative_painters: &MyRegisteredSpeculativePainters,
+        registered_speculative_painters: &stylo_interface::MyRegisteredSpeculativePainters,
     };
     let mut style_context = StyleContext {
         shared: &shared_style_context,
