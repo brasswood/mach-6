@@ -1,4 +1,3 @@
-use html5ever::Namespace;
 use selectors::{
     attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint},
     bloom::BloomFilter,
@@ -7,7 +6,6 @@ use selectors::{
 use style::values::AtomIdent;
 
 use super::ElementRef;
-use crate::selector::{CssLocalName, CssString, NonTSPseudoClass, PseudoElement, Simple};
 
 /// Note: will never match against non-tree-structure pseudo-classes.
 impl Element for ElementRef<'_> {
@@ -150,7 +148,7 @@ impl Element for ElementRef<'_> {
 #[cfg(test)]
 mod tests {
     use crate::html::Html;
-    use crate::selector::{CssLocalName, Selector};
+    use crate::selector::Selector;
     use style::values::AtomIdent;
     use selectors::attr::CaseSensitivity;
     use selectors::Element;
