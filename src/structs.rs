@@ -194,6 +194,12 @@ pub mod ser {
     }
 
     #[derive(Clone, Debug, Serialize)]
+    pub struct SerElementMatches {
+        pub html: String,
+        pub selectors: SerSelectorsOrSharedStyles,
+    }
+
+    #[derive(Clone, Debug, Serialize)]
     #[serde(untagged)]
     pub enum SerSelectorsOrSharedStyles {
         Selectors(BTreeSet<String>),
@@ -207,12 +213,6 @@ pub mod ser {
                 SetSelectorsOrSharedStyles::SharedWithElement(id) => SerSelectorsOrSharedStyles::SharedWithElement(id),
             }
         }
-    }
-
-    #[derive(Clone, Debug, Serialize)]
-    pub struct SerElementMatches {
-        pub html: String,
-        pub selectors: SerSelectorsOrSharedStyles,
     }
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
