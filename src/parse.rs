@@ -4,7 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use crate::{Result, Selector, IntoResultExt, Error, ErrorKind};
+use crate::Selector;
+use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use std::fs::{self, DirEntry};
 use std::fs::ReadDir;
 use std::io;
@@ -140,7 +141,7 @@ fn parse_stylesheet(css: &str) -> Result<Vec<Selector>> {
 #[cfg(test)]
 mod tests {
     use std::{fs, path::PathBuf};
-    use crate::IntoResultExt;
+    use crate::result::IntoResultExt;
     use crate::parse::{CssFile, get_main_html, get_stylesheet_paths, parse_main_html};
 
     /// In all of these tests:
