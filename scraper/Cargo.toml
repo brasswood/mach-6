@@ -28,6 +28,7 @@ tendril = "0.4.3"
 stylo_dom = { path = "../stylo/stylo_dom" }
 atomic_refcell = "0.1"
 log-once = "0.4.1"
+url = "2.5.8"
 
 [dependencies.getopts]
 version = "0.2.24"

@@ -6,8 +6,13 @@ use std::slice::Iter as SliceIter;
 
 use crate::{CaseSensitivity, StrTendril};
 use html5ever::{Attribute, LocalName, QualName};
+use style::servo_arc::Arc;
 use style::{Atom, values::GenericAtomIdent};
 use std::cell::OnceCell;
+use style::properties::declaration_block::parse_style_attribute;
+use style::context::QuirksMode;
+use style::stylesheets::{CssRuleType, UrlExtraData};
+use style::shared_lock::{Locked, SharedRwLock};
 
 /// An HTML node.
 // `Element` is usally the most common variant and hence boxing it
@@ -219,7 +224,6 @@ pub type Attributes = indexmap::IndexMap<QualName, StrTendril>;
 pub type Attributes = Vec<(QualName, Atom)>;
 
 /// An HTML element.
-#[derive(Clone, PartialEq, Eq)]
 pub struct Element {
     /// The element name.
     pub name: QualName,
@@ -227,10 +231,45 @@ pub struct Element {
     /// The element attributes.
     pub attrs: Attributes,
 
+    /// The PropertyDeclarationBlock, parsed on construction from the 'style' attribute
+    pub style_block: Arc<Locked<style::properties::PropertyDeclarationBlock>>,
+
+    style_block_lock: SharedRwLock,
+
     id: OnceCell<Option<Atom>>,
 
     classes: OnceCell<Box<[style::values::AtomIdent]>>,
 }
+
+impl Clone for Element {
+    fn clone(&self) -> Self {
+        let name = self.name.clone();
+        let attrs = self.attrs.clone();
+        let id = self.id.clone();
+        let classes = self.classes.clone();
+        let style_block = self.style_block.read_with(
+            &self.style_block_lock.read()
+        ).clone();
+        let style_block_lock = SharedRwLock::new();
+        let style_block = Arc::new(style_block_lock.wrap(style_block));
+        Self {
+            name,
+            attrs,
+            style_block,
+            style_block_lock,
+            id,
+            classes
+        }
+    }
+}
+
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.attrs == other.attrs && self.id == other.id && self.classes == other.classes
+    }
+}
+
+impl Eq for Element {}
 
 impl Element {
     #[doc(hidden)]
@@ -241,12 +280,26 @@ impl Element {
             .map(|attr| (attr.name, Atom::from(&*attr.value)))
             .collect::<Attributes>();
 
+
         #[cfg(not(feature = "deterministic"))]
         attrs.sort_unstable_by(|lhs, rhs| lhs.0.cmp(&rhs.0));
+
+        let style_attr = attrs.iter().find(|attr| &*attr.0.local == "style").map(|attr| &*attr.1).unwrap_or("");
+        let style_block = parse_style_attribute(
+            style_attr,
+            &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+            None,
+            QuirksMode::NoQuirks,
+            CssRuleType::Style
+        );
+
+        let style_block_lock = SharedRwLock::new();
 
         Element {
             attrs,
             name,
+            style_block: Arc::new(style_block_lock.wrap(style_block)),
+            style_block_lock,
             id: OnceCell::new(),
             classes: OnceCell::new(),
         }

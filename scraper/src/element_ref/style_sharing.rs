@@ -1,9 +1,12 @@
 use style::sharing::StyleSharingElement;
+use style::properties::declaration_block::parse_style_attribute;
+use style::context::QuirksMode;
+use style::stylesheets::{CssRuleType, UrlExtraData};
 use crate::ElementRef;
 
 impl StyleSharingElement for ElementRef<'_> {
     fn style_attribute(&self) -> Option<style::servo_arc::ArcBorrow<'_, style::shared_lock::Locked<style::properties::PropertyDeclarationBlock>>> {
-        todo!()
+        Some(self.value().style_block.borrow_arc())
     }
 
     fn synthesize_presentational_hints_for_legacy_attributes<V>(
