@@ -8,7 +8,7 @@ use std::io::{self, ErrorKind};
 use std::env;
 use std::fs;
 use tempfile::NamedTempFile;
-use mach_6::{self, Algorithm, IntoResultExt, Result};
+use mach_6::{self, Algorithm, result::{IntoResultExt, Result}};
 
 #[test]
 fn ensures_websites_is_dir() -> io::Result<()> {

@@ -35,10 +35,10 @@ use style::selector_map::SelectorMap;
 use style::sharing::StyleSharingTarget;
 use smallvec::SmallVec;
 
-mod parse;
 mod stylo_interface;
-mod result;
-mod structs;
+pub mod parse;
+pub mod result;
+pub mod structs;
 
 pub use parse::get_documents_and_selectors;
 use crate::result::Result;

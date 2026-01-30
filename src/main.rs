@@ -6,7 +6,7 @@
  */
 use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
-use mach_6::{Algorithm, Result, SetDocumentMatches};
+use mach_6::{Algorithm, result::Result, structs::set::SetDocumentMatches};
 use serde_yml;
 
 #[derive(Parser, Debug)]
@@ -16,7 +16,7 @@ struct Args {
     websites: PathBuf,
 }
 
-fn main() -> mach_6::Result<()> {
+fn main() -> mach_6::result::Result<()> {
     let Args{ websites } = Args::parse();
     let result: Result<Vec<(String, SetDocumentMatches)>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
     let result: HashMap<String, SetDocumentMatches> = result?.into_iter().collect();

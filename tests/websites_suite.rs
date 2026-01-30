@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use std::path::PathBuf;
-use mach_6::{Algorithm, IntoResultExt, Result};
+use mach_6::{Algorithm, result::{IntoResultExt, Result}};
 use insta;
 
 #[test]
