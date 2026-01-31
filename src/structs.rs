@@ -140,24 +140,37 @@ pub mod set {
 
     use super::{Element, Selector};
     use super::owned::{OwnedDocumentMatches, OwnedElementMatches, OwnedSelectorsOrSharedStyles};
-    use super::ser::{SerDocumentMatches, SerSelectorsOrSharedStyles};
+    use super::ser::SerDocumentMatches;
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     #[serde(into = "SerDocumentMatches")]
-    pub struct SetDocumentMatches(pub HashMap<Element, SetSelectorsOrSharedStyles>);
+    pub struct SetDocumentMatches(pub HashMap<u64, SetElementMatches>);
 
     impl From<OwnedDocumentMatches> for SetDocumentMatches {
         fn from(OwnedDocumentMatches(v): OwnedDocumentMatches) -> Self {
-            SetDocumentMatches(v.into_iter().map(|oem| {
-                let OwnedElementMatches{ element, selectors } = oem;
-                let set = selectors.into();
-                (element, set)
-            }).collect())
+            let map = v.into_iter().map(|oem| {
+                (oem.element.id, oem.into())
+            }).collect();
+            SetDocumentMatches(map)
         }
     }
 
-    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-    #[serde(into = "SerSelectorsOrSharedStyles")]
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct SetElementMatches {
+        pub element: Element,
+        pub selectors: SetSelectorsOrSharedStyles,
+    }
+
+    impl From<OwnedElementMatches> for SetElementMatches {
+        fn from(value: OwnedElementMatches) -> Self {
+            SetElementMatches {
+                element: value.element,
+                selectors: value.selectors.into(),
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum SetSelectorsOrSharedStyles {
         Selectors(HashSet<String>),
         SharedWithElement(u64),
@@ -174,45 +187,40 @@ pub mod set {
 }
 
 pub mod ser {
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
     use serde::Serialize;
 
-    use super::set::{SetDocumentMatches, SetSelectorsOrSharedStyles};
+    use super::set::{SetDocumentMatches, SetElementMatches, SetSelectorsOrSharedStyles};
 
     #[derive(Clone, Debug, Serialize)]
     pub struct SerDocumentMatches(pub BTreeMap<SerElementKey, SerElementMatches>);
 
     impl From<SetDocumentMatches> for SerDocumentMatches {
         fn from(value: SetDocumentMatches) -> Self {
-            SerDocumentMatches(
-                value.0.into_iter().map(|(k, v)| {
-                    (SerElementKey(k.id), SerElementMatches{ html: k.html, selectors: v.into() })
-                }).collect()
-            )
+            fn find_selector_list(doc: &HashMap<u64, SetElementMatches>, id: u64) -> &HashSet<String> {
+                match &doc.get(&id).unwrap().selectors {
+                    SetSelectorsOrSharedStyles::Selectors(hash_set) => hash_set,
+                    SetSelectorsOrSharedStyles::SharedWithElement(id) => find_selector_list(doc, *id),
+                }
+            }
+            let new_map: BTreeMap<_, _> = value.0
+                .iter()
+                .map(|(k, v)| {
+                    let selectors = find_selector_list(&value.0, v.element.id)
+                        .clone()
+                        .into_iter()
+                        .collect();
+                    (SerElementKey(*k), SerElementMatches { html: v.element.html.clone(), selectors })
+                }).collect();
+            SerDocumentMatches(new_map)
         }
     }
 
     #[derive(Clone, Debug, Serialize)]
     pub struct SerElementMatches {
         pub html: String,
-        pub selectors: SerSelectorsOrSharedStyles,
-    }
-
-    #[derive(Clone, Debug, Serialize)]
-    #[serde(untagged)]
-    pub enum SerSelectorsOrSharedStyles {
-        Selectors(BTreeSet<String>),
-        SharedWithElement(u64),
-    }
-
-    impl From<SetSelectorsOrSharedStyles> for SerSelectorsOrSharedStyles {
-        fn from(value: SetSelectorsOrSharedStyles) -> Self {
-            match value {
-                SetSelectorsOrSharedStyles::Selectors(selectors) => SerSelectorsOrSharedStyles::Selectors(BTreeSet::from_iter(selectors.into_iter())),
-                SetSelectorsOrSharedStyles::SharedWithElement(id) => SerSelectorsOrSharedStyles::SharedWithElement(id),
-            }
-        }
+        pub selectors: BTreeSet<String>,
     }
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
