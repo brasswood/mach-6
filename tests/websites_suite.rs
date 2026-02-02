@@ -58,7 +58,7 @@ fn compare_with_naive(algorithm: Algorithm) -> Result<bool> {
 #[test]
 fn all_algorithms_correct() -> Result<()> {
     let mut succeeded = true;
-    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithSelectorMapAndBloomFilter] {
+    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing] {
         succeeded &= compare_with_naive(algorithm)?;
     }
     assert!(succeeded);

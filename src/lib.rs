@@ -61,7 +61,8 @@ use crate::structs::{
 pub enum Algorithm {
     Naive,
     WithSelectorMap,
-    WithSelectorMapAndBloomFilter,
+    WithBloomFilter,
+    WithStyleSharing,
 }
 
 pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches)>>> {
@@ -74,9 +75,13 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
                         let selector_map = build_selector_map(&s);
                         match_selectors_with_selector_map(&h, &selector_map)
                     }
-                    Algorithm::WithSelectorMapAndBloomFilter => {
+                    Algorithm::WithBloomFilter => {
                         let selector_map = build_selector_map(&s);
                         match_selectors_with_bloom_filter(&h, &selector_map)
+                    }
+                    Algorithm::WithStyleSharing => {
+                        let selector_map = build_selector_map(&s);
+                        match_selectors_with_style_sharing(&h, &selector_map)
                     }
                 };
                 (w, SetDocumentMatches::from(matches))
