@@ -259,12 +259,11 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         context: &mut StyleContext<ElementRef<'a>>,
         matches: &mut Vec<OwnedElementMatches>,
         selector_map: &SelectorMap<Rule>,
-        style_bloom: &mut StyleBloom<ElementRef<'a>>,
         caches: &mut SelectorCaches,
     ) {
         // 1. do thing
         // 1.1: update the bloom filter with the current element
-        style_bloom.insert_parents_recovering(element, element_depth);
+        context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
         // 1.2: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         match target.share_style_if_possible(context) {
@@ -279,7 +278,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 // 1.2.1: create a MatchingContext (after updating style_bloom to avoid borrow check error)
                 let mut matching_context = matching::MatchingContext::new(
                     matching::MatchingMode::Normal,
-                    Some(style_bloom.filter()),
+                    Some(context.thread_local.bloom_filter.filter()),
                     caches,
                     matching::QuirksMode::NoQuirks,
                     matching::NeedsSelectorFlags::No,
@@ -318,10 +317,9 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
                 panic!("child's traversal_parent was not equal to me!\n{msg}");
             }
-            preorder_traversal(child, element_depth+1, context, matches, selector_map, style_bloom, caches);
+            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches);
         }
     }
-    let mut bloom_filter = StyleBloom::new();
     let stylist = Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
     let author_lock = SharedRwLock::new();
     let ua_or_user_lock = SharedRwLock::new();
@@ -351,6 +349,6 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     };
     let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
-    preorder_traversal(document.root_element(), 0, &mut style_context, &mut result, selector_map, &mut bloom_filter, &mut caches);
+    preorder_traversal(document.root_element(), 0, &mut style_context, &mut result, selector_map, &mut caches);
     OwnedDocumentMatches(result)
 }
