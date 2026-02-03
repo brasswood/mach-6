@@ -33,6 +33,7 @@ use style::stylist::Stylist;
 use style::values::AtomIdent;
 use style::selector_map::SelectorMap;
 use style::sharing::StyleSharingTarget;
+use style::thread_state::{self, ThreadState};
 use smallvec::SmallVec;
 
 mod stylo_interface;
@@ -262,9 +263,11 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         caches: &mut SelectorCaches,
     ) {
         // 1. do thing
-        // 1.1: update the bloom filter with the current element
+        // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
+        thread_state::initialize(ThreadState::LAYOUT);
+        // 1.2: update the bloom filter with the current element
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
-        // 1.2: Check if we can share styles
+        // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         match target.share_style_if_possible(context) {
             Some((other_element, _shared_styles)) => {
@@ -275,7 +278,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
-                // 1.2.1: create a MatchingContext (after updating style_bloom to avoid borrow check error)
+                // 1.3.1: create a MatchingContext (after updating style_bloom to avoid borrow check error)
                 let mut matching_context = matching::MatchingContext::new(
                     matching::MatchingMode::Normal,
                     Some(context.thread_local.bloom_filter.filter()),
@@ -284,7 +287,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                     matching::NeedsSelectorFlags::No,
                     matching::MatchingForInvalidation::No,
                 );
-                // 1.2.2: Use the selector map to get matching rules
+                // 1.3.2: Use the selector map to get matching rules
                 let mut matched_selectors = SmallVec::new();
                 selector_map.get_all_matching_rules(
                     element,
