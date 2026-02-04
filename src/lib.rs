@@ -66,26 +66,29 @@ pub enum Algorithm {
     WithStyleSharing,
 }
 
-pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches)>>> {
+pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
     Ok(get_documents_and_selectors(websites)?
         .map(move |r| {
             r.map(|(w, h, s)| {
-                let matches = match algorithm {
-                    Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&h, &s)),
+                let (matches, stats) = match algorithm {
+                    Algorithm::Naive => (
+                        OwnedDocumentMatches::from(match_selectors(&h, &s)),
+                        Statistics::default()
+                    ),
                     Algorithm::WithSelectorMap => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_selector_map(&h, &selector_map).0
+                        match_selectors_with_selector_map(&h, &selector_map)
                     }
                     Algorithm::WithBloomFilter => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_bloom_filter(&h, &selector_map).0
+                        match_selectors_with_bloom_filter(&h, &selector_map)
                     }
                     Algorithm::WithStyleSharing => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_style_sharing(&h, &selector_map).0
+                        match_selectors_with_style_sharing(&h, &selector_map)
                     }
                 };
-                (w, SetDocumentMatches::from(matches))
+                (w, SetDocumentMatches::from(matches), stats)
             })
         })
     )

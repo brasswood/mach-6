@@ -14,7 +14,7 @@ fn does_all_websites() -> Result<()> {
     let results = mach_6::do_all_websites(&websites_path, Algorithm::Naive)?;
     insta::with_settings!({ snapshot_path => websites_path.join("snapshots")}, {
         for web_result in results {
-            let (website, match_result) = web_result?;
+            let (website, match_result, _stats) = web_result?;
             insta::assert_yaml_snapshot!(website, match_result);
         }
         Ok(())
@@ -62,5 +62,20 @@ fn all_algorithms_correct() -> Result<()> {
         succeeded &= compare_with_naive(algorithm)?;
     }
     assert!(succeeded);
+    Ok(())
+}
+
+#[test]
+fn statistics_dont_change() -> Result<()> {
+    let websites_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
+    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing] {
+        let results1 = mach_6::do_all_websites(&websites_path, algorithm)?;
+        let results2 = mach_6::do_all_websites(&websites_path, algorithm)?;
+        for (result1, result2) in results1.zip(results2) {
+            let (_, _, stats1) = result1?;
+            let (_, _, stats2) = result2?;
+            assert_eq!(stats1, stats2);
+        }
+    }
     Ok(())
 }

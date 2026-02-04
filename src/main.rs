@@ -6,8 +6,9 @@
  */
 use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
-use mach_6::{Algorithm, result::Result, structs::set::SetDocumentMatches};
+use mach_6::{Algorithm, result::Result, structs::{ser::SerDocumentMatches, set::SetDocumentMatches}};
 use serde_yml;
+use style::selector_map::Statistics;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -18,8 +19,11 @@ struct Args {
 
 fn main() -> mach_6::result::Result<()> {
     let Args{ websites } = Args::parse();
-    let result: Result<Vec<(String, SetDocumentMatches)>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
-    let result: HashMap<String, SetDocumentMatches> = result?.into_iter().collect();
+    let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
+    let result: HashMap<String, SerDocumentMatches> = result?
+        .into_iter()
+        .map(|(name, matches, _stats)| (name, SerDocumentMatches::from(matches)))
+        .collect();
     println!("{}", serde_yml::to_string(&result).unwrap());
     Ok(())
 }
