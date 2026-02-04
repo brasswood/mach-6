@@ -25,13 +25,13 @@ use selectors::matching;
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMapElement as _;
+use style::selector_map::{SelectorMap, Statistics};
 use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
 use style::stylist::Stylist;
 use style::values::AtomIdent;
-use style::selector_map::SelectorMap;
 use style::sharing::StyleSharingTarget;
 use style::thread_state::{self, ThreadState};
 use smallvec::SmallVec;
@@ -74,15 +74,15 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
                     Algorithm::Naive => OwnedDocumentMatches::from(match_selectors(&h, &s)),
                     Algorithm::WithSelectorMap => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_selector_map(&h, &selector_map)
+                        match_selectors_with_selector_map(&h, &selector_map).0
                     }
                     Algorithm::WithBloomFilter => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_bloom_filter(&h, &selector_map)
+                        match_selectors_with_bloom_filter(&h, &selector_map).0
                     }
                     Algorithm::WithStyleSharing => {
                         let selector_map = build_selector_map(&s);
-                        match_selectors_with_style_sharing(&h, &selector_map)
+                        match_selectors_with_style_sharing(&h, &selector_map).0
                     }
                 };
                 (w, SetDocumentMatches::from(matches))
@@ -110,7 +110,14 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
             matching::MatchingForInvalidation::No,
         );
         // 1.2: get matching selectors naively
-        let matched_selectors = selectors.iter().filter(|s| matching::matches_selector(s, 0, None, &element, &mut context)).collect();
+        let matched_selectors = selectors
+            .iter()
+            .filter(|s| {
+                let (res, fast_rejects) = matching::matches_selector(s, 0, None, &element, &mut context);
+                debug_assert_eq!(fast_rejects, 0);
+                res
+            })
+            .collect();
         matches.push(ElementMatches{ element: Element::from(element), selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
         for child in element.child_elements() {
@@ -149,12 +156,13 @@ where
     selector_map
 }
 
-pub fn match_selectors_with_selector_map(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
+pub fn match_selectors_with_selector_map(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>, 
         matches: &mut Vec<OwnedElementMatches>,
         selector_map: &SelectorMap<Rule>,
         caches: &mut SelectorCaches,
+        stats: &mut Statistics,
     ) {
         // 1. do thing
         // 1.1: create a MatchingContext
@@ -168,7 +176,7 @@ pub fn match_selectors_with_selector_map(document: &Html, selector_map: &Selecto
         );
         // 1.2: Use the selector map to get matching rules
         let mut matched_selectors = SmallVec::new();
-        selector_map.get_all_matching_rules(
+        *stats += selector_map.get_all_matching_rules(
             element,
             element, // TODO: ????
             &mut SmallVec::new(),
@@ -181,17 +189,18 @@ pub fn match_selectors_with_selector_map(document: &Html, selector_map: &Selecto
         matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
         for child in element.child_elements() {
-            preorder_traversal(child, matches, selector_map, caches);
+            preorder_traversal(child, matches, selector_map, caches, stats);
         }
     }
 
     let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
-    preorder_traversal(document.root_element(), &mut result, selector_map, &mut caches);
-    OwnedDocumentMatches(result)
+    let mut stats = Statistics::default();
+    preorder_traversal(document.root_element(), &mut result, selector_map, &mut caches, &mut stats);
+    (OwnedDocumentMatches(result), stats)
 }
 
-pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
+pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>, 
         element_depth: usize,
@@ -199,6 +208,7 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
         selector_map: &SelectorMap<Rule>,
         style_bloom: &mut StyleBloom<ElementRef<'a>>,
         caches: &mut SelectorCaches,
+        stats: &mut Statistics,
     ) {
         // 1. do thing
         // 1.1: update the bloom filter with the current element
@@ -214,7 +224,7 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
         );
         // 1.3: Use the selector map to get matching rules
         let mut matched_selectors = SmallVec::new();
-        selector_map.get_all_matching_rules(
+        *stats += selector_map.get_all_matching_rules(
             element,
             element, // TODO: ????
             &mut SmallVec::new(),
@@ -243,17 +253,18 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
                 writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
                 panic!("child's traversal_parent was not equal to me!\n{msg}");
             }
-            preorder_traversal(child, element_depth+1, matches, selector_map, style_bloom, caches);
+            preorder_traversal(child, element_depth+1, matches, selector_map, style_bloom, caches, stats);
         }
     }
     let mut bloom_filter = StyleBloom::new();
     let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
-    preorder_traversal(document.root_element(), 0, &mut result, selector_map, &mut bloom_filter, &mut caches);
-    OwnedDocumentMatches(result)
+    let mut stats = Statistics::default();
+    preorder_traversal(document.root_element(), 0, &mut result, selector_map, &mut bloom_filter, &mut caches, &mut stats);
+    (OwnedDocumentMatches(result), stats)
 }
 
-pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> OwnedDocumentMatches {
+pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>, 
         element_depth: usize,
@@ -261,6 +272,8 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         matches: &mut Vec<OwnedElementMatches>,
         selector_map: &SelectorMap<Rule>,
         caches: &mut SelectorCaches,
+        stats: &mut Statistics,
+        sharing_instances: &mut usize,
     ) {
         // 1. do thing
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
@@ -274,7 +287,8 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 // If we can share styles, do that.
                 let element = Element::from(element);
                 let other_element = Element::from(other_element);
-                matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) })
+                matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) });
+                *sharing_instances += 1;
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
@@ -289,7 +303,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 );
                 // 1.3.2: Use the selector map to get matching rules
                 let mut matched_selectors = SmallVec::new();
-                selector_map.get_all_matching_rules(
+                *stats += selector_map.get_all_matching_rules(
                     element,
                     element, // TODO: ????
                     &mut SmallVec::new(),
@@ -320,9 +334,10 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
                 panic!("child's traversal_parent was not equal to me!\n{msg}");
             }
-            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches);
+            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats, sharing_instances);
         }
     }
+    // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
     let stylist = Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
     let author_lock = SharedRwLock::new();
     let ua_or_user_lock = SharedRwLock::new();
@@ -352,6 +367,9 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     };
     let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
-    preorder_traversal(document.root_element(), 0, &mut style_context, &mut result, selector_map, &mut caches);
-    OwnedDocumentMatches(result)
+    let mut stats = Statistics::default();
+    let mut sharing_instances = 0;
+    preorder_traversal(document.root_element(), 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
+    stats.sharing_instances = Some(sharing_instances);
+    (OwnedDocumentMatches(result), stats)
 }
