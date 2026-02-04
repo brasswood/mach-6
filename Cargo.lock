@@ -900,6 +900,7 @@ dependencies = [
  "scraper",
  "selectors",
  "serde",
+ "serde_json",
  "serde_yml",
  "smallvec",
  "stylo",

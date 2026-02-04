@@ -1,6 +1,10 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use std::path::PathBuf;
+use criterion::{criterion_group, Criterion};
 use mach_6;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 pub fn bench_all_websites(c: &mut Criterion) {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
@@ -9,6 +13,7 @@ pub fn bench_all_websites(c: &mut Criterion) {
         Ok(documents_selectors) => documents_selectors,
         Err(e) => return eprintln!("ERROR: {e}"),
     };
+    let mut all_stats: StatsFile = StatsFile::default();
     for res in documents_selectors {
         match res {
             Ok((name, document, selectors)) => {
@@ -17,22 +22,297 @@ pub fn bench_all_websites(c: &mut Criterion) {
                 group.bench_function("Naive", |b| b.iter(|| {
                     mach_6::match_selectors(&document, &selectors);
                 }));
+                let (_, selector_map_stats) =
+                    mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 group.bench_function("With SelectorMap", |b| b.iter(|| {
                     mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 }));
+                let (_, bloom_filter_stats) =
+                    mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
                 group.bench_function("With SelectorMap and Bloom Filter", |b| b.iter(|| {
                     mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
                 }));
+                let (_, style_sharing_stats) =
+                    mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 group.bench_function("With SelectorMap, Bloom Filter, and Style Sharing", |b| b.iter(|| {
                     mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 }));
+                group.finish();
+
+                all_stats
+                    .websites
+                    .entry(name.clone())
+                    .or_default()
+                    .insert("Naive".to_string(), None);
+                all_stats
+                    .websites
+                    .entry(name.clone())
+                    .or_default()
+                    .insert("With SelectorMap".to_string(), Some(StatsEntry::from(&selector_map_stats)));
+                all_stats
+                    .websites
+                    .entry(name.clone())
+                    .or_default()
+                    .insert(
+                        "With SelectorMap and Bloom Filter".to_string(),
+                        Some(StatsEntry::from(&bloom_filter_stats)),
+                    );
+                all_stats
+                    .websites
+                    .entry(name)
+                    .or_default()
+                    .insert(
+                        "With SelectorMap, Bloom Filter, and Style Sharing".to_string(),
+                        Some(StatsEntry::from(&style_sharing_stats)),
+                    );
             },
             Err(e) => {
                 eprintln!("ERROR: {e}");
             }
         }
     }
+
+    if let Err(e) = write_stats_json(&all_stats) {
+        eprintln!("ERROR: unable to write stats.json: {e}");
+    }
 }
 
 criterion_group!(benches, bench_all_websites);
-criterion_main!(benches);
+
+fn main() {
+    benches();
+    criterion::Criterion::default()
+        .configure_from_args()
+        .final_summary();
+    if let Err(e) = postprocess_reports() {
+        eprintln!("ERROR: unable to post-process Criterion reports: {e}");
+    }
+}
+
+#[derive(Default, Debug, Serialize, Deserialize)]
+struct StatsFile {
+    websites: BTreeMap<String, BTreeMap<String, Option<StatsEntry>>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StatsEntry {
+    sharing_instances: Option<usize>,
+    selector_map_hits: Option<usize>,
+    fast_rejects: Option<usize>,
+}
+
+impl From<&style::selector_map::Statistics> for StatsEntry {
+    fn from(stats: &style::selector_map::Statistics) -> Self {
+        Self {
+            sharing_instances: stats.sharing_instances,
+            selector_map_hits: stats.selector_map_hits,
+            fast_rejects: stats.fast_rejects,
+        }
+    }
+}
+
+fn write_stats_json(stats: &StatsFile) -> io::Result<()> {
+    let criterion_dir = criterion_dir();
+    fs::create_dir_all(&criterion_dir)?;
+    let stats_path = criterion_dir.join("stats.json");
+    let payload = serde_json::to_string_pretty(stats).expect("stats.json serialization failed");
+    fs::write(stats_path, payload)
+}
+
+fn postprocess_reports() -> io::Result<()> {
+    let criterion_dir = criterion_dir();
+    let stats_path = criterion_dir.join("stats.json");
+    let stats_text = fs::read_to_string(&stats_path)?;
+    let stats: StatsFile = serde_json::from_str(&stats_text)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+
+    for (website, algorithms) in stats.websites {
+        let website_dir = match find_dir(&criterion_dir, &website) {
+            Some(dir) => dir,
+            None => continue,
+        };
+
+        let group_report = website_dir.join("report/index.html");
+        if group_report.exists() {
+            let html = fs::read_to_string(&group_report)?;
+            let updated = inject_group_report(&html, &website, &algorithms);
+            if updated != html {
+                fs::write(&group_report, updated)?;
+            }
+        }
+
+        for (algorithm, stats_entry) in &algorithms {
+            let algo_dir = match find_dir(&website_dir, algorithm) {
+                Some(dir) => dir,
+                None => continue,
+            };
+            let algo_report = algo_dir.join("report/index.html");
+            if algo_report.exists() {
+                let html = fs::read_to_string(&algo_report)?;
+                let updated = inject_algorithm_report(&html, &website, algorithm, stats_entry.as_ref());
+                if updated != html {
+                    fs::write(&algo_report, updated)?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn criterion_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .join("criterion")
+}
+
+fn find_dir(base: &Path, name: &str) -> Option<PathBuf> {
+    let mut candidate = base.join(make_filename_safe(name));
+    if candidate.exists() {
+        return Some(candidate);
+    }
+    let lower = make_filename_safe(name).to_lowercase();
+    candidate = base.join(lower);
+    if candidate.exists() {
+        return Some(candidate);
+    }
+    None
+}
+
+fn make_filename_safe(string: &str) -> String {
+    let mut string = string.replace(
+        &['?', '"', '/', '\\', '*', '<', '>', ':', '|', '^'][..],
+        "_",
+    );
+    if string.len() > 240 {
+        let mut boundary = 240;
+        while boundary > 0 && !string.is_char_boundary(boundary) {
+            boundary -= 1;
+        }
+        string.truncate(boundary);
+    }
+    string
+}
+
+fn inject_group_report(
+    html: &str,
+    website: &str,
+    algorithms: &BTreeMap<String, Option<StatsEntry>>,
+) -> String {
+    let mut updated = html.to_string();
+    updated = inject_styles_once(&updated);
+
+    for (algorithm, stats) in algorithms {
+        let title = format!("{}/{}", website, algorithm);
+        let needle = format!("<h4>{}</h4>", title);
+        if let Some(h4_pos) = updated.find(&needle) {
+            if let Some(a_close_rel) = updated[h4_pos..].find("</a>") {
+                let insert_at = h4_pos + a_close_rel + "</a>".len();
+                let stats_html = render_stats_block(stats.as_ref());
+                if !has_stats_block_nearby(&updated, insert_at) {
+                    updated.insert_str(insert_at, &stats_html);
+                }
+            }
+        }
+    }
+    updated
+}
+
+fn inject_algorithm_report(
+    html: &str,
+    website: &str,
+    algorithm: &str,
+    stats: Option<&StatsEntry>,
+) -> String {
+    let mut updated = html.to_string();
+    updated = inject_styles_once(&updated);
+
+    let title = format!("{}/{}", website, algorithm);
+    let needle = format!("<h2>{}</h2>", title);
+    if let Some(h2_pos) = updated.find(&needle) {
+        let insert_at = h2_pos + needle.len();
+        let stats_html = render_stats_block(stats);
+        if !has_stats_block_nearby(&updated, insert_at) {
+            updated.insert_str(insert_at, &stats_html);
+        }
+    }
+    updated
+}
+
+fn inject_styles_once(html: &str) -> String {
+    if html.contains(".mach6-stats") {
+        return html.to_string();
+    }
+    let style_inject = r#"
+        .mach6-stats {
+            margin: 12px 0 8px 0;
+            padding: 8px 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+        .mach6-stats h5 {
+            margin: 0 0 6px 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .mach6-stats table {
+            border-collapse: collapse;
+        }
+        .mach6-stats th {
+            text-align: left;
+            padding-right: 10px;
+            font-weight: 500;
+        }
+        .mach6-stats td {
+            padding-right: 10px;
+        }
+    "#;
+    let needle = "<style type=\"text/css\">";
+    if let Some(pos) = html.find(needle) {
+        let insert_at = pos + needle.len();
+        let mut updated = html.to_string();
+        updated.insert_str(insert_at, style_inject);
+        return updated;
+    }
+    html.to_string()
+}
+
+fn render_stats_block(stats: Option<&StatsEntry>) -> String {
+    match stats {
+        Some(stats) => format!(
+            r#"
+        <section class="mach6-stats">
+            <h5>Selector Stats</h5>
+            <table>
+                <tbody>
+                    <tr><th>selector_map_hits</th><td>{}</td></tr>
+                    <tr><th>fast_rejects</th><td>{}</td></tr>
+                    <tr><th>sharing_instances</th><td>{}</td></tr>
+                </tbody>
+            </table>
+        </section>
+"#,
+            format_opt(stats.selector_map_hits),
+            format_opt(stats.fast_rejects),
+            format_opt(stats.sharing_instances),
+        ),
+        None => r#"
+        <section class="mach6-stats">
+            <h5>Selector Stats</h5>
+            <div>No stats available.</div>
+        </section>
+"#
+        .to_string(),
+    }
+}
+
+fn format_opt(value: Option<usize>) -> String {
+    value.map(|v| v.to_string()).unwrap_or_else(|| "n/a".to_string())
+}
+
+fn has_stats_block_nearby(html: &str, insert_at: usize) -> bool {
+    let start = insert_at.saturating_sub(200);
+    let end = (insert_at + 200).min(html.len());
+    html[start..end].contains("mach6-stats")
+}
