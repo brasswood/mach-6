@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use mach_6::structs::owned::{OwnedDocumentMatches, OwnedElementMatches, OwnedSelectorsOrSharedStyles};
+use mach_6::structs::borrowed::{DocumentMatches, ElementMatches, SelectorsOrSharedStyles};
 
 pub fn bench_all_websites(c: &mut Criterion) {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
@@ -28,29 +28,26 @@ pub fn bench_all_websites(c: &mut Criterion) {
                     mach_6::match_selectors(&document, &selectors);
                 }));
 
-                let (selector_map_matches, selector_map_stats) =
+                let (_, selector_map_stats) =
                     mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 group.bench_function("With SelectorMap", |b| b.iter(|| {
                     mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 }));
 
-                let (bloom_filter_matches, bloom_filter_stats) =
+                let (_, bloom_filter_stats) =
                     mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
                 group.bench_function("With SelectorMap and Bloom Filter", |b| b.iter(|| {
                     mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
                 }));
 
-                let (style_sharing_matches, style_sharing_stats) =
+                let (_, style_sharing_stats) =
                     mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 group.bench_function("With SelectorMap, Bloom Filter, and Style Sharing", |b| b.iter(|| {
                     mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 }));
                 group.finish();
 
-                let naive_counts = counts_from(&naive_matches.into());
-                let selector_map_counts = counts_from(&selector_map_matches);
-                let bloom_filter_counts = counts_from(&bloom_filter_matches);
-                let style_sharing_counts = counts_from(&style_sharing_matches);
+                let counts = counts_from(&naive_matches);
 
                 all_stats
                     .websites
@@ -60,7 +57,7 @@ pub fn bench_all_websites(c: &mut Criterion) {
                         "Naive".to_string(),
                         Some(StatsEntry::new(
                             selectors.len(),
-                            naive_counts,
+                            counts,
                             None,
                         )),
                     );
@@ -72,7 +69,7 @@ pub fn bench_all_websites(c: &mut Criterion) {
                         "With SelectorMap".to_string(),
                         Some(StatsEntry::new(
                             selectors.len(),
-                            selector_map_counts,
+                            counts,
                             Some(&selector_map_stats),
                         )),
                     );
@@ -84,7 +81,7 @@ pub fn bench_all_websites(c: &mut Criterion) {
                         "With SelectorMap and Bloom Filter".to_string(),
                         Some(StatsEntry::new(
                             selectors.len(),
-                            bloom_filter_counts,
+                            counts,
                             Some(&bloom_filter_stats),
                         )),
                     );
@@ -96,7 +93,7 @@ pub fn bench_all_websites(c: &mut Criterion) {
                         "With SelectorMap, Bloom Filter, and Style Sharing".to_string(),
                         Some(StatsEntry::new(
                             selectors.len(),
-                            style_sharing_counts,
+                            counts,
                             Some(&style_sharing_stats),
                         )),
                     );
@@ -374,18 +371,18 @@ struct MatchCounts {
     matching_pairs: usize,
 }
 
-fn counts_from(matches: &OwnedDocumentMatches) -> MatchCounts {
-    fn find_selectors<'a>(map: &'a HashMap<u64, &'a OwnedElementMatches>, id: u64) -> &'a SmallVec<[Selector; 16]> {
+fn counts_from(matches: &DocumentMatches) -> MatchCounts {
+    fn find_selectors<'a, 'b>(map: &HashMap<u64, &'b ElementMatches<'a>>, id: u64) -> &'b SmallVec<[&'a Selector; 16]> {
         match &map.get(&id).unwrap().selectors {
-            OwnedSelectorsOrSharedStyles::Selectors(selectors) => selectors,
-            OwnedSelectorsOrSharedStyles::SharedWithElement(id) => find_selectors(map, *id),
+            SelectorsOrSharedStyles::Selectors(selectors) => selectors,
+            SelectorsOrSharedStyles::SharedWithElement(id) => find_selectors(map, *id),
         }
     }
     let num_elements = matches.0.len();
     let keyed: HashMap<_, _> = matches
         .0
         .iter()
-        .map(|oem| (oem.element.id, oem))
+        .map(|em| (em.element.id, em))
         .collect();
     debug_assert_eq!(num_elements, keyed.len());
     
