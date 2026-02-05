@@ -1,10 +1,12 @@
 use criterion::{criterion_group, Criterion};
 use mach_6;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use mach_6::structs::borrowed::{DocumentMatches, SelectorsOrSharedStyles};
+use mach_6::structs::owned::{OwnedDocumentMatches, OwnedSelectorsOrSharedStyles};
 
 pub fn bench_all_websites(c: &mut Criterion) {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
@@ -19,43 +21,71 @@ pub fn bench_all_websites(c: &mut Criterion) {
             Ok((name, document, selectors)) => {
                 let selector_map = mach_6::build_selector_map(&selectors);
                 let mut group = c.benchmark_group(&name);
+
+                let naive_matches = mach_6::match_selectors(&document, &selectors);
                 group.bench_function("Naive", |b| b.iter(|| {
                     mach_6::match_selectors(&document, &selectors);
                 }));
-                let (_, selector_map_stats) =
+
+                let (selector_map_matches, selector_map_stats) =
                     mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 group.bench_function("With SelectorMap", |b| b.iter(|| {
                     mach_6::match_selectors_with_selector_map(&document, &selector_map);
                 }));
-                let (_, bloom_filter_stats) =
+
+                let (bloom_filter_matches, bloom_filter_stats) =
                     mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
                 group.bench_function("With SelectorMap and Bloom Filter", |b| b.iter(|| {
                     mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
                 }));
-                let (_, style_sharing_stats) =
+
+                let (style_sharing_matches, style_sharing_stats) =
                     mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 group.bench_function("With SelectorMap, Bloom Filter, and Style Sharing", |b| b.iter(|| {
                     mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 }));
                 group.finish();
 
+                let naive_counts = counts_from_borrowed(&naive_matches);
+                let selector_map_counts = counts_from_owned(&selector_map_matches);
+                let bloom_filter_counts = counts_from_owned(&bloom_filter_matches);
+                let style_sharing_counts = counts_from_owned(&style_sharing_matches);
+
                 all_stats
                     .websites
                     .entry(name.clone())
                     .or_default()
-                    .insert("Naive".to_string(), None);
+                    .insert(
+                        "Naive".to_string(),
+                        Some(StatsEntry::new(
+                            selectors.len(),
+                            naive_counts,
+                            None,
+                        )),
+                    );
                 all_stats
                     .websites
                     .entry(name.clone())
                     .or_default()
-                    .insert("With SelectorMap".to_string(), Some(StatsEntry::from(&selector_map_stats)));
+                    .insert(
+                        "With SelectorMap".to_string(),
+                        Some(StatsEntry::new(
+                            selectors.len(),
+                            selector_map_counts,
+                            Some(&selector_map_stats),
+                        )),
+                    );
                 all_stats
                     .websites
                     .entry(name.clone())
                     .or_default()
                     .insert(
                         "With SelectorMap and Bloom Filter".to_string(),
-                        Some(StatsEntry::from(&bloom_filter_stats)),
+                        Some(StatsEntry::new(
+                            selectors.len(),
+                            bloom_filter_counts,
+                            Some(&bloom_filter_stats),
+                        )),
                     );
                 all_stats
                     .websites
@@ -63,7 +93,11 @@ pub fn bench_all_websites(c: &mut Criterion) {
                     .or_default()
                     .insert(
                         "With SelectorMap, Bloom Filter, and Style Sharing".to_string(),
-                        Some(StatsEntry::from(&style_sharing_stats)),
+                        Some(StatsEntry::new(
+                            selectors.len(),
+                            style_sharing_counts,
+                            Some(&style_sharing_stats),
+                        )),
                     );
             },
             Err(e) => {
@@ -96,17 +130,27 @@ struct StatsFile {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct StatsEntry {
+    num_elements: usize,
+    num_selectors: usize,
+    matching_pairs: usize,
     sharing_instances: Option<usize>,
     selector_map_hits: Option<usize>,
     fast_rejects: Option<usize>,
 }
 
-impl From<&style::selector_map::Statistics> for StatsEntry {
-    fn from(stats: &style::selector_map::Statistics) -> Self {
+impl StatsEntry {
+    fn new(
+        num_selectors: usize,
+        counts: MatchCounts,
+        stats: Option<&style::selector_map::Statistics>,
+    ) -> Self {
         Self {
-            sharing_instances: stats.sharing_instances,
-            selector_map_hits: stats.selector_map_hits,
-            fast_rejects: stats.fast_rejects,
+            num_elements: counts.num_elements,
+            num_selectors,
+            matching_pairs: counts.matching_pairs,
+            sharing_instances: stats.and_then(|s| s.sharing_instances),
+            selector_map_hits: stats.and_then(|s| s.selector_map_hits),
+            fast_rejects: stats.and_then(|s| s.fast_rejects),
         }
     }
 }
@@ -286,6 +330,9 @@ fn render_stats_block(stats: Option<&StatsEntry>) -> String {
             <h5>Selector Stats</h5>
             <table>
                 <tbody>
+                    <tr><th>num_elements</th><td>{}</td></tr>
+                    <tr><th>num_selectors</th><td>{}</td></tr>
+                    <tr><th>matching_pairs</th><td>{}</td></tr>
                     <tr><th>selector_map_hits</th><td>{}</td></tr>
                     <tr><th>fast_rejects</th><td>{}</td></tr>
                     <tr><th>sharing_instances</th><td>{}</td></tr>
@@ -293,6 +340,9 @@ fn render_stats_block(stats: Option<&StatsEntry>) -> String {
             </table>
         </section>
 "#,
+            stats.num_elements,
+            stats.num_selectors,
+            stats.matching_pairs,
             format_opt(stats.selector_map_hits),
             format_opt(stats.fast_rejects),
             format_opt(stats.sharing_instances),
@@ -315,4 +365,42 @@ fn has_stats_block_nearby(html: &str, insert_at: usize) -> bool {
     let start = insert_at.saturating_sub(200);
     let end = (insert_at + 200).min(html.len());
     html[start..end].contains("mach6-stats")
+}
+
+#[derive(Clone, Copy, Debug)]
+struct MatchCounts {
+    num_elements: usize,
+    matching_pairs: usize,
+}
+
+fn counts_from_borrowed(matches: &DocumentMatches<'_>) -> MatchCounts {
+    let num_elements = matches.0.len();
+    let matching_pairs = matches
+        .0
+        .iter()
+        .map(|m| match &m.selectors {
+            SelectorsOrSharedStyles::Selectors(selectors) => selectors.len(),
+            SelectorsOrSharedStyles::SharedWithElement(e) => todo!(),
+        })
+        .sum();
+    MatchCounts {
+        num_elements,
+        matching_pairs,
+    }
+}
+
+fn counts_from_owned(matches: &OwnedDocumentMatches) -> MatchCounts {
+    let num_elements = matches.0.len();
+    let matching_pairs = matches
+        .0
+        .iter()
+        .map(|oem| match &oem.selectors {
+            OwnedSelectorsOrSharedStyles::Selectors(selectors) => selectors.len(),
+            OwnedSelectorsOrSharedStyles::SharedWithElement(e) => todo!(),
+        })
+        .sum();
+    MatchCounts {
+        num_elements,
+        matching_pairs,
+    }
 }
