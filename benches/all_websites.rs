@@ -249,10 +249,13 @@ fn inject_group_report(
         let needle = format!("<h4>{}</h4>", title);
         if let Some(h4_pos) = updated.find(&needle) {
             if let Some(a_close_rel) = updated[h4_pos..].find("</a>") {
-                let insert_at = h4_pos + a_close_rel + "</a>".len();
-                let stats_html = render_stats_block(stats.as_ref());
-                if !has_stats_block_nearby(&updated, insert_at) {
-                    updated.insert_str(insert_at, &stats_html);
+                let after_anchor = h4_pos + a_close_rel + "</a>".len();
+                if let Some(table_close_rel) = updated[after_anchor..].find("</table>") {
+                    let insert_at = after_anchor + table_close_rel + "</table>".len();
+                    let stats_html = render_stats_block(stats.as_ref());
+                    if !has_stats_block_nearby(&updated, insert_at) {
+                        updated.insert_str(insert_at, &stats_html);
+                    }
                 }
             }
         }
@@ -272,10 +275,16 @@ fn inject_algorithm_report(
     let title = format!("{}/{}", website, algorithm);
     let needle = format!("<h2>{}</h2>", title);
     if let Some(h2_pos) = updated.find(&needle) {
-        let insert_at = h2_pos + needle.len();
-        let stats_html = render_stats_block(stats);
-        if !has_stats_block_nearby(&updated, insert_at) {
-            updated.insert_str(insert_at, &stats_html);
+        let after_title = h2_pos + needle.len();
+        if let Some(plots_start_rel) = updated[after_title..].find("<section class=\"plots\">") {
+            let plots_start = after_title + plots_start_rel;
+            if let Some(plots_end_rel) = updated[plots_start..].find("</section>") {
+                let insert_at = plots_start + plots_end_rel + "</section>".len();
+                let stats_html = render_stats_block(stats);
+                if !has_stats_block_nearby(&updated, insert_at) {
+                    updated.insert_str(insert_at, &stats_html);
+                }
+            }
         }
     }
     updated
