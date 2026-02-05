@@ -148,10 +148,21 @@ pub mod set {
 
     impl From<OwnedDocumentMatches> for SetDocumentMatches {
         fn from(OwnedDocumentMatches(v): OwnedDocumentMatches) -> Self {
-            let map = v.into_iter().map(|oem| {
+            let num_elements = v.len();
+            let map: HashMap<_, _> = v.into_iter().map(|oem| {
                 (oem.element.id, oem.into())
             }).collect();
+            debug_assert_eq!(map.len(), num_elements);
             SetDocumentMatches(map)
+        }
+    }
+
+    impl SetDocumentMatches {
+        pub fn find_selectors(&self, id: u64) -> &HashSet<String> {
+            match &self.0.get(&id).unwrap().selectors {
+                SetSelectorsOrSharedStyles::Selectors(hash_set) => hash_set,
+                SetSelectorsOrSharedStyles::SharedWithElement(id) => self.find_selectors(*id),
+            }
         }
     }
 
@@ -187,27 +198,22 @@ pub mod set {
 }
 
 pub mod ser {
-    use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+    use std::collections::{BTreeMap, BTreeSet};
 
     use serde::Serialize;
 
-    use super::set::{SetDocumentMatches, SetElementMatches, SetSelectorsOrSharedStyles};
+    use super::set::SetDocumentMatches;
 
     #[derive(Clone, Debug, Serialize)]
     pub struct SerDocumentMatches(pub BTreeMap<SerElementKey, SerElementMatches>);
 
     impl From<SetDocumentMatches> for SerDocumentMatches {
         fn from(value: SetDocumentMatches) -> Self {
-            fn find_selector_list(doc: &HashMap<u64, SetElementMatches>, id: u64) -> &HashSet<String> {
-                match &doc.get(&id).unwrap().selectors {
-                    SetSelectorsOrSharedStyles::Selectors(hash_set) => hash_set,
-                    SetSelectorsOrSharedStyles::SharedWithElement(id) => find_selector_list(doc, *id),
-                }
-            }
             let new_map: BTreeMap<_, _> = value.0
                 .iter()
                 .map(|(k, v)| {
-                    let selectors = find_selector_list(&value.0, v.element.id)
+                    debug_assert_eq!(*k, v.element.id);
+                    let selectors = value.find_selectors(v.element.id)
                         .clone()
                         .into_iter()
                         .collect();
