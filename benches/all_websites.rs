@@ -337,12 +337,12 @@ fn render_stats_block(stats: Option<&StatsEntry>) -> String {
             <h5>Selector Stats</h5>
             <table>
                 <tbody>
-                    <tr><th>num_elements</th><td>{}</td></tr>
-                    <tr><th>num_selectors</th><td>{}</td></tr>
-                    <tr><th>matching_pairs</th><td>{}</td></tr>
-                    <tr><th>selector_map_hits</th><td>{}</td></tr>
-                    <tr><th>fast_rejects</th><td>{}</td></tr>
-                    <tr><th>sharing_instances</th><td>{}</td></tr>
+                    <tr><th>Number of Elements</th><td>{}</td></tr>
+                    <tr><th>Number of Selectors</th><td>{}</td></tr>
+                    <tr><th>Matching Pairs</th><td>{}</td></tr>
+                    <tr><th>Selector Map Hits</th><td>{}</td></tr>
+                    <tr><th>Fast Rejects</th><td>{}</td></tr>
+                    <tr><th>Sharing Instances</th><td>{}</td></tr>
                 </tbody>
             </table>
         </section>
