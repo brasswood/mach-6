@@ -9,7 +9,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use mach_6::structs::borrowed::{DocumentMatches, ElementMatches, SelectorsOrSharedStyles};
 
-pub fn bench_all_websites(c: &mut Criterion) {
+pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
     let documents_selectors = match mach_6::get_documents_and_selectors(&websites) {
@@ -20,6 +20,11 @@ pub fn bench_all_websites(c: &mut Criterion) {
     for res in documents_selectors {
         match res {
             Ok((name, document, selectors)) => {
+                if let Some(filter) = website_filter {
+                    if name != filter {
+                        continue;
+                    }
+                }
                 let selector_map = mach_6::build_selector_map(&selectors);
                 let mut group = c.benchmark_group(&name);
 
@@ -109,16 +114,38 @@ pub fn bench_all_websites(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, bench_all_websites);
+fn bench_all_websites_full(c: &mut Criterion) {
+    bench_all_websites(c, None);
+}
+
+criterion_group!(benches, bench_all_websites_full);
 
 fn main() {
-    benches();
-    criterion::Criterion::default()
-        .configure_from_args()
-        .final_summary();
+    let website_filter = website_filter_from_args();
+    if let Some(filter) = website_filter.as_deref() {
+        let mut c = Criterion::default();
+        bench_all_websites(&mut c, Some(filter));
+        c.final_summary();
+    } else {
+        benches();
+        criterion::Criterion::default()
+            .configure_from_args()
+            .final_summary();
+    }
     if let Err(e) = postprocess_reports() {
         eprintln!("ERROR: unable to post-process Criterion reports: {e}");
     }
+}
+
+fn website_filter_from_args() -> Option<String> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.len() == 1 {
+        let candidate = args[0].as_str();
+        if !candidate.starts_with('-') {
+            return Some(candidate.to_string());
+        }
+    }
+    None
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
