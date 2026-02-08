@@ -11,20 +11,22 @@ use mach_6::structs::borrowed::{DocumentMatches, ElementMatches, SelectorsOrShar
 
 pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
-    let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
-    let documents_selectors = match mach_6::get_all_documents_and_selectors(&websites) {
-        Ok(documents_selectors) => documents_selectors,
-        Err(e) => return eprintln!("ERROR: {e}"),
+    let websites_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
+    let documents_selectors: Box<dyn Iterator<Item = _>> = match website_filter {
+        Some(website) => match mach_6::parse::get_document_and_selectors(&websites_path.join(website)) {
+            Ok(Some(document_selectors)) => Box::new(std::iter::once(Ok(document_selectors))),
+            Ok(None) => return,
+            Err(e) => return eprintln!("ERROR: {e}"),
+        },
+        None => match mach_6::get_all_documents_and_selectors(&websites_path) {
+            Ok(documents_selectors) => Box::new(documents_selectors),
+            Err(e) => return eprintln!("ERROR: {e}"),
+        },
     };
     let mut all_stats: StatsFile = StatsFile::default();
     for res in documents_selectors {
         match res {
             Ok((name, document, selectors)) => {
-                if let Some(filter) = website_filter {
-                    if name != filter {
-                        continue;
-                    }
-                }
                 let selector_map = mach_6::build_selector_map(&selectors);
                 let mut group = c.benchmark_group(&name);
 
