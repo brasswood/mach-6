@@ -41,7 +41,7 @@ pub mod parse;
 pub mod result;
 pub mod structs;
 
-pub use parse::get_documents_and_selectors;
+pub use parse::get_all_documents_and_selectors;
 use crate::result::Result;
 use crate::structs::{
     Element, Selector,
@@ -67,7 +67,7 @@ pub enum Algorithm {
 }
 
 pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
-    Ok(get_documents_and_selectors(websites)?
+    Ok(get_all_documents_and_selectors(websites)?
         .map(move |r| {
             r.map(|(w, h, s)| {
                 let (matches, stats) = match algorithm {

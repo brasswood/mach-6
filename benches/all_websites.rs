@@ -12,7 +12,7 @@ use mach_6::structs::borrowed::{DocumentMatches, ElementMatches, SelectorsOrShar
 pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let websites = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
-    let documents_selectors = match mach_6::get_documents_and_selectors(&websites) {
+    let documents_selectors = match mach_6::get_all_documents_and_selectors(&websites) {
         Ok(documents_selectors) => documents_selectors,
         Err(e) => return eprintln!("ERROR: {e}"),
     };

@@ -6,6 +6,7 @@
  */
 use crate::Selector;
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
+use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::fs::ReadDir;
 use std::io;
@@ -15,58 +16,66 @@ use serde::Serialize;
 
 mod cssparser;
 
-pub fn get_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
+pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
     let websites_dir = fs::read_dir(&websites_path).into_result(Some(websites_path.to_path_buf()))?; 
     let websites = get_websites_dirs(websites_dir);
-    let documents = websites.filter_map(|r: io::Result<PathBuf>| {
-        r.into_result(Some(websites_path.to_path_buf()))
-            .and_then(|d: PathBuf| parse_website(&d).map(|html: Option<Html>| html.map(|html| (d, html)))).transpose()
-    });
-    let documents_selectors = documents.map(|r: Result<(PathBuf, Html)>| {
-        r.map(|(base, document): (PathBuf, Html)| {
-            let style_tag_selector = scraper::Selector::parse("style").unwrap();
-            let style_tags = document.select(&style_tag_selector);
-            let selectors_from_style_tags = style_tags.filter_map(|elt| {
-                match parse_stylesheet(&elt.inner_html()) {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        eprintln!("WARNING: error parsing a style tag from website {}: {}. Skipping.", base.display(), e);
-                        None
-                    }
-                }
-            })
-            .flatten();
-
-            let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document); // TODO: also get from <style> in main html
-            let selectors_from_stylesheets = stylesheets.into_iter()
-                .filter_map(|f| {
-                    match parse_css_file(&base, &f) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
-                            None
-                        },
-                    }
-                })
-                .flatten();
-            let selectors = selectors_from_style_tags.chain(selectors_from_stylesheets).collect();
-            (base.file_name().unwrap().to_str().unwrap().to_owned(), document, selectors)
-        })
-    });
-    Ok(documents_selectors)
+    Ok(
+        websites.filter_map(|r|
+            r.into_result(Some(websites_path.to_path_buf()))
+            .and_then(|path|
+                get_document_and_selectors(&path)
+            ).transpose()
+        )
+    )
 }
 
-fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathBuf>> {
-    websites.filter_map(|website| {
-        website.map(|website| {
-            let website_path = website.path();
-            if website_path.is_dir() {
-                Some(website_path)
-            } else {
-                eprintln!("WARNING: ignoring {} because it is not a directory", website_path.display());
+pub fn get_document_and_selectors(
+    website_path: &PathBuf
+) -> Result<Option<(String, Html, Vec<Selector>)>> {
+    if !website_path.is_dir() {
+        eprintln!("WARNING: ignoring {} because it is not a directory", website_path.display());
+        return Ok(None);
+    }
+    let document = match parse_website(website_path) {
+        Ok(Some(html)) => html,
+        Ok(None) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let style_tag_selector = scraper::Selector::parse("style").unwrap();
+    let style_tags = document.select(&style_tag_selector);
+    let selectors_from_style_tags = style_tags.filter_map(|elt| {
+        match parse_stylesheet(&elt.inner_html()) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                eprintln!("WARNING: error parsing a style tag from website {}: {}. Skipping.", website_path.display(), e);
                 None
             }
-        }).transpose()
+        }
+    }).flatten();
+    let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
+    let selectors_from_stylesheets = stylesheets.into_iter()
+        .filter_map(|f| {
+            match parse_css_file(&website_path, &f) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
+                    None
+                },
+            }
+        })
+        .flatten();
+    let selectors = selectors_from_style_tags.chain(selectors_from_stylesheets).collect();
+    let website_name = website_path
+        .file_name()
+        .and_then(OsStr::to_str)
+        .unwrap()
+        .to_owned();
+    Ok(Some((website_name, document, selectors)))
+}
+
+pub fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathBuf>> {
+    websites.map(|website| {
+        website.map(|d| d.path())
     })
 }
 
