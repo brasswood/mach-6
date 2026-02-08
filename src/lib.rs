@@ -69,29 +69,31 @@ pub enum Algorithm {
 pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
     Ok(get_all_documents_and_selectors(websites)?
         .map(move |r| {
-            r.map(|(w, h, s)| {
-                let (matches, stats) = match algorithm {
-                    Algorithm::Naive => (
-                        OwnedDocumentMatches::from(match_selectors(&h, &s)),
-                        Statistics::default()
-                    ),
-                    Algorithm::WithSelectorMap => {
-                        let selector_map = build_selector_map(&s);
-                        match_selectors_with_selector_map(&h, &selector_map)
-                    }
-                    Algorithm::WithBloomFilter => {
-                        let selector_map = build_selector_map(&s);
-                        match_selectors_with_bloom_filter(&h, &selector_map)
-                    }
-                    Algorithm::WithStyleSharing => {
-                        let selector_map = build_selector_map(&s);
-                        match_selectors_with_style_sharing(&h, &selector_map)
-                    }
-                };
-                (w, SetDocumentMatches::from(matches), stats)
-            })
+            r.map(|w| do_website(w, algorithm))
         })
     )
+}
+
+pub fn do_website((name, document, selectors): (String, Html, Vec<Selector>), algorithm: Algorithm) -> (String, SetDocumentMatches, Statistics){
+    let (matches, stats) = match algorithm {
+        Algorithm::Naive => (
+            OwnedDocumentMatches::from(match_selectors(&document, &selectors)),
+            Statistics::default()
+        ),
+        Algorithm::WithSelectorMap => {
+            let selector_map = build_selector_map(&selectors);
+            match_selectors_with_selector_map(&document, &selector_map)
+        }
+        Algorithm::WithBloomFilter => {
+            let selector_map = build_selector_map(&selectors);
+            match_selectors_with_bloom_filter(&document, &selector_map)
+        }
+        Algorithm::WithStyleSharing => {
+            let selector_map = build_selector_map(&selectors);
+            match_selectors_with_style_sharing(&document, &selector_map)
+        }
+    };
+    (name, matches.into(), stats)
 }
 // TODO: figure out why iteration yields more elements than traversal
 pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
@@ -375,4 +377,21 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     preorder_traversal(document.root_element(), 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
     stats.sharing_instances = Some(sharing_instances);
     (OwnedDocumentMatches(result), stats)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::result::Result;
+    use crate::parse::{get_document_and_selectors, websites_path};
+    use crate::do_website;
+    use crate::Algorithm;
+    #[test]
+    fn style_sharing_works() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("ten_divs_style_sharing")
+        )?.unwrap();
+        let (_, _, stats) = do_website(website, Algorithm::WithStyleSharing);
+        assert_eq!(stats.sharing_instances, Some(9));
+        Ok(())
+    }
 }

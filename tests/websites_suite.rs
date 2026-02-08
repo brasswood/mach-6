@@ -10,7 +10,7 @@ use insta;
 
 #[test]
 fn does_all_websites() -> Result<()> {
-    let websites_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
+    let websites_path = mach_6::parse::websites_path();
     let results = mach_6::do_all_websites(&websites_path, Algorithm::Naive)?;
     insta::with_settings!({ snapshot_path => websites_path.join("snapshots")}, {
         for web_result in results {
