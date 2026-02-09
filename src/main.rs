@@ -18,6 +18,7 @@ struct Args {
 }
 
 fn main() -> mach_6::result::Result<()> {
+    env_logger::builder().filter_level(log::LevelFilter::Warn).init();
     let Args{ websites } = Args::parse();
     let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
     let result: HashMap<String, SerDocumentMatches> = result?

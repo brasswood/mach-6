@@ -385,6 +385,7 @@ mod tests {
     use crate::parse::{get_document_and_selectors, websites_path};
     use crate::do_website;
     use crate::Algorithm;
+    use test_log::test;
     #[test]
     fn style_sharing_works() -> Result<()> {
         let website = get_document_and_selectors(

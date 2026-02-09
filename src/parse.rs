@@ -6,6 +6,7 @@
  */
 use crate::Selector;
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
+use log::warn;
 use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::fs::ReadDir;
@@ -37,7 +38,7 @@ pub fn get_document_and_selectors(
     website_path: &Path
 ) -> Result<Option<(String, Html, Vec<Selector>)>> {
     if !website_path.is_dir() {
-        eprintln!("WARNING: ignoring {} because it is not a directory", website_path.display());
+        warn!("ignoring {} because it is not a directory", website_path.display());
         return Ok(None);
     }
     let document = match parse_website(website_path) {
@@ -51,7 +52,7 @@ pub fn get_document_and_selectors(
         match parse_stylesheet(&elt.inner_html()) {
             Ok(v) => Some(v),
             Err(e) => {
-                eprintln!("WARNING: error parsing a style tag from website {}: {}. Skipping.", website_path.display(), e);
+                warn!("error parsing a style tag from website {}: {}. Skipping.", website_path.display(), e);
                 None
             }
         }
@@ -62,7 +63,7 @@ pub fn get_document_and_selectors(
             match parse_css_file(&website_path, &f) {
                 Ok(v) => Some(v),
                 Err(e) => {
-                    eprintln!("WARNING: error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
+                    warn!("error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
                     None
                 },
             }
@@ -108,7 +109,7 @@ fn get_main_html(website: &Path) -> Result<Option<HtmlFile>> {
     let mut found: Vec<HtmlFile> = files.collect::<io::Result<Vec<_>>>().into_result(website_path)?.into_iter().filter_map(f).collect();
     match found.len() {
         0 => {
-            eprintln!("WARNING: ignoring {}, no html file found", website.display());
+            warn!("ignoring {}, no html file found", website.display());
             Ok(None)
         },
         1 => Ok(Some(found.pop().unwrap())),
@@ -126,7 +127,7 @@ fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
     let selector = scraper::Selector::parse(r#"link[rel="stylesheet"]"#).unwrap();
     document.select(&selector).filter_map(|elt| {
         let Some(path) = elt.attr("href") else {
-            eprintln!("WARNING: Found no href attribute in link element: {}. Skipping.", elt.html());
+            warn!("Found no href attribute in link element: {}. Skipping.", elt.html());
             return None;
         };
         Some(CssFile(PathBuf::from(path)))
@@ -156,6 +157,7 @@ mod tests {
     use std::{fs, path::PathBuf};
     use crate::result::IntoResultExt;
     use crate::parse::{CssFile, get_main_html, get_stylesheet_paths, parse_main_html};
+    use test_log::test;
 
     /// In all of these tests:
     ///   - Err() represents an unexpected error occurring during the test

@@ -89,6 +89,7 @@ mod tests {
     use std::path::PathBuf;
     use scraper::selector::ToCss as _;
     use super::SelectorResult;
+    use test_log::test;
 
     #[test]
     fn parses_github_rust_scraper_css() -> io::Result<()> {

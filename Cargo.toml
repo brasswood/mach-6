@@ -26,6 +26,7 @@ insta = { version = "1.43.2", features = ["yaml"] }
 tempfile = "3"
 criterion = "0.7.0"
 serde_json = "1.0.143"
+test-log = "0.2.19"
 
 [profile.dev.package]
 insta.opt-level = 3

@@ -7,6 +7,7 @@
 use std::path::PathBuf;
 use mach_6::{Algorithm, result::{IntoResultExt, Result}};
 use insta;
+use test_log::test;
 
 #[test]
 fn does_all_websites() -> Result<()> {

@@ -1,4 +1,5 @@
 use criterion::{criterion_group, Criterion};
+use log::error;
 use mach_6;
 use mach_6::structs::Selector;
 use serde::{Deserialize, Serialize};
@@ -10,17 +11,16 @@ use std::path::{Path, PathBuf};
 use mach_6::structs::borrowed::{DocumentMatches, ElementMatches, SelectorsOrSharedStyles};
 
 pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
-    env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let websites_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
     let documents_selectors: Box<dyn Iterator<Item = _>> = match website_filter {
         Some(website) => match mach_6::parse::get_document_and_selectors(&websites_path.join(website)) {
             Ok(Some(document_selectors)) => Box::new(std::iter::once(Ok(document_selectors))),
             Ok(None) => return,
-            Err(e) => return eprintln!("ERROR: {e}"),
+            Err(e) => return error!("{e}"),
         },
         None => match mach_6::get_all_documents_and_selectors(&websites_path) {
             Ok(documents_selectors) => Box::new(documents_selectors),
-            Err(e) => return eprintln!("ERROR: {e}"),
+            Err(e) => return error!("{e}"),
         },
     };
     let mut all_stats: StatsFile = StatsFile::default();
@@ -106,13 +106,13 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                     );
             },
             Err(e) => {
-                eprintln!("ERROR: {e}");
+                error!("{e}");
             }
         }
     }
 
     if let Err(e) = write_stats_json(&all_stats) {
-        eprintln!("ERROR: unable to write stats.json: {e}");
+        error!("unable to write stats.json: {e}");
     }
 }
 
@@ -123,6 +123,7 @@ fn bench_all_websites_full(c: &mut Criterion) {
 criterion_group!(benches, bench_all_websites_full);
 
 fn main() {
+    env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let website_filter = website_filter_from_args();
     if let Some(filter) = website_filter.as_deref() {
         let mut c = Criterion::default();
@@ -135,7 +136,7 @@ fn main() {
             .final_summary();
     }
     if let Err(e) = postprocess_reports() {
-        eprintln!("ERROR: unable to post-process Criterion reports: {e}");
+        error!("unable to post-process Criterion reports: {e}");
     }
 }
 
