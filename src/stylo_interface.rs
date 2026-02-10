@@ -5,6 +5,7 @@ use style::media_queries::MediaType;
 use style::properties::ComputedValues;
 use style::properties::style_structs::Font;
 use style::queries::values::PrefersColorScheme;
+use style::style_resolver::{PrimaryStyle, ResolvedStyle};
 use style::servo::media_queries::FontMetricsProvider;
 use style::values::computed::{CSSPixelLength, font::GenericFontFamily, font::QueryFontMetricsFlags, Length};
 use style::Atom;
@@ -48,6 +49,16 @@ pub fn mock_device() -> Device {
         ComputedValues::initial_values_with_font_override(default_font),
         PrefersColorScheme::Light,
     )
+}
+
+pub fn default_style() -> PrimaryStyle {
+    let default_font = Font::initial_values();
+    let style = ComputedValues::initial_values_with_font_override(default_font);
+    PrimaryStyle {
+        style: ResolvedStyle(style),
+        reused_via_rule_node: false,
+        may_have_starting_style: false,
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
