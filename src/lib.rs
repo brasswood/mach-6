@@ -14,6 +14,7 @@ use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
+use style::style_resolver::PrimaryStyle;
 use style::traversal_flags::TraversalFlags;
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -318,7 +319,21 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                     &CascadeData::new(),
                     context.shared.stylist,
                 );
-                matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
+                // 1.3.3: add the matched styles to the list
+                matches.push(
+                    OwnedElementMatches{
+                        element: Element::from(element),
+                        selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors)
+                    }
+                );
+                // 1.3.4: insert the element into the style sharing cache
+                context.thread_local.sharing_cache.insert_if_possible(
+                    &element,
+                    &stylo_interface::default_style(),
+                    None,
+                    element_depth,
+                    &context.shared,
+                );
             }
         }
         // 2. traverse children

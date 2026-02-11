@@ -9,6 +9,8 @@ use html5ever::{Attribute, LocalName, QualName};
 use style::servo_arc::Arc;
 use style::{Atom, values::GenericAtomIdent};
 use std::cell::OnceCell;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use style::properties::declaration_block::parse_style_attribute;
 use style::context::QuirksMode;
 use style::stylesheets::{CssRuleType, UrlExtraData};
@@ -241,17 +243,49 @@ pub struct Element {
     classes: OnceCell<Box<[style::values::AtomIdent]>>,
 }
 
+struct InternedStyleBlock {
+    lock: SharedRwLock,
+    block: Arc<Locked<style::properties::PropertyDeclarationBlock>>,
+}
+
+fn intern_style_block(style_attr: &str) -> (SharedRwLock, Arc<Locked<style::properties::PropertyDeclarationBlock>>) {
+    static INTERNER: OnceLock<Mutex<HashMap<String, InternedStyleBlock>>> = OnceLock::new();
+    let interner = INTERNER.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut map = interner.lock().unwrap();
+
+    if let Some(entry) = map.get(style_attr) {
+        return (entry.lock.clone(), entry.block.clone());
+    }
+
+    let style_block = parse_style_attribute(
+        style_attr,
+        &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+        None,
+        QuirksMode::NoQuirks,
+        CssRuleType::Style,
+    );
+    let lock = SharedRwLock::new();
+    let block = Arc::new(lock.wrap(style_block));
+
+    map.insert(
+        style_attr.to_owned(),
+        InternedStyleBlock {
+            lock: lock.clone(),
+            block: block.clone(),
+        },
+    );
+
+    (lock, block)
+}
+
 impl Clone for Element {
     fn clone(&self) -> Self {
         let name = self.name.clone();
         let attrs = self.attrs.clone();
         let id = self.id.clone();
         let classes = self.classes.clone();
-        let style_block = self.style_block.read_with(
-            &self.style_block_lock.read()
-        ).clone();
-        let style_block_lock = SharedRwLock::new();
-        let style_block = Arc::new(style_block_lock.wrap(style_block));
+        let style_block = self.style_block.clone();
+        let style_block_lock = self.style_block_lock.clone();
         Self {
             name,
             attrs,
@@ -285,20 +319,12 @@ impl Element {
         attrs.sort_unstable_by(|lhs, rhs| lhs.0.cmp(&rhs.0));
 
         let style_attr = attrs.iter().find(|attr| &*attr.0.local == "style").map(|attr| &*attr.1).unwrap_or("");
-        let style_block = parse_style_attribute(
-            style_attr,
-            &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
-            None,
-            QuirksMode::NoQuirks,
-            CssRuleType::Style
-        );
-
-        let style_block_lock = SharedRwLock::new();
+        let (style_block_lock, style_block) = intern_style_block(style_attr);
 
         Element {
             attrs,
             name,
-            style_block: Arc::new(style_block_lock.wrap(style_block)),
+            style_block,
             style_block_lock,
             id: OnceCell::new(),
             classes: OnceCell::new(),
