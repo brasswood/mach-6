@@ -5,7 +5,9 @@ use std::ops::Deref;
 use std::slice::Iter as SliceIter;
 
 use crate::{CaseSensitivity, StrTendril};
+use atomic_refcell::AtomicRefCell;
 use html5ever::{Attribute, LocalName, QualName};
+use style::data::ElementData;
 use style::servo_arc::Arc;
 use style::{Atom, values::GenericAtomIdent};
 use std::cell::OnceCell;
@@ -238,6 +240,8 @@ pub struct Element {
 
     style_block_lock: SharedRwLock,
 
+    element_data: Option<AtomicRefCell<ElementData>>,
+
     id: OnceCell<Option<Atom>>,
 
     classes: OnceCell<Box<[style::values::AtomIdent]>>,
@@ -286,11 +290,13 @@ impl Clone for Element {
         let classes = self.classes.clone();
         let style_block = self.style_block.clone();
         let style_block_lock = self.style_block_lock.clone();
+        let element_data = self.element_data.clone();
         Self {
             name,
             attrs,
             style_block,
             style_block_lock,
+            element_data,
             id,
             classes
         }
@@ -326,6 +332,7 @@ impl Element {
             name,
             style_block,
             style_block_lock,
+            element_data: None,
             id: OnceCell::new(),
             classes: OnceCell::new(),
         }
