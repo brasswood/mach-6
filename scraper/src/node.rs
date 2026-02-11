@@ -22,7 +22,7 @@ use style::shared_lock::{Locked, SharedRwLock};
 // `Element` is usally the most common variant and hence boxing it
 // will most likely not improve performance overall.
 #[allow(variant_size_differences)]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum Node {
     /// The document root.
     Document,
@@ -280,27 +280,6 @@ fn intern_style_block(style_attr: &str) -> (SharedRwLock, Arc<Locked<style::prop
     );
 
     (lock, block)
-}
-
-impl Clone for Element {
-    fn clone(&self) -> Self {
-        let name = self.name.clone();
-        let attrs = self.attrs.clone();
-        let id = self.id.clone();
-        let classes = self.classes.clone();
-        let style_block = self.style_block.clone();
-        let style_block_lock = self.style_block_lock.clone();
-        let element_data = self.element_data.clone();
-        Self {
-            name,
-            attrs,
-            style_block,
-            style_block_lock,
-            element_data,
-            id,
-            classes
-        }
-    }
 }
 
 impl PartialEq for Element {

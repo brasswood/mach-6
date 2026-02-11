@@ -24,7 +24,7 @@ pub use tree_sink::HtmlTreeSink;
 /// `errors` field. The `tree` will still be populated as best as possible.
 ///
 /// Implements the `TreeSink` trait from the `html5ever` crate, which allows HTML to be parsed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Html {
     #[cfg(feature = "errors")]
     /// Parse errors.
