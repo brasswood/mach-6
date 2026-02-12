@@ -406,13 +406,24 @@ mod tests {
     use crate::do_website;
     use crate::Algorithm;
     use test_log::test;
+
     #[test]
-    fn style_sharing_works() -> Result<()> {
+    fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
         let (_, _, stats) = do_website(website, Algorithm::WithStyleSharing);
         assert_eq!(stats.sharing_instances, Some(9));
+        Ok(())
+    }
+
+    #[test]
+    fn nonshareable_styles_are_not_shared() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("ten_divs_style_sharing_2")
+        )?.unwrap();
+        let (_, _, stats) = do_website(website, Algorithm::WithStyleSharing);
+        assert_eq!(stats.sharing_instances, Some(5));
         Ok(())
     }
 }
