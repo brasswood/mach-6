@@ -5,6 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use derive_more::Display;
+use log::info;
 use rustc_hash::FxBuildHasher;
 use selectors::Element as _;
 use style::animation::DocumentAnimationSet;
@@ -65,6 +66,32 @@ pub enum Algorithm {
     WithSelectorMap,
     WithBloomFilter,
     WithStyleSharing,
+}
+
+fn debug_element(element: &ElementRef) {
+    if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
+        let mut msg = String::new();
+        writeln!(&mut msg, "PRINT ME element encountered!").unwrap();
+        writeln!(&mut msg, "I am {:?}", element).unwrap();
+        writeln!(&mut msg, "My children are:").unwrap();
+        for child in element.children() {
+            writeln!(&mut msg, "  {:?}", child.value()).unwrap();
+        }
+        info!("{}", msg);
+    }
+}
+
+fn assert_childrens_parent_is_me(parent: &ElementRef) {
+    // assert that all of my children's parent is me
+    for child in parent.child_elements() {
+        if child.traversal_parent().unwrap() != *parent {
+            let mut msg = String::new();
+            writeln!(&mut msg, "me: {:?}", parent).unwrap();
+            writeln!(&mut msg, "my child: {:?}", child).unwrap();
+            writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap()).unwrap();
+            panic!("child's traversal_parent was not equal to me!\n{msg}");
+        }
+    }
 }
 
 pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
@@ -242,23 +269,12 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
         );
         matches.push(OwnedElementMatches{ element: Element::from(element), selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
-        if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
-            println!("PRINT ME element encountered!");
-            println!("I am {:?}", element);
-            println!("My children are:");
-            for child in element.children() {
-                println!("  {:?}", child.value());
-            }
+        #[cfg(debug_assertions)]
+        {
+            debug_element(&element);
+            assert_childrens_parent_is_me(&element);
         }
         for child in element.child_elements() {
-            // assert that all of my children's parent is me
-            if child.traversal_parent().unwrap() != element {
-                let mut msg = String::new();
-                writeln!(&mut msg, "me: {:?}", element);
-                writeln!(&mut msg, "my child: {:?}", child);
-                writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
-                panic!("child's traversal_parent was not equal to me!\n{msg}");
-            }
             preorder_traversal(child, element_depth+1, matches, selector_map, style_bloom, caches, stats);
         }
     }
@@ -337,23 +353,12 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             }
         }
         // 2. traverse children
-        if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
-            println!("PRINT ME element encountered!");
-            println!("I am {:?}", element);
-            println!("My children are:");
-            for child in element.children() {
-                println!("  {:?}", child.value());
-            }
+        #[cfg(debug_assertions)]
+        {
+            debug_element(&element);
+            assert_childrens_parent_is_me(&element);
         }
         for child in element.child_elements() {
-            // assert that all of my children's parent is me
-            if child.traversal_parent().unwrap() != element {
-                let mut msg = String::new();
-                writeln!(&mut msg, "me: {:?}", element);
-                writeln!(&mut msg, "my child: {:?}", child);
-                writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap());
-                panic!("child's traversal_parent was not equal to me!\n{msg}");
-            }
             preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats, sharing_instances);
         }
     }
