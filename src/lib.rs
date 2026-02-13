@@ -289,8 +289,7 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
 
 pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
-        element: ElementRef<'a>, 
-        element_data: &mut ElementData,
+        element: ElementRef<'a>,
         element_depth: usize,
         context: &mut StyleContext<ElementRef<'a>>,
         matches: &mut Vec<OwnedElementMatches>,
@@ -309,11 +308,35 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         match target.share_style_if_possible(context) {
             Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
+                // First, update the data with the new styles.
+                // My first version of this passed the `&element` and the
+                // `&element.mutate_data()` as two separate parameters to
+                // `preorder_traversal`, so that it would look like the
+                // signature of `compute_style`. However, this led to the
+                // mutable `RefCell` borrow of the element being held on past
+                // the recursive call to `preorder_traversal`, which would then
+                // try to immutably borrow its parent (the original element)
+                // when testing candidate, leading to a panic. The solution
+                // would be to drop the mutable borrow before the recursive call
+                // to `preorder_traversal`, but if the mutable reference is just
+                // a dumb reference, this does nothing (as Thalia explained,
+                // once you're in the function `preorder_traversal(&elt, &mut
+                // elt.data)`, there is an implicit `RefMut` owned by the caller
+                // which &mut elt.data borrows from, so there's no way to drop
+                // that). Thalia said the better solution is to just have
+                // `preorder_traversal` own the `RefMut` in such a way that it
+                // can drop it before recursing.
+                // As for how servo gets away with doing it the way they do, it
+                // looks like their `process_preorder` function doesn't recurse,
+                // which means the `RefMut` can be dropped before
+                // `process_preorder` (and all of its callees like
+                // `recalc_style_at` and eventually `compute_style`) are called
+                // again. As Thalia said, they are probably using some sort of
+                // tree-walking machinery.
+                element.mutate_data().unwrap().set_styles(shared_styles);
                 let element = Element::from(element);
                 let other_element = Element::from(other_element);
                 matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) });
-                // update the data with the new styles
-                element_data.set_styles(shared_styles);
                 *sharing_instances += 1;
             },
             None => {
@@ -364,7 +387,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             assert_childrens_parent_is_me(&element);
         }
         for child in element.child_elements() {
-            preorder_traversal(child, &mut child.mutate_data().unwrap(), element_depth+1, context, matches, selector_map, caches, stats, sharing_instances);
+            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats, sharing_instances);
         }
     }
     // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
@@ -401,7 +424,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     let mut sharing_instances = 0;
 
     let root = document.root_element();
-    preorder_traversal(root, &mut root.mutate_data().unwrap(), 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
+    preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
     stats.sharing_instances = Some(sharing_instances);
     (OwnedDocumentMatches(result), stats)
 }
