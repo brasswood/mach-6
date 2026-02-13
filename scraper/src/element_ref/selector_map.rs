@@ -1,4 +1,5 @@
-use style::selector_map::SelectorMapElement;
+use atomic_refcell::AtomicRef;
+use style::{data::ElementData, selector_map::SelectorMapElement};
 use crate::{ElementRef, Node};
 
 impl SelectorMapElement for ElementRef<'_> {
@@ -43,42 +44,8 @@ impl SelectorMapElement for ElementRef<'_> {
         }
     }
 
-    fn borrow_data(&self) -> Option<atomic_refcell::AtomicRef<'_, style::data::ElementData>> {
-        use std::sync::OnceLock;
-        use style::data::{ElementData, ElementDataFlags, ElementStyles};
-        use style::properties::style_structs::Font;
-        use style::properties::ComputedValues;
-        use style::style_resolver::{PrimaryStyle, ResolvedStyle};
-
-        static DEFAULT_DATA: OnceLock<atomic_refcell::AtomicRefCell<ElementData>> = OnceLock::new();
-
-        let cell = DEFAULT_DATA.get_or_init(|| {
-            let default_font = Font::initial_values();
-            let style = ComputedValues::initial_values_with_font_override(default_font);
-            let primary = PrimaryStyle {
-                style: ResolvedStyle(style),
-                reused_via_rule_node: false,
-                may_have_starting_style: false,
-            };
-            let mut data = ElementData {
-                styles: ElementStyles {
-                    primary: Some(primary.style.0),
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-            data.flags.set(
-                ElementDataFlags::PRIMARY_STYLE_REUSED_VIA_RULE_NODE,
-                primary.reused_via_rule_node,
-            );
-            data.flags.set(
-                ElementDataFlags::MAY_HAVE_STARTING_STYLE,
-                primary.may_have_starting_style,
-            );
-            atomic_refcell::AtomicRefCell::new(data)
-        });
-
-        Some(cell.borrow())
+    fn borrow_data(&self) -> Option<AtomicRef<'_, ElementData>> {
+        Some(self.value().borrow_data())
     }
 
     fn query_container_size(

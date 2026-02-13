@@ -1,4 +1,5 @@
-use style::sharing::StyleSharingElement;
+use atomic_refcell::AtomicRefMut;
+use style::{data::ElementData, sharing::StyleSharingElement};
 use crate::ElementRef;
 
 impl StyleSharingElement for ElementRef<'_> {
@@ -25,5 +26,9 @@ impl StyleSharingElement for ElementRef<'_> {
 
     fn has_animations(&self, _context: &style::context::SharedStyleContext) -> bool {
         false // TODO: something here?
+    }
+    
+    fn mutate_data(&self) -> Option<AtomicRefMut<'_, ElementData>> {
+        Some(self.value().mutate_data())
     }
 }

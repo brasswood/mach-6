@@ -5,10 +5,13 @@ use std::ops::Deref;
 use std::slice::Iter as SliceIter;
 
 use crate::{CaseSensitivity, StrTendril};
-use atomic_refcell::AtomicRefCell;
+use atomic_refcell::{AtomicRef, AtomicRefCell, AtomicRefMut};
 use html5ever::{Attribute, LocalName, QualName};
-use style::data::ElementData;
+use style::data::{ElementData, ElementDataFlags, ElementStyles};
+use style::properties::ComputedValues;
+use style::properties::style_structs::Font;
 use style::servo_arc::Arc;
+use style::style_resolver::{PrimaryStyle, ResolvedStyle};
 use style::{Atom, values::GenericAtomIdent};
 use std::cell::OnceCell;
 use std::collections::HashMap;
@@ -240,7 +243,7 @@ pub struct Element {
 
     style_block_lock: SharedRwLock,
 
-    element_data: Option<AtomicRefCell<ElementData>>,
+    element_data: OnceCell<AtomicRefCell<ElementData>>,
 
     id: OnceCell<Option<Atom>>,
 
@@ -311,7 +314,7 @@ impl Element {
             name,
             style_block,
             style_block_lock,
-            element_data: None,
+            element_data: OnceCell::new(),
             id: OnceCell::new(),
             classes: OnceCell::new(),
         }
@@ -403,6 +406,46 @@ impl Element {
             inner: self.attrs.iter(),
         }
     }
+
+    /// Returns this Element's ElementData. Initializes it if it hasn't been
+    /// initialized yet.
+    /// TODO: I hope this is correct.
+    pub fn borrow_data(&self) -> AtomicRef<'_, ElementData> {
+        self.element_data.get_or_init(|| AtomicRefCell::new(default_data())).borrow()
+    }
+
+    /// Returns a mutable reference to this Element's ElementData. Initializes
+    /// it if it hasn't been initialized yet.
+    /// TODO: I hope this is correct.
+    pub fn mutate_data(&self) -> AtomicRefMut<'_, ElementData> {
+        self.element_data.get_or_init(|| AtomicRefCell::new(default_data())).borrow_mut()
+    }
+}
+
+fn default_data() -> ElementData {
+    let default_font = Font::initial_values();
+    let style = ComputedValues::initial_values_with_font_override(default_font);
+    let primary = PrimaryStyle {
+        style: ResolvedStyle(style),
+        reused_via_rule_node: false,
+        may_have_starting_style: false,
+    };
+    let mut data = ElementData {
+        styles: ElementStyles {
+            primary: Some(primary.style.0),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    data.flags.set(
+        ElementDataFlags::PRIMARY_STYLE_REUSED_VIA_RULE_NODE,
+        primary.reused_via_rule_node,
+    );
+    data.flags.set(
+        ElementDataFlags::MAY_HAVE_STARTING_STYLE,
+        primary.may_have_starting_style,
+    );
+    data
 }
 
 /// Iterator over classes.
