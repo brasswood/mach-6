@@ -13,9 +13,10 @@ use style::bloom::StyleBloom;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
+use style::data::ElementData;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
-use style::style_resolver::PrimaryStyle;
+use style::sharing::StyleSharingElement as _;
 use style::traversal_flags::TraversalFlags;
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -289,6 +290,7 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
 pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>, 
+        element_data: &mut ElementData,
         element_depth: usize,
         context: &mut StyleContext<ElementRef<'a>>,
         matches: &mut Vec<OwnedElementMatches>,
@@ -305,11 +307,13 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         match target.share_style_if_possible(context) {
-            Some((other_element, _shared_styles)) => {
+            Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
                 let element = Element::from(element);
                 let other_element = Element::from(other_element);
                 matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) });
+                // update the data with the new styles
+                element_data.set_styles(shared_styles);
                 *sharing_instances += 1;
             },
             None => {
@@ -335,7 +339,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                     &CascadeData::new(),
                     context.shared.stylist,
                 );
-                // 1.3.3: add the matched styles to the list
+                // 1.3.3: add the matched selectors to the list
                 matches.push(
                     OwnedElementMatches{
                         element: Element::from(element),
@@ -345,7 +349,8 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 // 1.3.4: insert the element into the style sharing cache
                 context.thread_local.sharing_cache.insert_if_possible(
                     &element,
-                    &stylo_interface::default_style(),
+                    &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
+                    // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
                     None,
                     element_depth,
                     &context.shared,
@@ -359,7 +364,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             assert_childrens_parent_is_me(&element);
         }
         for child in element.child_elements() {
-            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats, sharing_instances);
+            preorder_traversal(child, &mut child.mutate_data().unwrap(), element_depth+1, context, matches, selector_map, caches, stats, sharing_instances);
         }
     }
     // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
@@ -394,7 +399,9 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     let mut result = Vec::new();
     let mut stats = Statistics::default();
     let mut sharing_instances = 0;
-    preorder_traversal(document.root_element(), 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
+
+    let root = document.root_element();
+    preorder_traversal(root, &mut root.mutate_data().unwrap(), 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
     stats.sharing_instances = Some(sharing_instances);
     (OwnedDocumentMatches(result), stats)
 }
@@ -418,6 +425,7 @@ mod tests {
     }
 
     #[test]
+    // TODO: This test doesn't actually test what I want
     fn nonshareable_styles_are_not_shared() -> Result<()> {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing_2")
