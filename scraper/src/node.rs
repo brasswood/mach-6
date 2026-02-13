@@ -241,7 +241,8 @@ pub struct Element {
     /// The PropertyDeclarationBlock, parsed on construction from the 'style' attribute
     pub style_block: Arc<Locked<style::properties::PropertyDeclarationBlock>>,
 
-    style_block_lock: SharedRwLock,
+    /// The lock to use to unlock `style_block`
+    pub style_block_lock: SharedRwLock,
 
     element_data: OnceCell<AtomicRefCell<ElementData>>,
 
