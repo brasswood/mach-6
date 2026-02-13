@@ -7,6 +7,8 @@
 use crate::Selector;
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
+use selectors::parser::{Component, RelativeSelector};
+use selectors::visitor::SelectorVisitor;
 use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::fs::ReadDir;
@@ -148,8 +150,59 @@ fn parse_stylesheet(css: &str) -> Result<Vec<Selector>> {
             r.ok().flatten().map(|sel_list| sel_list.selectors.slice().iter().cloned().collect::<Vec<_>>().into_iter())
         })
         .flatten()
+        .filter(|selector| !selector_has_pseudo_class(selector))
         .collect();
     Ok(res)
+}
+
+fn selector_has_pseudo_class(selector: &Selector) -> bool {
+    struct Visitor {
+        found: bool,
+    }
+
+    impl SelectorVisitor for Visitor {
+        type Impl = style::selector_parser::SelectorImpl;
+
+        fn visit_simple_selector(&mut self, component: &Component<Self::Impl>) -> bool {
+            use Component::*;
+            if matches!(
+                component,
+                Negation(..)
+                    | Root
+                    | Empty
+                    | Scope
+                    | ImplicitScope
+                    | ParentSelector
+                    | Nth(..)
+                    | NthOf(..)
+                    | NonTSPseudoClass(..)
+                    | Host(..)
+                    | Where(..)
+                    | Is(..)
+                    | Has(..)
+            ) {
+                self.found = true;
+                return false;
+            }
+            true
+        }
+
+        fn visit_relative_selector_list(
+            &mut self,
+            list: &[RelativeSelector<Self::Impl>],
+        ) -> bool {
+            for relative in list {
+                if !relative.selector.visit(self) {
+                    return false;
+                }
+            }
+            true
+        }
+    }
+
+    let mut visitor = Visitor { found: false };
+    selector.visit(&mut visitor);
+    visitor.found
 }
 
 #[cfg(test)]
