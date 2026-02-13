@@ -204,7 +204,7 @@ pub mod ser {
 
     use super::set::SetDocumentMatches;
 
-    #[derive(Clone, Debug, Serialize)]
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     pub struct SerDocumentMatches(pub BTreeMap<SerElementKey, SerElementMatches>);
 
     impl From<SetDocumentMatches> for SerDocumentMatches {
@@ -223,7 +223,7 @@ pub mod ser {
         }
     }
 
-    #[derive(Clone, Debug, Serialize)]
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     pub struct SerElementMatches {
         pub html: String,
         pub selectors: BTreeSet<String>,

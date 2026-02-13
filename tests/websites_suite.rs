@@ -5,7 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use std::path::PathBuf;
-use mach_6::{Algorithm, result::{IntoResultExt, Result}};
+use mach_6::{Algorithm, result::{IntoResultExt, Result}, structs::ser::SerDocumentMatches};
 use insta;
 use test_log::test;
 
@@ -38,8 +38,8 @@ fn compare_with_naive(algorithm: Algorithm) -> Result<bool> {
     for (result1, result2) in results1.zip(results2) {
         let (name1, matches1, _stats) = result1?;
         let (name2, matches2, _stats) = result2?;
-        let website1 = (name1, matches1);
-        let website2 = (name2, matches2);
+        let website1 = (name1, SerDocumentMatches::from(matches1));
+        let website2 = (name2, SerDocumentMatches::from(matches2));
         if website1 != website2 {
             for (algorithm, website) in [(Algorithm::Naive, website1), (algorithm, website2)] {
                 let website_folder = equality_failures_alg.join(&website.0);
