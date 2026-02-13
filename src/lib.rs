@@ -231,6 +231,8 @@ pub fn match_selectors_with_selector_map(document: &Html, selector_map: &Selecto
     let mut result = Vec::new();
     let mut stats = Statistics::default();
     preorder_traversal(document.root_element(), &mut result, selector_map, &mut caches, &mut stats);
+    debug_assert_eq!((stats.fast_rejects, stats.sharing_instances), (Some(0), Some(0)));
+    (stats.fast_rejects, stats.sharing_instances) = (None, None);
     (OwnedDocumentMatches(result), stats)
 }
 
@@ -284,6 +286,8 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
     let mut result = Vec::new();
     let mut stats = Statistics::default();
     preorder_traversal(document.root_element(), 0, &mut result, selector_map, &mut bloom_filter, &mut caches, &mut stats);
+    debug_assert_eq!(stats.sharing_instances, Some(0));
+    stats.sharing_instances = None;
     (OwnedDocumentMatches(result), stats)
 }
 

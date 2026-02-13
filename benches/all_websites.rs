@@ -361,29 +361,50 @@ fn inject_styles_once(html: &str) -> String {
 
 fn render_stats_block(stats: Option<&StatsEntry>) -> String {
     match stats {
-        Some(stats) => format!(
-            r#"
+        Some(stats) => {
+            let mut rows = format!(
+                r#"
+                    <tr><th>Number of Elements</th><td>{}</td></tr>
+                    <tr><th>Number of Selectors</th><td>{}</td></tr>
+                    <tr><th>Matching Pairs</th><td>{}</td></tr>
+"#,
+                stats.num_elements, stats.num_selectors, stats.matching_pairs,
+            );
+            if let Some(selector_map_hits) = stats.selector_map_hits {
+                rows.push_str(&format!(
+                    r#"                    <tr><th>Selector Map Hits</th><td>{}</td></tr>
+"#,
+                    selector_map_hits
+                ));
+            }
+            if let Some(fast_rejects) = stats.fast_rejects {
+                rows.push_str(&format!(
+                    r#"                    <tr><th>Fast Rejects</th><td>{}</td></tr>
+"#,
+                    fast_rejects
+                ));
+            }
+            if let Some(sharing_instances) = stats.sharing_instances {
+                rows.push_str(&format!(
+                    r#"                    <tr><th>Sharing Instances</th><td>{}</td></tr>
+"#,
+                    sharing_instances
+                ));
+            }
+            format!(
+                r#"
         <section class="mach6-stats">
             <h5>Selector Stats</h5>
             <table>
                 <tbody>
-                    <tr><th>Number of Elements</th><td>{}</td></tr>
-                    <tr><th>Number of Selectors</th><td>{}</td></tr>
-                    <tr><th>Matching Pairs</th><td>{}</td></tr>
-                    <tr><th>Selector Map Hits</th><td>{}</td></tr>
-                    <tr><th>Fast Rejects</th><td>{}</td></tr>
-                    <tr><th>Sharing Instances</th><td>{}</td></tr>
+{}
                 </tbody>
             </table>
         </section>
 "#,
-            stats.num_elements,
-            stats.num_selectors,
-            stats.matching_pairs,
-            format_opt(stats.selector_map_hits),
-            format_opt(stats.fast_rejects),
-            format_opt(stats.sharing_instances),
-        ),
+                rows
+            )
+        }
         None => r#"
         <section class="mach6-stats">
             <h5>Selector Stats</h5>
@@ -392,10 +413,6 @@ fn render_stats_block(stats: Option<&StatsEntry>) -> String {
 "#
         .to_string(),
     }
-}
-
-fn format_opt(value: Option<usize>) -> String {
-    value.map(|v| v.to_string()).unwrap_or_else(|| "n/a".to_string())
 }
 
 fn has_stats_block_nearby(html: &str, insert_at: usize) -> bool {
