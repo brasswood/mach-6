@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use mach_6::structs::borrowed::{DocumentMatches, ElementMatches, SelectorsOrSharedStyles};
 
 pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
@@ -164,6 +165,8 @@ struct StatsEntry {
     sharing_instances: Option<usize>,
     selector_map_hits: Option<usize>,
     fast_rejects: Option<usize>,
+    slow_rejects: Option<usize>,
+    time_spent_slow_rejecting: Option<Duration>,
 }
 
 impl StatsEntry {
@@ -179,6 +182,8 @@ impl StatsEntry {
             sharing_instances: stats.and_then(|s| s.sharing_instances),
             selector_map_hits: stats.and_then(|s| s.selector_map_hits),
             fast_rejects: stats.and_then(|s| s.fast_rejects),
+            slow_rejects: stats.and_then(|s| s.slow_rejects),
+            time_spent_slow_rejecting: stats.and_then(|s| s.time_spent_slow_rejecting),
         }
     }
 }
@@ -384,6 +389,20 @@ fn render_stats_block(stats: Option<&StatsEntry>) -> String {
                     fast_rejects
                 ));
             }
+            if let Some(slow_rejects) = stats.slow_rejects {
+                rows.push_str(&format!(
+                    r#"                    <tr><th>Slow Rejects</th><td>{}</td></tr>
+"#,
+                    slow_rejects
+                ));
+            }
+            if let Some(time_spent_slow_rejecting) = stats.time_spent_slow_rejecting {
+                rows.push_str(&format!(
+                    r#"                    <tr><th>Time Spent Slow Rejecting</th><td>{}</td></tr>
+"#,
+                    format_duration(time_spent_slow_rejecting)
+                ));
+            }
             if let Some(sharing_instances) = stats.sharing_instances {
                 rows.push_str(&format!(
                     r#"                    <tr><th>Sharing Instances</th><td>{}</td></tr>
@@ -413,6 +432,10 @@ fn render_stats_block(stats: Option<&StatsEntry>) -> String {
 "#
         .to_string(),
     }
+}
+
+fn format_duration(duration: Duration) -> String {
+    format!("{:.3} ms", duration.as_secs_f64() * 1_000.0)
 }
 
 fn has_stats_block_nearby(html: &str, insert_at: usize) -> bool {
