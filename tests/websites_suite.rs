@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 use mach_6::{Algorithm, result::{IntoResultExt, Result}, structs::ser::SerDocumentMatches};
 use insta;
 use test_log::test;
@@ -75,8 +75,11 @@ fn statistics_dont_change() -> Result<()> {
         let results1 = mach_6::do_all_websites(&websites_path, algorithm)?;
         let results2 = mach_6::do_all_websites(&websites_path, algorithm)?;
         for (result1, result2) in results1.zip(results2) {
-            let (_, _, stats1) = result1?;
-            let (_, _, stats2) = result2?;
+            let (_, _, mut stats1) = result1?;
+            let (_, _, mut stats2) = result2?;
+            // Ignore timing info, which we expect to change between runs.
+            stats1.time_spent_slow_rejecting = None;
+            stats2.time_spent_slow_rejecting = None;
             assert_eq!(stats1, stats2);
         }
     }
