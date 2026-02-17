@@ -11,7 +11,7 @@ git submodule update --init
 cargo bench
 
 # copy criterion report to its own report directory
-rsync -a --delete target/criterion/ criterion_report/
+rsync -a --delete --delete-excluded target/criterion/ criterion_report/
 if [ -e criterion_report/report/index.html ]; then
     # create a main html page that will redirect to report/index.html (thanks, ChatGPT)
     cat > criterion_report/index.html <<'EOF'
