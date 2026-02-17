@@ -170,7 +170,7 @@ impl StatsEntry {
     fn new(
         num_selectors: usize,
         counts: MatchCounts,
-        stats: Option<&style::selector_map::Statistics>,
+        stats: Option<&selectors::matching::Statistics>,
     ) -> Self {
         Self {
             num_elements: counts.num_elements,

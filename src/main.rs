@@ -8,7 +8,7 @@ use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
 use mach_6::{Algorithm, result::Result, structs::{ser::SerDocumentMatches, set::SetDocumentMatches}};
 use serde_yml;
-use style::selector_map::Statistics;
+use selectors::matching::Statistics;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

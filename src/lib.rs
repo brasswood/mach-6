@@ -13,7 +13,6 @@ use style::bloom::StyleBloom;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
-use style::data::ElementData;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
 use style::sharing::StyleSharingElement as _;
@@ -24,11 +23,11 @@ use std::path::Path;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
-use selectors::matching;
+use selectors::matching::{self, Statistics};
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMapElement as _;
-use style::selector_map::{SelectorMap, Statistics};
+use style::selector_map::SelectorMap;
 use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
 use style::stylist::CascadeData;
@@ -147,8 +146,8 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
         let matched_selectors = selectors
             .iter()
             .filter(|s| {
-                let (res, fast_rejects) = matching::matches_selector(s, 0, None, &element, &mut context);
-                debug_assert_eq!(fast_rejects, 0);
+                let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
+                debug_assert_eq!(stats.fast_rejects, Some(0));
                 res
             })
             .collect();
