@@ -435,7 +435,10 @@ fn render_stats_block(stats: Option<&StatsEntry>) -> String {
 }
 
 fn format_duration(duration: Duration) -> String {
-    format!("{:.3} ms", duration.as_secs_f64() * 1_000.0)
+    let millis_integral = (duration.as_nanos() / 1_000_000) as f32;
+    let millis_fractional = (duration.as_nanos() % 1_000_000) as f32 / 1_000_000f32;
+    let millis = millis_integral + millis_fractional;
+    format!("{:.3} ms", millis)
 }
 
 fn has_stats_block_nearby(html: &str, insert_at: usize) -> bool {
