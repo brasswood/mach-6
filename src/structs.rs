@@ -62,7 +62,8 @@ impl Hash for Element {
 
 /// Borrowed forms of result structs
 pub mod borrowed {
-    use super::{Element, Selector};
+    use super::Selector;
+    use scraper::ElementRef;
     use smallvec::SmallVec;
 
     #[derive(Debug, Clone)]
@@ -70,7 +71,7 @@ pub mod borrowed {
 
     #[derive(Debug, Clone)]
     pub struct ElementMatches<'a> {
-        pub element: Element,
+        pub element: ElementRef<'a>,
         pub selectors: SelectorsOrSharedStyles<'a>, 
     }
 
@@ -110,7 +111,7 @@ pub mod owned {
     impl From<ElementMatches<'_>> for OwnedElementMatches {
         fn from(value: ElementMatches<'_>) -> Self {
             Self {
-                element: value.element,
+                element: value.element.into(),
                 selectors: value.selectors.into(),
             }
         }

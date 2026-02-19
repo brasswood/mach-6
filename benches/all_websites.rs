@@ -1,7 +1,7 @@
 use criterion::{criterion_group, Criterion};
 use log::error;
 use mach_6;
-use mach_6::structs::Selector;
+use mach_6::structs::{Element, Selector};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::collections::{BTreeMap, HashMap};
@@ -53,6 +53,8 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                 group.bench_function("With SelectorMap, Bloom Filter, and Style Sharing", |b| b.iter(|| {
                     mach_6::match_selectors_with_style_sharing(&document, &selector_map);
                 }));
+
+                group.bench_function("Speed of Light", |b| b.iter(|| mach_6::mach_7(&naive_matches)));
                 group.finish();
 
                 let counts = counts_from(&naive_matches);
@@ -96,6 +98,14 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                         selectors.len(),
                         counts,
                         Some(&style_sharing_stats),
+                    )),
+                );
+                algorithm_stats.insert(
+                    "Speed of Light".to_string(),
+                    Some(StatsEntry::new(
+                        selectors.len(),
+                        counts,
+                        None,
                     )),
                 );
                 all_stats
@@ -457,7 +467,7 @@ fn counts_from(matches: &DocumentMatches) -> MatchCounts {
     let keyed: HashMap<_, _> = matches
         .0
         .iter()
-        .map(|em| (em.element.id, em))
+        .map(|em| (Element::from(em.element).id, em))
         .collect();
     debug_assert_eq!(num_elements, keyed.len());
     

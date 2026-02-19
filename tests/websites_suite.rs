@@ -61,7 +61,7 @@ fn compare_with_naive(algorithm: Algorithm) -> Result<bool> {
 #[test]
 fn all_algorithms_correct() -> Result<()> {
     let mut succeeded = true;
-    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing] {
+    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing, Algorithm::Mach7] {
         succeeded &= compare_with_naive(algorithm)?;
     }
     assert!(succeeded);
@@ -71,7 +71,7 @@ fn all_algorithms_correct() -> Result<()> {
 #[test]
 fn statistics_dont_change() -> Result<()> {
     let websites_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites");
-    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing] {
+    for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing, Algorithm::Mach7] {
         let results1 = mach_6::do_all_websites(&websites_path, algorithm)?;
         let results2 = mach_6::do_all_websites(&websites_path, algorithm)?;
         for (result1, result2) in results1.zip(results2) {

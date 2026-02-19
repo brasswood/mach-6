@@ -66,6 +66,7 @@ pub enum Algorithm {
     WithSelectorMap,
     WithBloomFilter,
     WithStyleSharing,
+    Mach7,
 }
 
 fn debug_element(element: &ElementRef) {
@@ -120,6 +121,13 @@ pub fn do_website((name, document, selectors): (String, Html, Vec<Selector>), al
             let selector_map = build_selector_map(&selectors);
             match_selectors_with_style_sharing(&document, &selector_map)
         }
+        Algorithm::Mach7 => {
+            let document_matches = match_selectors(&document, &selectors);
+            (
+                OwnedDocumentMatches::from(mach_7(&document_matches)),
+                Statistics::default()
+            )
+        }
     };
     (name, matches.into(), stats)
 }
@@ -151,7 +159,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 res
             })
             .collect();
-        matches.push(ElementMatches{ element: Element::from(element), selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
+        matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
         for child in element.child_elements() {
             preorder_traversal(child, selectors, matches, caches);
@@ -429,6 +437,43 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
     stats.sharing_instances = Some(sharing_instances);
     (OwnedDocumentMatches(result), stats)
+}
+
+pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
+    let mut res = Vec::new();
+    let mut caches: SelectorCaches = Default::default();
+    for element_matches in &matches.0 {
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            None,
+            &mut caches,
+            matching::QuirksMode::NoQuirks,
+            matching::NeedsSelectorFlags::No,
+            matching::MatchingForInvalidation::No,
+        );
+        let SelectorsOrSharedStyles::Selectors(selectors) = &element_matches.selectors else {
+            panic!("Unexpected shared style passed to mach-7.") 
+        };
+        let element = element_matches.element;
+        let matched_selectors = selectors
+            .into_iter()
+            .filter(|s| {
+                let (res, stats) = matching::matches_selector(
+                    s,
+                    0,
+                    None,
+                    &element,
+                    &mut context
+                );
+                debug_assert!(res);
+                debug_assert_eq!(stats.fast_rejects, Some(0));
+                res
+            })
+            .cloned()
+            .collect();
+        res.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
+    }
+    DocumentMatches(res)
 }
 
 #[cfg(test)]
