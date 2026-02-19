@@ -57,54 +57,50 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
 
                 let counts = counts_from(&naive_matches);
 
+                let mut algorithm_stats = BTreeMap::new();
+                algorithm_stats.insert(
+                    "Naive".to_string(),
+                    Some(StatsEntry::new(
+                        selectors.len(),
+                        counts,
+                        None,
+                    )),
+                );
+                algorithm_stats.insert(
+                    "With SelectorMap".to_string(),
+                    Some(StatsEntry::new(
+                        selectors.len(),
+                        counts,
+                        Some(&selector_map_stats),
+                    )),
+                );
+                algorithm_stats.insert(
+                    "With SelectorMap and Bloom Filter".to_string(),
+                    Some(StatsEntry::new(
+                        selectors.len(),
+                        counts,
+                        Some(&bloom_filter_stats),
+                    )),
+                );
+                algorithm_stats.insert(
+                    "With SelectorMap and Bloom Filter".to_string(),
+                    Some(StatsEntry::new(
+                        selectors.len(),
+                        counts,
+                        Some(&bloom_filter_stats),
+                    )),
+                );
+                algorithm_stats.insert(
+                    "With SelectorMap, Bloom Filter, and Style Sharing".to_string(),
+                    Some(StatsEntry::new(
+                        selectors.len(),
+                        counts,
+                        Some(&style_sharing_stats),
+                    )),
+                );
                 all_stats
                     .websites
-                    .entry(name.clone())
-                    .or_default()
-                    .insert(
-                        "Naive".to_string(),
-                        Some(StatsEntry::new(
-                            selectors.len(),
-                            counts,
-                            None,
-                        )),
-                    );
-                all_stats
-                    .websites
-                    .entry(name.clone())
-                    .or_default()
-                    .insert(
-                        "With SelectorMap".to_string(),
-                        Some(StatsEntry::new(
-                            selectors.len(),
-                            counts,
-                            Some(&selector_map_stats),
-                        )),
-                    );
-                all_stats
-                    .websites
-                    .entry(name.clone())
-                    .or_default()
-                    .insert(
-                        "With SelectorMap and Bloom Filter".to_string(),
-                        Some(StatsEntry::new(
-                            selectors.len(),
-                            counts,
-                            Some(&bloom_filter_stats),
-                        )),
-                    );
-                all_stats
-                    .websites
-                    .entry(name)
-                    .or_default()
-                    .insert(
-                        "With SelectorMap, Bloom Filter, and Style Sharing".to_string(),
-                        Some(StatsEntry::new(
-                            selectors.len(),
-                            counts,
-                            Some(&style_sharing_stats),
-                        )),
-                    );
+                    .insert(name, algorithm_stats);
             },
             Err(e) => {
                 error!("{e}");
