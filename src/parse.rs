@@ -33,8 +33,7 @@ pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iter
     let websites = get_websites_dirs(websites_path)?;
     Ok(
         websites.filter_map(|r|
-            r.into_result(Some(websites_path.to_path_buf()))
-            .and_then(|path|
+            r.and_then(|path|
                 get_document_and_selectors(&path)
             ).transpose()
         )
@@ -89,11 +88,11 @@ pub fn get_document_and_selectors(
     }))
 }
 
-pub fn get_websites_dirs(websites_path: &Path) -> Result<impl Iterator<Item = io::Result<PathBuf>>> {
+pub fn get_websites_dirs(websites_path: &Path) -> Result<impl Iterator<Item = Result<PathBuf>>> {
     let websites_dir = fs::read_dir(&websites_path).into_result(Some(websites_path.to_path_buf()))?; 
     Ok(
         websites_dir.map(|website| {
-            website.map(|d| d.path())
+            website.map(|d| d.path()).into_result(Some(websites_path.to_path_buf()))
         })
     )
 }
