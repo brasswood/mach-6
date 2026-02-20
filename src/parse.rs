@@ -11,7 +11,6 @@ use selectors::parser::{Component, RelativeSelector};
 use selectors::visitor::SelectorVisitor;
 use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
-use std::fs::ReadDir;
 use std::io;
 use std::path::{Path, PathBuf};
 use scraper::Html;
@@ -31,8 +30,7 @@ pub struct ParsedWebsite {
 }
 
 pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<ParsedWebsite>>> {
-    let websites_dir = fs::read_dir(&websites_path).into_result(Some(websites_path.to_path_buf()))?; 
-    let websites = get_websites_dirs(websites_dir);
+    let websites = get_websites_dirs(websites_path)?;
     Ok(
         websites.filter_map(|r|
             r.into_result(Some(websites_path.to_path_buf()))
@@ -91,10 +89,13 @@ pub fn get_document_and_selectors(
     }))
 }
 
-pub fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathBuf>> {
-    websites.map(|website| {
-        website.map(|d| d.path())
-    })
+pub fn get_websites_dirs(websites_path: &Path) -> Result<impl Iterator<Item = io::Result<PathBuf>>> {
+    let websites_dir = fs::read_dir(&websites_path).into_result(Some(websites_path.to_path_buf()))?; 
+    Ok(
+        websites_dir.map(|website| {
+            website.map(|d| d.path())
+        })
+    )
 }
 
 fn parse_website(website: &Path)-> Result<Option<Html>> {
