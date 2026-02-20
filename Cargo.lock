@@ -896,6 +896,7 @@ dependencies = [
  "insta",
  "log",
  "parking_lot",
+ "rayon",
  "rustc-hash",
  "scraper",
  "selectors",
