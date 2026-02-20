@@ -98,7 +98,7 @@ fn statistics_dont_change() -> Result<()> {
     let _: Vec<_> = website_paths
         .into_par_iter()
         .map(|path| {
-            let Some(website) = get_document_and_selectors(&path?)? else {return Ok(()); };
+            let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
             for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing, Algorithm::Mach7] {
                 let (_, _, mut stats1) = mach_6::do_website(&website, algorithm);
                 let (_, _, mut stats2) = mach_6::do_website(&website, algorithm);
