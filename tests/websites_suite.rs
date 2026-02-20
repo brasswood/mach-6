@@ -87,7 +87,7 @@ fn all_algorithms_correct() -> Result<()> {
         }
     }
     if algorithms.into_iter().any(|(_, flag)| flag) {
-        panic!("Some algorithms failed. See {} for details.", equality_failures_rel.display());
+        panic!("Some algorithms are incorrect. See {} for details.", equality_failures_rel.display());
     }
     Ok(())
 }
