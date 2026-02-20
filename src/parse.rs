@@ -23,7 +23,14 @@ pub fn websites_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites")
 }
 
-pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<(String, Html, Vec<Selector>)>>> {
+#[derive(Debug)]
+pub struct ParsedWebsite {
+    pub name: String,
+    pub document: Html,
+    pub selectors: Vec<Selector>,
+}
+
+pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<ParsedWebsite>>> {
     let websites_dir = fs::read_dir(&websites_path).into_result(Some(websites_path.to_path_buf()))?; 
     let websites = get_websites_dirs(websites_dir);
     Ok(
@@ -38,7 +45,7 @@ pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iter
 
 pub fn get_document_and_selectors(
     website_path: &Path
-) -> Result<Option<(String, Html, Vec<Selector>)>> {
+) -> Result<Option<ParsedWebsite>> {
     if !website_path.is_dir() {
         warn!("ignoring {} because it is not a directory", website_path.display());
         return Ok(None);
@@ -77,7 +84,11 @@ pub fn get_document_and_selectors(
         .and_then(OsStr::to_str)
         .unwrap()
         .to_owned();
-    Ok(Some((website_name, document, selectors)))
+    Ok(Some(ParsedWebsite {
+        name: website_name,
+        document,
+        selectors,
+    }))
 }
 
 pub fn get_websites_dirs(websites: ReadDir) -> impl Iterator<Item = io::Result<PathBuf>> {

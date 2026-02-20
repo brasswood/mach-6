@@ -27,31 +27,31 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
     let mut all_stats: StatsFile = StatsFile::default();
     for res in documents_selectors {
         match res {
-            Ok((name, document, selectors)) => {
-                let selector_map = mach_6::build_selector_map(&selectors);
-                let mut group = c.benchmark_group(&name);
+            Ok(website) => {
+                let selector_map = mach_6::build_selector_map(&website.selectors);
+                let mut group = c.benchmark_group(&website.name);
 
-                let naive_matches = mach_6::match_selectors(&document, &selectors);
+                let naive_matches = mach_6::match_selectors(&website.document, &website.selectors);
                 group.bench_function("Naive", |b| b.iter(|| {
-                    mach_6::match_selectors(&document, &selectors);
+                    mach_6::match_selectors(&website.document, &website.selectors);
                 }));
 
                 let (_, selector_map_stats) =
-                    mach_6::match_selectors_with_selector_map(&document, &selector_map);
+                    mach_6::match_selectors_with_selector_map(&website.document, &selector_map);
                 group.bench_function("With SelectorMap", |b| b.iter(|| {
-                    mach_6::match_selectors_with_selector_map(&document, &selector_map);
+                    mach_6::match_selectors_with_selector_map(&website.document, &selector_map);
                 }));
 
                 let (_, bloom_filter_stats) =
-                    mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
+                    mach_6::match_selectors_with_bloom_filter(&website.document, &selector_map);
                 group.bench_function("With SelectorMap and Bloom Filter", |b| b.iter(|| {
-                    mach_6::match_selectors_with_bloom_filter(&document, &selector_map);
+                    mach_6::match_selectors_with_bloom_filter(&website.document, &selector_map);
                 }));
 
                 let (_, style_sharing_stats) =
-                    mach_6::match_selectors_with_style_sharing(&document, &selector_map);
+                    mach_6::match_selectors_with_style_sharing(&website.document, &selector_map);
                 group.bench_function("With SelectorMap, Bloom Filter, and Style Sharing", |b| b.iter(|| {
-                    mach_6::match_selectors_with_style_sharing(&document, &selector_map);
+                    mach_6::match_selectors_with_style_sharing(&website.document, &selector_map);
                 }));
 
                 group.bench_function("Speed of Light", |b| b.iter(|| mach_6::mach_7(&naive_matches)));
@@ -63,7 +63,7 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                 algorithm_stats.insert(
                     "Naive".to_string(),
                     Some(StatsEntry::new(
-                        selectors.len(),
+                        website.selectors.len(),
                         counts,
                         None,
                     )),
@@ -71,7 +71,7 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                 algorithm_stats.insert(
                     "With SelectorMap".to_string(),
                     Some(StatsEntry::new(
-                        selectors.len(),
+                        website.selectors.len(),
                         counts,
                         Some(&selector_map_stats),
                     )),
@@ -79,7 +79,7 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                 algorithm_stats.insert(
                     "With SelectorMap and Bloom Filter".to_string(),
                     Some(StatsEntry::new(
-                        selectors.len(),
+                        website.selectors.len(),
                         counts,
                         Some(&bloom_filter_stats),
                     )),
@@ -87,7 +87,7 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                 algorithm_stats.insert(
                     "With SelectorMap and Bloom Filter".to_string(),
                     Some(StatsEntry::new(
-                        selectors.len(),
+                        website.selectors.len(),
                         counts,
                         Some(&bloom_filter_stats),
                     )),
@@ -95,7 +95,7 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                 algorithm_stats.insert(
                     "With SelectorMap, Bloom Filter, and Style Sharing".to_string(),
                     Some(StatsEntry::new(
-                        selectors.len(),
+                        website.selectors.len(),
                         counts,
                         Some(&style_sharing_stats),
                     )),
@@ -103,14 +103,14 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
                 algorithm_stats.insert(
                     "Speed of Light".to_string(),
                     Some(StatsEntry::new(
-                        selectors.len(),
+                        website.selectors.len(),
                         counts,
                         None,
                     )),
                 );
                 all_stats
                     .websites
-                    .insert(name, algorithm_stats);
+                    .insert(website.name, algorithm_stats);
             },
             Err(e) => {
                 error!("{e}");
