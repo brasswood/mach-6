@@ -118,8 +118,17 @@ pub fn bench_all_websites(c: &mut Criterion, website_filter: Option<&str>) {
         }
     }
 
-    if let Err(e) = write_stats_json(&all_stats) {
-        error!("unable to write stats.json: {e}");
+    match stats_output_mode_from_args() {
+        StatsOutputMode::File => {
+            if let Err(e) = write_stats_json(&all_stats) {
+                error!("unable to write stats.json: {e}");
+            }
+        }
+        StatsOutputMode::JsonStream => {
+            if let Err(e) = print_stats_json_message(&all_stats) {
+                error!("unable to print stats json message: {e}");
+            }
+        }
     }
 }
 
@@ -131,6 +140,7 @@ criterion_group!(benches, bench_all_websites_full);
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
+    let stats_output_mode = stats_output_mode_from_args();
     let website_filter = website_filter_from_args();
     if let Some(filter) = website_filter.as_deref() {
         let mut c = Criterion::default();
@@ -142,8 +152,10 @@ fn main() {
             .configure_from_args()
             .final_summary();
     }
-    if let Err(e) = postprocess_reports() {
-        error!("unable to post-process Criterion reports: {e}");
+    if stats_output_mode == StatsOutputMode::File {
+        if let Err(e) = postprocess_reports() {
+            error!("unable to post-process Criterion reports: {e}");
+        }
     }
 }
 
@@ -156,6 +168,26 @@ fn website_filter_from_args() -> Option<String> {
         }
     }
     None
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StatsOutputMode {
+    File,
+    JsonStream,
+}
+
+fn stats_output_mode_from_args() -> StatsOutputMode {
+    let message_format_json = std::env::args().skip(1).any(|arg| {
+        match arg.strip_prefix("--message-format=") {
+            Some(value) => value.to_lowercase() == "json",
+            None => false,
+        }
+    });
+    if message_format_json {
+        StatsOutputMode::JsonStream
+    } else {
+        StatsOutputMode::File
+    }
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -200,6 +232,16 @@ fn write_stats_json(stats: &StatsFile) -> io::Result<()> {
     let stats_path = criterion_dir.join("stats.json");
     let payload = serde_json::to_string_pretty(stats).expect("stats.json serialization failed");
     fs::write(stats_path, payload)
+}
+
+fn print_stats_json_message(stats: &StatsFile) -> io::Result<()> {
+    let payload = serde_json::to_string(stats)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+    println!(
+        r#"{{"reason":"mach6-custom-stats","stats":{}}}"#,
+        payload
+    );
+    Ok(())
 }
 
 fn postprocess_reports() -> io::Result<()> {

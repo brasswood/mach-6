@@ -4,6 +4,9 @@ set -e -x
 # Add cargo to $PATH
 export PATH=~/.cargo/bin:$PATH
 
+# install cargo-criterion
+cargo install cargo-criterion
+
 # Get the websites suite
 git submodule update --init
 
