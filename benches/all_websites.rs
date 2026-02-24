@@ -160,11 +160,9 @@ fn main() {
 }
 
 fn website_filter_from_args() -> Option<String> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.len() == 1 {
-        let candidate = args[0].as_str();
-        if !candidate.starts_with('-') {
-            return Some(candidate.to_string());
+    for arg in std::env::args().skip(1) {
+        if !arg.starts_with('-') {
+            return Some(arg.to_string());
         }
     }
     None
