@@ -49,7 +49,10 @@ pub fn get_document_and_selectors(
     }
     let document = match parse_website(website_path) {
         Ok(Some(html)) => html,
-        Ok(None) => return Ok(None),
+        Ok(None) =>  {
+            warn!("ignoring {}, no html file found", website_path.display());
+            return Ok(None);
+        },
         Err(e) => return Err(e),
     };
     let style_tag_selector = scraper::Selector::parse("style").unwrap();
@@ -121,12 +124,9 @@ fn get_main_html(website: &Path) -> Result<Option<HtmlFile>> {
     };
     let mut found: Vec<HtmlFile> = files.collect::<io::Result<Vec<_>>>().into_result(website_path)?.into_iter().filter_map(f).collect();
     match found.len() {
-        0 => {
-            warn!("ignoring {}, no html file found", website.display());
-            Ok(None)
-        },
+        0 => Ok(None),
         1 => Ok(Some(found.pop().unwrap())),
-        _ => Err(Error{path: Some(website.to_path_buf()), error: ErrorKind::MultipleHtmlFiles(found) })  
+        _ => Err(Error{ path: Some(website.to_path_buf()), error: ErrorKind::MultipleHtmlFiles(found) })  
     }
 }
 
