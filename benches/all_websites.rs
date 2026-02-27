@@ -133,11 +133,13 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     let report_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("target")
         .join("all_websites_report");
+    let json_dir = report_dir.join("json");
     fs::create_dir_all(&report_dir)?;
+    fs::create_dir_all(&json_dir)?;
 
     for result in results {
         let file_name = format!("{}.json", make_filename_safe(&result.website));
-        let json_path = report_dir.join(file_name);
+        let json_path = json_dir.join(file_name);
         let payload = WebsiteJson {
             website: &result.website,
             total_duration_ns: result.duration.as_nanos(),
@@ -179,7 +181,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     for result in results {
         let width_pct = (result.duration.as_nanos() as f64 / max_duration_ns as f64) * 100.0;
         let website = escape_html(&result.website);
-        let json_file = format!("{}.json", make_filename_safe(&result.website));
+        let json_file = format!("json/{}.json", make_filename_safe(&result.website));
         let slow_rejecting = result
             .stats
             .time_spent_slow_rejecting
@@ -190,6 +192,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 <details class="site">
   <summary>
     <div class="row">
+      <div class="chevron" aria-hidden="true"></div>
       <div class="name">{website}</div>
       <div class="bar-wrap"><div class="bar" style="width: {width_pct:.2}%"></div></div>
       <div class="time">{total_time}</div>
@@ -273,9 +276,22 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .row {{
       display: grid;
-      grid-template-columns: minmax(150px, 220px) minmax(120px, 1fr) 120px;
+      grid-template-columns: 12px minmax(150px, 220px) minmax(120px, 1fr) 120px;
       align-items: center;
       gap: 12px;
+    }}
+    .chevron {{
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 7px solid var(--muted);
+      transform: rotate(0deg);
+      transform-origin: 40% 50%;
+      transition: transform 120ms ease-out;
+    }}
+    details[open] .chevron {{
+      transform: rotate(90deg);
     }}
     .name {{
       overflow: hidden;
@@ -286,7 +302,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     .bar-wrap {{
       width: 100%;
       height: 14px;
-      border-radius: 999px;
       background: var(--bar-bg);
       overflow: hidden;
     }}
@@ -323,11 +338,15 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     @media (max-width: 700px) {{
       .row {{
-        grid-template-columns: 1fr;
+        grid-template-columns: 12px 1fr;
         gap: 6px;
+      }}
+      .bar-wrap {{
+        grid-column: 2 / 3;
       }}
       .time {{
         text-align: left;
+        grid-column: 2 / 3;
       }}
     }}
   </style>
