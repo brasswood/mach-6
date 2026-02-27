@@ -256,12 +256,16 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             + check_share_duration
             + insert_share_cache_duration
             + query_selector_map_duration;
+        if measured_sum > total_duration {
+            panic!(
+                "Measured timing sum exceeded total duration for {}: measured_sum={}, total_duration={}",
+                result.website,
+                format_duration(measured_sum),
+                format_duration(total_duration),
+            );
+        }
         let other_duration = total_duration.saturating_sub(measured_sum);
-        let stack_total = if measured_sum > total_duration {
-            measured_sum
-        } else {
-            total_duration
-        };
+        let stack_total = total_duration;
         let total_width_pct = (total_ns as f64 / max_duration_ns as f64) * 100.0;
         let pct = |duration: Duration| -> f64 {
             if stack_total.is_zero() {
