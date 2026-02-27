@@ -281,61 +281,32 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let insert_share_cache_pct = pct(insert_share_cache_duration);
         let query_selector_map_pct = pct(query_selector_map_duration);
         let other_pct = pct(other_duration);
-        let summary_bar_width = |segment_pct: f64| -> f64 {
-            total_width_pct * (segment_pct / 100.0)
-        };
-        let summary_label = |name: &str, duration: Duration, segment_pct: f64| -> String {
-            if summary_bar_width(segment_pct) >= 18.0 {
-                format!(
-                    r#"<span class="seg-label">{} {}</span>"#,
-                    name,
-                    escape_html(&format_duration(duration))
-                )
-            } else {
-                String::new()
-            }
-        };
-        let expanded_label = |name: &str, duration: Duration, segment_pct: f64| -> String {
-            if segment_pct >= 8.0 {
-                format!(
-                    r#"<span class="seg-label-expanded">{} {}</span>"#,
-                    name,
-                    escape_html(&format_duration(duration))
-                )
-            } else {
-                String::new()
-            }
-        };
         let mut summary_bar_segments = String::new();
         let mut expanded_bar_segments = String::new();
-        for (name, class_name, duration, segment_pct) in [
-            ("Bloom", "seg-bloom", update_bloom_duration, update_bloom_pct),
-            ("Slow", "seg-slow", slow_duration, slow_pct),
-            ("Fast", "seg-fast", fast_duration, fast_pct),
-            ("Share Check", "seg-share-check", check_share_duration, check_share_pct),
+        for (class_name, segment_pct) in [
+            ("seg-bloom", update_bloom_pct),
+            ("seg-slow", slow_pct),
+            ("seg-fast", fast_pct),
+            ("seg-share-check", check_share_pct),
             (
-                "Share Insert",
                 "seg-share-insert",
-                insert_share_cache_duration,
                 insert_share_cache_pct,
             ),
-            ("Selector Map", "seg-query", query_selector_map_duration, query_selector_map_pct),
-            ("Other", "seg-other", other_duration, other_pct),
+            ("seg-query", query_selector_map_pct),
+            ("seg-other", other_pct),
         ] {
             if segment_pct <= 0.0 {
                 continue;
             }
             summary_bar_segments.push_str(&format!(
-                r#"<div class="bar-seg {class_name}" style="width: {segment_pct:.2}%">{label}</div>"#,
+                r#"<div class="bar-seg {class_name}" style="width: {segment_pct:.2}%"></div>"#,
                 class_name = class_name,
                 segment_pct = segment_pct,
-                label = summary_label(name, duration, segment_pct),
             ));
             expanded_bar_segments.push_str(&format!(
-                r#"<div class="expanded-bar-seg {class_name}" style="width: {segment_pct:.2}%">{label}</div>"#,
+                r#"<div class="expanded-bar-seg {class_name}" style="width: {segment_pct:.2}%"></div>"#,
                 class_name = class_name,
                 segment_pct = segment_pct,
-                label = expanded_label(name, duration, segment_pct),
             ));
         }
         let legend_item = |class_name: &str, name: &str, duration: Duration| -> String {
@@ -548,11 +519,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     .seg-other {{
       background: var(--bar);
     }}
-    .seg-label {{
-      padding: 0 6px;
-      text-overflow: ellipsis;
-      overflow: hidden;
-    }}
     .bar-legend {{
       margin-top: 6px;
       margin-left: 24px;
@@ -596,11 +562,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       font-size: 12px;
       color: #0f172a;
       font-weight: 700;
-    }}
-    .seg-label-expanded {{
-      padding: 0 8px;
-      text-overflow: ellipsis;
-      overflow: hidden;
     }}
     .expanded-legend {{
       margin-top: 7px;
