@@ -39,7 +39,8 @@ struct WebsiteStatsJson {
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
-    let website_filter = std::env::args().nth(1);
+    let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
+    let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
     let websites = get_documents(website_filter.as_deref());
     let results: Vec<_> = websites.map(|website| {
         let selector_map = mach_6::build_selector_map(&website.selectors);
