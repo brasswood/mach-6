@@ -218,6 +218,22 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         } else {
             String::new()
         };
+        let slow_expanded_seg_label = if slow_of_total_pct >= 8.0 {
+            format!(
+                r#"<span class="seg-label-expanded">Slow Rejecting {}</span>"#,
+                escape_html(&slow_rejecting)
+            )
+        } else {
+            String::new()
+        };
+        let other_expanded_seg_label = if other_of_total_pct >= 8.0 {
+            format!(
+                r#"<span class="seg-label-expanded">Other {}</span>"#,
+                escape_html(&other_time)
+            )
+        } else {
+            String::new()
+        };
         sections.push_str(&format!(
             r#"
 <details class="site">
@@ -239,6 +255,20 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     </div>
   </summary>
   <div class="details">
+    <section class="expanded-chart">
+      <h5>Timing Breakdown</h5>
+      <div class="expanded-bar-wrap">
+        <div class="expanded-bar-total">
+          <div class="expanded-bar-seg expanded-bar-slow" style="width: {slow_of_total_pct:.2}%">{slow_expanded_seg_label}</div>
+          <div class="expanded-bar-seg expanded-bar-other" style="width: {other_of_total_pct:.2}%">{other_expanded_seg_label}</div>
+        </div>
+      </div>
+      <div class="expanded-legend">
+        <span><i class="swatch swatch-slow"></i>Slow Rejecting: {slow_rejecting}</span>
+        <span><i class="swatch swatch-other"></i>Other: {other_time}</span>
+        <span>Total: {total_time}</span>
+      </div>
+    </section>
     <table>
       <tbody>
         <tr><th>Sharing Instances</th><td>{sharing_instances}</td></tr>
@@ -258,6 +288,8 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             other_of_total_pct = other_of_total_pct,
             slow_seg_label = slow_seg_label,
             other_seg_label = other_seg_label,
+            slow_expanded_seg_label = slow_expanded_seg_label,
+            other_expanded_seg_label = other_expanded_seg_label,
             total_time = total_time,
             slow_rejecting = slow_rejecting,
             other_time = other_time,
@@ -387,6 +419,60 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       color: var(--muted);
       font-size: 12px;
     }}
+    .expanded-chart {{
+      margin-bottom: 14px;
+    }}
+    .expanded-chart h5 {{
+      margin: 0 0 8px 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }}
+    .expanded-bar-wrap {{
+      width: 100%;
+      height: 32px;
+      background: var(--bar-bg);
+      overflow: hidden;
+    }}
+    .expanded-bar-total {{
+      display: flex;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+    }}
+    .expanded-bar-seg {{
+      height: 100%;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: 12px;
+      color: #0f172a;
+      font-weight: 700;
+    }}
+    .expanded-bar-slow {{
+      background: #f59e0b;
+    }}
+    .expanded-bar-other {{
+      background: var(--bar);
+    }}
+    .seg-label-expanded {{
+      padding: 0 8px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }}
+    .expanded-legend {{
+      margin-top: 7px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }}
     .swatch {{
       display: inline-block;
       width: 10px;
@@ -437,6 +523,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       }}
       .bar-legend {{
         margin-left: 18px;
+      }}
+      .expanded-bar-wrap {{
+        height: 28px;
       }}
       .time {{
         text-align: left;
