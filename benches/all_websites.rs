@@ -407,7 +407,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>All Websites Benchmark Report</title>
+  <title>Mach 6 Benchmark Report</title>
   <style>
     :root {{
       --bg: #f7f7f3;
@@ -629,7 +629,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 </head>
 <body>
   <main>
-    <h1>All Websites Benchmark Report</h1>
+    <h1>Mach 6 Benchmark Report</h1>
     <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics and raw JSON.</p>
     {sections}
   </main>
