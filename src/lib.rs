@@ -20,6 +20,8 @@ use style::traversal_flags::TraversalFlags;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::Path;
+use std::time::Duration;
+use std::time::Instant;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
@@ -299,6 +301,11 @@ pub fn match_selectors_with_bloom_filter(document: &Html, selector_map: &Selecto
 }
 
 pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
+    #[derive(Default)]
+    struct NonOptionalStats {
+        sharing_instances: usize,
+        sharing_check_duration: Duration,
+    }
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
@@ -307,7 +314,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         selector_map: &SelectorMap<Rule>,
         caches: &mut SelectorCaches,
         stats: &mut Statistics,
-        sharing_instances: &mut usize,
+        non_optional_stats: &mut NonOptionalStats,
     ) {
         // 1. do thing
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
@@ -316,7 +323,10 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
-        match target.share_style_if_possible(context) {
+        let start = Instant::now();
+        let style_sharing_result = target.share_style_if_possible(context);
+        non_optional_stats.sharing_check_duration += start.elapsed();
+        match style_sharing_result {
             Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
                 // First, update the data with the new styles.
@@ -348,7 +358,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 let element = Element::from(element);
                 let other_element = Element::from(other_element);
                 matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) });
-                *sharing_instances += 1;
+                non_optional_stats.sharing_instances += 1;
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
@@ -398,7 +408,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             assert_childrens_parent_is_me(&element);
         }
         for child in element.child_elements() {
-            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats, sharing_instances);
+            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats, non_optional_stats);
         }
     }
     // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
@@ -432,11 +442,12 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    let mut sharing_instances = 0;
+    let mut non_optional_stats = NonOptionalStats::default();
 
     let root = document.root_element();
-    preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut sharing_instances);
-    stats.sharing_instances = Some(sharing_instances);
+    preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut non_optional_stats);
+    stats.sharing_instances = Some(non_optional_stats.sharing_instances);
+    stats.time_spent_checking_style_sharing = Some(non_optional_stats.sharing_check_duration);
     (OwnedDocumentMatches(result), stats)
 }
 
