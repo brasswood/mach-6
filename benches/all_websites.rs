@@ -236,7 +236,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     <div class="bar-legend">
       <span><i class="swatch swatch-slow"></i>Slow Rejecting: {slow_rejecting}</span>
       <span><i class="swatch swatch-other"></i>Other: {other_time}</span>
-      <span><i class="swatch swatch-total"></i>Total: {total_time}</span>
     </div>
   </summary>
   <div class="details">
@@ -347,7 +346,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .bar-wrap {{
       width: 100%;
-      height: 20px;
+      height: 28px;
       background: var(--bar-bg);
       overflow: hidden;
     }}
@@ -400,9 +399,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .swatch-other {{
       background: var(--bar);
-    }}
-    .swatch-total {{
-      background: var(--line);
     }}
     .time {{
       text-align: right;
