@@ -232,24 +232,18 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     for result in results {
         let total_duration = result.duration;
         let total_ns = total_duration.as_nanos();
-        let update_bloom_duration = result
-            .stats
-            .time_spent_updating_bloom_filter
-            .unwrap_or(Duration::ZERO);
-        let slow_duration = result.stats.time_spent_slow_rejecting.unwrap_or(Duration::ZERO);
-        let fast_duration = result.stats.time_spent_fast_rejecting.unwrap_or(Duration::ZERO);
-        let check_share_duration = result
-            .stats
-            .time_spent_checking_style_sharing
-            .unwrap_or(Duration::ZERO);
-        let insert_share_cache_duration = result
-            .stats
-            .time_spent_inserting_into_sharing_cache
-            .unwrap_or(Duration::ZERO);
-        let query_selector_map_duration = result
-            .stats
-            .time_spent_querying_selector_map
-            .unwrap_or(Duration::ZERO);
+        let update_bloom_opt = result.stats.time_spent_updating_bloom_filter;
+        let slow_opt = result.stats.time_spent_slow_rejecting;
+        let fast_opt = result.stats.time_spent_fast_rejecting;
+        let check_share_opt = result.stats.time_spent_checking_style_sharing;
+        let insert_share_cache_opt = result.stats.time_spent_inserting_into_sharing_cache;
+        let query_selector_map_opt = result.stats.time_spent_querying_selector_map;
+        let update_bloom_duration = update_bloom_opt.unwrap_or(Duration::ZERO);
+        let slow_duration = slow_opt.unwrap_or(Duration::ZERO);
+        let fast_duration = fast_opt.unwrap_or(Duration::ZERO);
+        let check_share_duration = check_share_opt.unwrap_or(Duration::ZERO);
+        let insert_share_cache_duration = insert_share_cache_opt.unwrap_or(Duration::ZERO);
+        let query_selector_map_duration = query_selector_map_opt.unwrap_or(Duration::ZERO);
         let measured_sum = update_bloom_duration
             + slow_duration
             + fast_duration
@@ -316,26 +310,23 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         };
         let mut compact_legend = String::new();
         let mut expanded_legend = String::new();
-        for (class_name, name, duration) in [
-            ("seg-bloom", "Updating Bloom Filter", update_bloom_duration),
-            ("seg-share-check", "Checking Style Sharing", check_share_duration),
-            ("seg-query", "Querying Selector Map", query_selector_map_duration),
-            ("seg-fast", "Fast Rejecting", fast_duration),
-            ("seg-slow", "Slow Rejecting", slow_duration),
-            ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache_duration),
-            ("seg-other", "Other", other_duration),
+        for (class_name, name, duration_opt) in [
+            ("seg-bloom", "Updating Bloom Filter", update_bloom_opt),
+            ("seg-share-check", "Checking Style Sharing", check_share_opt),
+            ("seg-query", "Querying Selector Map", query_selector_map_opt),
+            ("seg-fast", "Fast Rejecting", fast_opt),
+            ("seg-slow", "Slow Rejecting", slow_opt),
+            ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache_opt),
         ] {
-            if duration.is_zero() {
+            let Some(duration) = duration_opt else {
                 continue;
-            }
+            };
             let item = legend_item(class_name, name, duration);
             compact_legend.push_str(&item);
             expanded_legend.push_str(&item);
         }
-        if compact_legend.is_empty() {
-            compact_legend.push_str(&legend_item("seg-other", "Other", Duration::ZERO));
-            expanded_legend.push_str(&legend_item("seg-other", "Other", Duration::ZERO));
-        }
+        compact_legend.push_str(&legend_item("seg-other", "Other", other_duration));
+        expanded_legend.push_str(&legend_item("seg-other", "Other", other_duration));
         let website = escape_html(&result.website);
         let json_file = format!("json/{}.json", make_filename_safe(&result.website));
         let total_time = format_duration(total_duration);
