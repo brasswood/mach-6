@@ -27,6 +27,7 @@ tempfile = "3"
 rayon = "1"
 serde_json = "1.0.143"
 test-log = "0.2.19"
+num-format = "0.4"
 
 [profile.dev.package]
 insta.opt-level = 3

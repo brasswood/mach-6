@@ -1,6 +1,7 @@
 use log::error;
 use mach_6::{self, get_all_documents_and_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
+use num_format::{Locale, ToFormattedString};
 use selectors::matching::Statistics;
 use serde::Serialize;
 use std::fs;
@@ -547,7 +548,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 }
 
 fn format_optional_usize(value: Option<usize>) -> String {
-    value.map(|v| v.to_string()).unwrap_or_else(|| "N/A".to_string())
+    value
+        .map(|v| v.to_formatted_string(&Locale::en))
+        .unwrap_or_else(|| "N/A".to_string())
 }
 
 fn make_filename_safe(string: &str) -> String {
