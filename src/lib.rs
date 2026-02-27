@@ -305,6 +305,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     struct NonOptionalStats {
         sharing_instances: usize,
         sharing_check_duration: Duration,
+        sharing_cache_insert_duration: Duration,
     }
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
@@ -391,6 +392,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                     }
                 );
                 // 1.3.4: insert the element into the style sharing cache
+                let start = Instant::now();
                 context.thread_local.sharing_cache.insert_if_possible(
                     &element,
                     &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
@@ -399,6 +401,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                     element_depth,
                     &context.shared,
                 );
+                non_optional_stats.sharing_cache_insert_duration += start.elapsed();
             }
         }
         // 2. traverse children
@@ -448,6 +451,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut non_optional_stats);
     stats.sharing_instances = Some(non_optional_stats.sharing_instances);
     stats.time_spent_checking_style_sharing = Some(non_optional_stats.sharing_check_duration);
+    stats.time_spent_inserting_into_sharing_cache = Some(non_optional_stats.sharing_cache_insert_duration);
     (OwnedDocumentMatches(result), stats)
 }
 
