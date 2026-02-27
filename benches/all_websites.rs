@@ -175,51 +175,63 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
                 slow_rejects: result.stats.slow_rejects,
                 time_spent_updating_bloom_filter_ns: result
                     .stats
-                    .time_spent_updating_bloom_filter
+                    .times
+                    .updating_bloom_filter
                     .map(|d| d.as_nanos()),
                 time_spent_updating_bloom_filter_display: result
                     .stats
-                    .time_spent_updating_bloom_filter
+                    .times
+                    .updating_bloom_filter
                     .map(format_duration),
-                time_spent_slow_rejecting_ns: result
-                    .stats
-                    .time_spent_slow_rejecting
-                    .map(|d| d.as_nanos()),
-                time_spent_slow_rejecting_display: result
-                    .stats
-                    .time_spent_slow_rejecting
-                    .map(format_duration),
+                time_spent_slow_rejecting_ns: Some(
+                    result
+                        .stats
+                        .times
+                        .slow_rejecting
+                        .as_nanos()
+                ),
+                time_spent_slow_rejecting_display: Some(
+                    format_duration(result.stats.times.slow_rejecting)
+                ),
                 time_spent_fast_rejecting_ns: result
                     .stats
-                    .time_spent_fast_rejecting
+                    .times
+                    .fast_rejecting
                     .map(|d| d.as_nanos()),
                 time_spent_fast_rejecting_display: result
                     .stats
-                    .time_spent_fast_rejecting
+                    .times
+                    .fast_rejecting
                     .map(format_duration),
                 time_spent_checking_style_sharing_ns: result
                     .stats
-                    .time_spent_checking_style_sharing
+                    .times
+                    .checking_style_sharing
                     .map(|d| d.as_nanos()),
                 time_spent_checking_style_sharing_display: result
                     .stats
-                    .time_spent_checking_style_sharing
+                    .times
+                    .checking_style_sharing
                     .map(format_duration),
                 time_spent_inserting_into_sharing_cache_ns: result
                     .stats
-                    .time_spent_inserting_into_sharing_cache
+                    .times
+                    .inserting_into_sharing_cache
                     .map(|d| d.as_nanos()),
                 time_spent_inserting_into_sharing_cache_display: result
                     .stats
-                    .time_spent_inserting_into_sharing_cache
+                    .times
+                    .inserting_into_sharing_cache
                     .map(format_duration),
                 time_spent_querying_selector_map_ns: result
                     .stats
-                    .time_spent_querying_selector_map
+                    .times
+                    .querying_selector_map
                     .map(|d| d.as_nanos()),
                 time_spent_querying_selector_map_display: result
                     .stats
-                    .time_spent_querying_selector_map
+                    .times
+                    .querying_selector_map
                     .map(format_duration),
             },
         };
@@ -245,14 +257,14 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     for result in results {
         let total_duration = result.duration;
         let total_ns = total_duration.as_nanos();
-        let update_bloom_opt = result.stats.time_spent_updating_bloom_filter;
-        let slow_opt = result.stats.time_spent_slow_rejecting;
-        let fast_opt = result.stats.time_spent_fast_rejecting;
-        let check_share_opt = result.stats.time_spent_checking_style_sharing;
-        let insert_share_cache_opt = result.stats.time_spent_inserting_into_sharing_cache;
-        let query_selector_map_opt = result.stats.time_spent_querying_selector_map;
+        let update_bloom_opt = result.stats.times.updating_bloom_filter;
+        let slow_opt = result.stats.times.slow_rejecting;
+        let fast_opt = result.stats.times.fast_rejecting;
+        let check_share_opt = result.stats.times.checking_style_sharing;
+        let insert_share_cache_opt = result.stats.times.inserting_into_sharing_cache;
+        let query_selector_map_opt = result.stats.times.querying_selector_map;
         let update_bloom_duration = update_bloom_opt.unwrap_or(Duration::ZERO);
-        let slow_duration = slow_opt.unwrap_or(Duration::ZERO);
+        let slow_duration = slow_opt;
         let fast_duration = fast_opt.unwrap_or(Duration::ZERO);
         let check_share_duration = check_share_opt.unwrap_or(Duration::ZERO);
         let insert_share_cache_duration = insert_share_cache_opt.unwrap_or(Duration::ZERO);
@@ -328,7 +340,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             ("seg-share-check", "Checking Style Sharing", check_share_opt),
             ("seg-query", "Querying Selector Map", query_selector_map_opt),
             ("seg-fast", "Fast Rejecting", fast_opt),
-            ("seg-slow", "Slow Rejecting", slow_opt),
+            ("seg-slow", "Slow Rejecting", Some(slow_opt)),
             ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache_opt),
         ] {
             let Some(duration) = duration_opt else {

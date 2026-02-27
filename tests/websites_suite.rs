@@ -8,6 +8,7 @@ use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
 use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{IntoResultExt, Result}, structs::ser::SerDocumentMatches};
 use insta;
 use rayon::prelude::*;
+use selectors::matching::TimingStats;
 use test_log::test;
 
 #[test]
@@ -103,8 +104,8 @@ fn statistics_dont_change() -> Result<()> {
                 let (_, _, mut stats1) = mach_6::do_website(&website, algorithm);
                 let (_, _, mut stats2) = mach_6::do_website(&website, algorithm);
                 // Ignore timing info, which we expect to change between runs.
-                stats1.time_spent_slow_rejecting = None;
-                stats2.time_spent_slow_rejecting = None;
+                stats1.times = TimingStats::default();
+                stats2.times = TimingStats::default();
                 assert_eq!(stats1, stats2);
             }
             Ok(())

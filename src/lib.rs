@@ -242,7 +242,7 @@ pub fn match_selectors_with_selector_map(document: &Html, selector_map: &Selecto
     let mut stats = Statistics::default();
     preorder_traversal(document.root_element(), &mut result, selector_map, &mut caches, &mut stats);
     debug_assert_eq!((stats.fast_rejects, stats.sharing_instances), (Some(0), None));
-    (stats.fast_rejects, stats.slow_rejects, stats.time_spent_slow_rejecting) = (None, None, None);
+    stats.fast_rejects = None;
     (OwnedDocumentMatches(result), stats)
 }
 
@@ -452,10 +452,10 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
 
     let root = document.root_element();
     preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut non_optional_stats);
-    stats.time_spent_updating_bloom_filter = Some(non_optional_stats.bloom_filter_update_duration);
+    stats.times.updating_bloom_filter = Some(non_optional_stats.bloom_filter_update_duration);
     stats.sharing_instances = Some(non_optional_stats.sharing_instances);
-    stats.time_spent_checking_style_sharing = Some(non_optional_stats.sharing_check_duration);
-    stats.time_spent_inserting_into_sharing_cache = Some(non_optional_stats.sharing_cache_insert_duration);
+    stats.times.checking_style_sharing = Some(non_optional_stats.sharing_check_duration);
+    stats.times.inserting_into_sharing_cache = Some(non_optional_stats.sharing_cache_insert_duration);
     (OwnedDocumentMatches(result), stats)
 }
 
