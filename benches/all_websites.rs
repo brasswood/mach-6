@@ -179,14 +179,45 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 
     let mut sections = String::new();
     for result in results {
-        let width_pct = (result.duration.as_nanos() as f64 / max_duration_ns as f64) * 100.0;
+        let total_duration = result.duration;
+        let total_ns = total_duration.as_nanos();
+        let raw_slow_duration = result.stats.time_spent_slow_rejecting.unwrap_or(Duration::ZERO);
+        let slow_duration = if raw_slow_duration > total_duration {
+            total_duration
+        } else {
+            raw_slow_duration
+        };
+        let other_duration = total_duration.saturating_sub(slow_duration);
+        let total_width_pct = (total_ns as f64 / max_duration_ns as f64) * 100.0;
+        let slow_of_total_pct = if total_ns == 0 {
+            0.0
+        } else {
+            (slow_duration.as_nanos() as f64 / total_ns as f64) * 100.0
+        };
+        let other_of_total_pct = 100.0 - slow_of_total_pct;
+        let slow_bar_width_pct = total_width_pct * (slow_of_total_pct / 100.0);
+        let other_bar_width_pct = total_width_pct * (other_of_total_pct / 100.0);
         let website = escape_html(&result.website);
         let json_file = format!("json/{}.json", make_filename_safe(&result.website));
-        let slow_rejecting = result
-            .stats
-            .time_spent_slow_rejecting
-            .map(format_duration)
-            .unwrap_or_else(|| "N/A".to_string());
+        let slow_rejecting = format_duration(slow_duration);
+        let other_time = format_duration(other_duration);
+        let total_time = format_duration(total_duration);
+        let slow_seg_label = if slow_bar_width_pct >= 18.0 {
+            format!(
+                r#"<span class="seg-label">Slow {}</span>"#,
+                escape_html(&slow_rejecting)
+            )
+        } else {
+            String::new()
+        };
+        let other_seg_label = if other_bar_width_pct >= 18.0 {
+            format!(
+                r#"<span class="seg-label">Other {}</span>"#,
+                escape_html(&other_time)
+            )
+        } else {
+            String::new()
+        };
         sections.push_str(&format!(
             r#"
 <details class="site">
@@ -194,8 +225,18 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     <div class="row">
       <div class="chevron" aria-hidden="true"></div>
       <div class="name">{website}</div>
-      <div class="bar-wrap"><div class="bar" style="width: {width_pct:.2}%"></div></div>
+      <div class="bar-wrap">
+        <div class="bar-total" style="width: {total_width_pct:.2}%">
+          <div class="bar-seg bar-slow" style="width: {slow_of_total_pct:.2}%">{slow_seg_label}</div>
+          <div class="bar-seg bar-other" style="width: {other_of_total_pct:.2}%">{other_seg_label}</div>
+        </div>
+      </div>
       <div class="time">{total_time}</div>
+    </div>
+    <div class="bar-legend">
+      <span><i class="swatch swatch-slow"></i>Slow Rejecting: {slow_rejecting}</span>
+      <span><i class="swatch swatch-other"></i>Other: {other_time}</span>
+      <span><i class="swatch swatch-total"></i>Total: {total_time}</span>
     </div>
   </summary>
   <div class="details">
@@ -213,13 +254,18 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 </details>
 "#,
             website = website,
-            width_pct = width_pct,
-            total_time = format_duration(result.duration),
+            total_width_pct = total_width_pct,
+            slow_of_total_pct = slow_of_total_pct,
+            other_of_total_pct = other_of_total_pct,
+            slow_seg_label = slow_seg_label,
+            other_seg_label = other_seg_label,
+            total_time = total_time,
+            slow_rejecting = slow_rejecting,
+            other_time = other_time,
             sharing_instances = format_optional_usize(result.stats.sharing_instances),
             selector_map_hits = format_optional_usize(result.stats.selector_map_hits),
             fast_rejects = format_optional_usize(result.stats.fast_rejects),
             slow_rejects = format_optional_usize(result.stats.slow_rejects),
-            slow_rejecting = slow_rejecting,
             json_file = escape_html(&json_file),
         ));
     }
@@ -301,13 +347,62 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .bar-wrap {{
       width: 100%;
-      height: 14px;
+      height: 20px;
       background: var(--bar-bg);
       overflow: hidden;
     }}
-    .bar {{
+    .bar-total {{
+      display: flex;
       height: 100%;
+      min-width: 0;
+    }}
+    .bar-seg {{
+      height: 100%;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: 11px;
+      color: #0f172a;
+      font-weight: 600;
+    }}
+    .bar-slow {{
+      background: #f59e0b;
+    }}
+    .bar-other {{
       background: var(--bar);
+    }}
+    .seg-label {{
+      padding: 0 6px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }}
+    .bar-legend {{
+      margin-top: 6px;
+      margin-left: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }}
+    .swatch {{
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }}
+    .swatch-slow {{
+      background: #f59e0b;
+    }}
+    .swatch-other {{
+      background: var(--bar);
+    }}
+    .swatch-total {{
+      background: var(--line);
     }}
     .time {{
       text-align: right;
@@ -343,6 +438,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       }}
       .bar-wrap {{
         grid-column: 2 / 3;
+      }}
+      .bar-legend {{
+        margin-left: 18px;
       }}
       .time {{
         text-align: left;
