@@ -119,7 +119,10 @@ fn bench_function<F, R>(name: &str, func: F) -> TimedResult<R>
 where
     F: Fn() -> R,
 {
-    eprint!("Benchmarking {name}...");
+    let warm_up_time = Duration::from_secs(5);
+    eprint!("Benchmarking {name}...warming up for {} seconds...", warm_up_time.as_secs_f32());
+    warm_up(&warm_up_time, &func);
+    eprint!("measuring...");
     let start = Instant::now();
     let result = func();
     let duration = start.elapsed();
@@ -127,6 +130,16 @@ where
     TimedResult {
         duration,
         result,
+    }
+}
+
+fn warm_up<F, R>(warm_up_time: &Duration, func: &F)
+where
+    F: Fn() -> R
+{
+    let start = Instant::now();
+    while start.elapsed() < *warm_up_time {
+        let _ = func();
     }
 }
 
