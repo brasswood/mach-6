@@ -38,6 +38,8 @@ struct WebsiteStatsJson {
     time_spent_updating_bloom_filter_display: Option<String>,
     time_spent_slow_rejecting_ns: u128,
     time_spent_slow_rejecting_display: String,
+    time_spent_slow_accepting_ns: u128,
+    time_spent_slow_accepting_display: String,
     time_spent_fast_rejecting_ns: Option<u128>,
     time_spent_fast_rejecting_display: Option<String>,
     time_spent_checking_style_sharing_ns: Option<u128>,
@@ -191,6 +193,14 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
                 time_spent_slow_rejecting_display: format_duration(
                     result.stats.times.slow_rejecting
                 ),
+                time_spent_slow_accepting_ns: result
+                    .stats
+                    .times
+                    .slow_accepting
+                    .as_nanos(),
+                time_spent_slow_accepting_display: format_duration(
+                    result.stats.times.slow_accepting
+                ),
                 time_spent_fast_rejecting_ns: result
                     .stats
                     .times
@@ -256,20 +266,23 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let total_duration = result.duration;
         let total_ns = total_duration.as_nanos();
         let update_bloom_opt = result.stats.times.updating_bloom_filter;
-        let slow_opt = result.stats.times.slow_rejecting;
-        let fast_opt = result.stats.times.fast_rejecting;
+        let slow_reject = result.stats.times.slow_rejecting;
+        let slow_accept = result.stats.times.slow_accepting;
+        let fast_reject_opt = result.stats.times.fast_rejecting;
         let check_share_opt = result.stats.times.checking_style_sharing;
         let insert_share_cache_opt = result.stats.times.inserting_into_sharing_cache;
         let query_selector_map_opt = result.stats.times.querying_selector_map;
         let update_bloom_duration = update_bloom_opt.unwrap_or(Duration::ZERO);
-        let slow_duration = slow_opt;
-        let fast_duration = fast_opt.unwrap_or(Duration::ZERO);
+        let slow_reject_duration = slow_reject;
+        let slow_accept_duration = slow_accept;
+        let fast_reject_duration = fast_reject_opt.unwrap_or(Duration::ZERO);
         let check_share_duration = check_share_opt.unwrap_or(Duration::ZERO);
         let insert_share_cache_duration = insert_share_cache_opt.unwrap_or(Duration::ZERO);
         let query_selector_map_duration = query_selector_map_opt.unwrap_or(Duration::ZERO);
         let measured_sum = update_bloom_duration
-            + slow_duration
-            + fast_duration
+            + slow_reject_duration
+            + slow_accept_duration
+            + fast_reject_duration
             + check_share_duration
             + insert_share_cache_duration
             + query_selector_map_duration;
@@ -291,8 +304,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
                 (duration.as_nanos() as f64 / stack_total.as_nanos() as f64) * 100.0
             }
         };
-        let slow_pct = pct(slow_duration);
-        let fast_pct = pct(fast_duration);
+        let slow_reject_pct = pct(slow_reject_duration);
+        let slow_accept_pct = pct(slow_accept_duration);
+        let fast_reject_pct = pct(fast_reject_duration);
         let update_bloom_pct = pct(update_bloom_duration);
         let check_share_pct = pct(check_share_duration);
         let insert_share_cache_pct = pct(insert_share_cache_duration);
@@ -304,8 +318,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             ("seg-bloom", update_bloom_pct),
             ("seg-share-check", check_share_pct),
             ("seg-query", query_selector_map_pct),
-            ("seg-fast", fast_pct),
-            ("seg-slow", slow_pct),
+            ("seg-fast", fast_reject_pct),
+            ("seg-slow", slow_reject_pct),
+            ("seg-slow-accept", slow_accept_pct),
             ("seg-share-insert", insert_share_cache_pct),
             ("seg-other", other_pct),
         ] {
@@ -337,8 +352,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             ("seg-bloom", "Updating Bloom Filter", update_bloom_opt),
             ("seg-share-check", "Checking Style Sharing", check_share_opt),
             ("seg-query", "Querying Selector Map", query_selector_map_opt),
-            ("seg-fast", "Fast Rejecting", fast_opt),
-            ("seg-slow", "Slow Rejecting", Some(slow_opt)),
+            ("seg-fast", "Fast Rejecting", fast_reject_opt),
+            ("seg-slow", "Slow Rejecting", Some(slow_reject)),
+            ("seg-slow-accept", "Slow Accepting", Some(slow_accept)),
             ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache_opt),
         ] {
             let Some(duration) = duration_opt else {
@@ -517,6 +533,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .seg-fast {{
       background: #ef4444;
+    }}
+    .seg-slow-accept {{
+      background: #f97316;
     }}
     .seg-share-check {{
       background: #3b82f6;
