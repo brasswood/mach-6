@@ -34,6 +34,8 @@ struct WebsiteStatsJson {
     selector_map_hits: Option<usize>,
     fast_rejects: Option<usize>,
     slow_rejects: Option<usize>,
+    time_spent_updating_bloom_filter_ns: Option<u128>,
+    time_spent_updating_bloom_filter_display: Option<String>,
     time_spent_slow_rejecting_ns: Option<u128>,
     time_spent_slow_rejecting_display: Option<String>,
     time_spent_fast_rejecting_ns: Option<u128>,
@@ -158,6 +160,14 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
                 selector_map_hits: result.stats.selector_map_hits,
                 fast_rejects: result.stats.fast_rejects,
                 slow_rejects: result.stats.slow_rejects,
+                time_spent_updating_bloom_filter_ns: result
+                    .stats
+                    .time_spent_updating_bloom_filter
+                    .map(|d| d.as_nanos()),
+                time_spent_updating_bloom_filter_display: result
+                    .stats
+                    .time_spent_updating_bloom_filter
+                    .map(format_duration),
                 time_spent_slow_rejecting_ns: result
                     .stats
                     .time_spent_slow_rejecting
@@ -222,6 +232,10 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     for result in results {
         let total_duration = result.duration;
         let total_ns = total_duration.as_nanos();
+        let update_bloom_duration = result
+            .stats
+            .time_spent_updating_bloom_filter
+            .unwrap_or(Duration::ZERO);
         let slow_duration = result.stats.time_spent_slow_rejecting.unwrap_or(Duration::ZERO);
         let fast_duration = result.stats.time_spent_fast_rejecting.unwrap_or(Duration::ZERO);
         let check_share_duration = result
@@ -236,7 +250,8 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             .stats
             .time_spent_querying_selector_map
             .unwrap_or(Duration::ZERO);
-        let measured_sum = slow_duration
+        let measured_sum = update_bloom_duration
+            + slow_duration
             + fast_duration
             + check_share_duration
             + insert_share_cache_duration
@@ -257,6 +272,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         };
         let slow_pct = pct(slow_duration);
         let fast_pct = pct(fast_duration);
+        let update_bloom_pct = pct(update_bloom_duration);
         let check_share_pct = pct(check_share_duration);
         let insert_share_cache_pct = pct(insert_share_cache_duration);
         let query_selector_map_pct = pct(query_selector_map_duration);
@@ -289,6 +305,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let mut summary_bar_segments = String::new();
         let mut expanded_bar_segments = String::new();
         for (name, class_name, duration, segment_pct) in [
+            ("Bloom", "seg-bloom", update_bloom_duration, update_bloom_pct),
             ("Slow", "seg-slow", slow_duration, slow_pct),
             ("Fast", "seg-fast", fast_duration, fast_pct),
             ("Share Check", "seg-share-check", check_share_duration, check_share_pct),
@@ -328,6 +345,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let mut compact_legend = String::new();
         let mut expanded_legend = String::new();
         for (class_name, name, duration) in [
+            ("seg-bloom", "Updating Bloom Filter", update_bloom_duration),
             ("seg-slow", "Slow Rejecting", slow_duration),
             ("seg-fast", "Fast Rejecting", fast_duration),
             ("seg-share-check", "Checking Style Sharing", check_share_duration),
@@ -507,6 +525,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .seg-slow {{
       background: #f59e0b;
+    }}
+    .seg-bloom {{
+      background: #06b6d4;
     }}
     .seg-fast {{
       background: #ef4444;
