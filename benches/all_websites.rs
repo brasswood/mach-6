@@ -285,14 +285,11 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let mut expanded_bar_segments = String::new();
         for (class_name, segment_pct) in [
             ("seg-bloom", update_bloom_pct),
-            ("seg-slow", slow_pct),
-            ("seg-fast", fast_pct),
             ("seg-share-check", check_share_pct),
-            (
-                "seg-share-insert",
-                insert_share_cache_pct,
-            ),
             ("seg-query", query_selector_map_pct),
+            ("seg-fast", fast_pct),
+            ("seg-slow", slow_pct),
+            ("seg-share-insert", insert_share_cache_pct),
             ("seg-other", other_pct),
         ] {
             if segment_pct <= 0.0 {
@@ -321,11 +318,11 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let mut expanded_legend = String::new();
         for (class_name, name, duration) in [
             ("seg-bloom", "Updating Bloom Filter", update_bloom_duration),
-            ("seg-slow", "Slow Rejecting", slow_duration),
-            ("seg-fast", "Fast Rejecting", fast_duration),
             ("seg-share-check", "Checking Style Sharing", check_share_duration),
-            ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache_duration),
             ("seg-query", "Querying Selector Map", query_selector_map_duration),
+            ("seg-fast", "Fast Rejecting", fast_duration),
+            ("seg-slow", "Slow Rejecting", slow_duration),
+            ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache_duration),
             ("seg-other", "Other", other_duration),
         ] {
             if duration.is_zero() {
