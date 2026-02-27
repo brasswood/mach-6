@@ -36,8 +36,8 @@ struct WebsiteStatsJson {
     slow_rejects: Option<usize>,
     time_spent_updating_bloom_filter_ns: Option<u128>,
     time_spent_updating_bloom_filter_display: Option<String>,
-    time_spent_slow_rejecting_ns: Option<u128>,
-    time_spent_slow_rejecting_display: Option<String>,
+    time_spent_slow_rejecting_ns: u128,
+    time_spent_slow_rejecting_display: String,
     time_spent_fast_rejecting_ns: Option<u128>,
     time_spent_fast_rejecting_display: Option<String>,
     time_spent_checking_style_sharing_ns: Option<u128>,
@@ -183,15 +183,13 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
                     .times
                     .updating_bloom_filter
                     .map(format_duration),
-                time_spent_slow_rejecting_ns: Some(
-                    result
-                        .stats
-                        .times
-                        .slow_rejecting
-                        .as_nanos()
-                ),
-                time_spent_slow_rejecting_display: Some(
-                    format_duration(result.stats.times.slow_rejecting)
+                time_spent_slow_rejecting_ns: result
+                    .stats
+                    .times
+                    .slow_rejecting
+                    .as_nanos(),
+                time_spent_slow_rejecting_display: format_duration(
+                    result.stats.times.slow_rejecting
                 ),
                 time_spent_fast_rejecting_ns: result
                     .stats
