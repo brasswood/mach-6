@@ -306,6 +306,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         sharing_instances: usize,
         sharing_check_duration: Duration,
         sharing_cache_insert_duration: Duration,
+        bloom_filter_update_duration: Duration,
     }
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
@@ -321,7 +322,9 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
         // 1.2: update the bloom filter with the current element
+        let start = Instant::now();
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
+        non_optional_stats.bloom_filter_update_duration += start.elapsed();
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Instant::now();
@@ -449,6 +452,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
 
     let root = document.root_element();
     preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut non_optional_stats);
+    stats.time_spent_updating_bloom_filter = Some(non_optional_stats.bloom_filter_update_duration);
     stats.sharing_instances = Some(non_optional_stats.sharing_instances);
     stats.time_spent_checking_style_sharing = Some(non_optional_stats.sharing_check_duration);
     stats.time_spent_inserting_into_sharing_cache = Some(non_optional_stats.sharing_cache_insert_duration);
