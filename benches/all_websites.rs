@@ -275,7 +275,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         <tr><th>Selector Map Hits</th><td>{selector_map_hits}</td></tr>
         <tr><th>Fast Rejects</th><td>{fast_rejects}</td></tr>
         <tr><th>Slow Rejects</th><td>{slow_rejects}</td></tr>
-        <tr><th>Time Spent Slow Rejecting</th><td>{slow_rejecting}</td></tr>
       </tbody>
     </table>
     <p><a href="{json_file}">JSON data</a></p>
