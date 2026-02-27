@@ -36,6 +36,14 @@ struct WebsiteStatsJson {
     slow_rejects: Option<usize>,
     time_spent_slow_rejecting_ns: Option<u128>,
     time_spent_slow_rejecting_display: Option<String>,
+    time_spent_fast_rejecting_ns: Option<u128>,
+    time_spent_fast_rejecting_display: Option<String>,
+    time_spent_checking_style_sharing_ns: Option<u128>,
+    time_spent_checking_style_sharing_display: Option<String>,
+    time_spent_inserting_into_sharing_cache_ns: Option<u128>,
+    time_spent_inserting_into_sharing_cache_display: Option<String>,
+    time_spent_querying_selector_map_ns: Option<u128>,
+    time_spent_querying_selector_map_display: Option<String>,
 }
 
 fn main() {
@@ -158,6 +166,38 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
                     .stats
                     .time_spent_slow_rejecting
                     .map(format_duration),
+                time_spent_fast_rejecting_ns: result
+                    .stats
+                    .time_spent_fast_rejecting
+                    .map(|d| d.as_nanos()),
+                time_spent_fast_rejecting_display: result
+                    .stats
+                    .time_spent_fast_rejecting
+                    .map(format_duration),
+                time_spent_checking_style_sharing_ns: result
+                    .stats
+                    .time_spent_checking_style_sharing
+                    .map(|d| d.as_nanos()),
+                time_spent_checking_style_sharing_display: result
+                    .stats
+                    .time_spent_checking_style_sharing
+                    .map(format_duration),
+                time_spent_inserting_into_sharing_cache_ns: result
+                    .stats
+                    .time_spent_inserting_into_sharing_cache
+                    .map(|d| d.as_nanos()),
+                time_spent_inserting_into_sharing_cache_display: result
+                    .stats
+                    .time_spent_inserting_into_sharing_cache
+                    .map(format_duration),
+                time_spent_querying_selector_map_ns: result
+                    .stats
+                    .time_spent_querying_selector_map
+                    .map(|d| d.as_nanos()),
+                time_spent_querying_selector_map_display: result
+                    .stats
+                    .time_spent_querying_selector_map
+                    .map(format_duration),
             },
         };
         let serialized = serde_json::to_string_pretty(&payload)
@@ -182,59 +222,133 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     for result in results {
         let total_duration = result.duration;
         let total_ns = total_duration.as_nanos();
-        let raw_slow_duration = result.stats.time_spent_slow_rejecting.unwrap_or(Duration::ZERO);
-        let slow_duration = if raw_slow_duration > total_duration {
+        let slow_duration = result.stats.time_spent_slow_rejecting.unwrap_or(Duration::ZERO);
+        let fast_duration = result.stats.time_spent_fast_rejecting.unwrap_or(Duration::ZERO);
+        let check_share_duration = result
+            .stats
+            .time_spent_checking_style_sharing
+            .unwrap_or(Duration::ZERO);
+        let insert_share_cache_duration = result
+            .stats
+            .time_spent_inserting_into_sharing_cache
+            .unwrap_or(Duration::ZERO);
+        let query_selector_map_duration = result
+            .stats
+            .time_spent_querying_selector_map
+            .unwrap_or(Duration::ZERO);
+        let measured_sum = slow_duration
+            + fast_duration
+            + check_share_duration
+            + insert_share_cache_duration
+            + query_selector_map_duration;
+        let other_duration = total_duration.saturating_sub(measured_sum);
+        let stack_total = if measured_sum > total_duration {
+            measured_sum
+        } else {
             total_duration
-        } else {
-            raw_slow_duration
         };
-        let other_duration = total_duration.saturating_sub(slow_duration);
         let total_width_pct = (total_ns as f64 / max_duration_ns as f64) * 100.0;
-        let slow_of_total_pct = if total_ns == 0 {
-            0.0
-        } else {
-            (slow_duration.as_nanos() as f64 / total_ns as f64) * 100.0
+        let pct = |duration: Duration| -> f64 {
+            if stack_total.is_zero() {
+                0.0
+            } else {
+                (duration.as_nanos() as f64 / stack_total.as_nanos() as f64) * 100.0
+            }
         };
-        let other_of_total_pct = 100.0 - slow_of_total_pct;
-        let slow_bar_width_pct = total_width_pct * (slow_of_total_pct / 100.0);
-        let other_bar_width_pct = total_width_pct * (other_of_total_pct / 100.0);
+        let slow_pct = pct(slow_duration);
+        let fast_pct = pct(fast_duration);
+        let check_share_pct = pct(check_share_duration);
+        let insert_share_cache_pct = pct(insert_share_cache_duration);
+        let query_selector_map_pct = pct(query_selector_map_duration);
+        let other_pct = pct(other_duration);
+        let summary_bar_width = |segment_pct: f64| -> f64 {
+            total_width_pct * (segment_pct / 100.0)
+        };
+        let summary_label = |name: &str, duration: Duration, segment_pct: f64| -> String {
+            if summary_bar_width(segment_pct) >= 18.0 {
+                format!(
+                    r#"<span class="seg-label">{} {}</span>"#,
+                    name,
+                    escape_html(&format_duration(duration))
+                )
+            } else {
+                String::new()
+            }
+        };
+        let expanded_label = |name: &str, duration: Duration, segment_pct: f64| -> String {
+            if segment_pct >= 8.0 {
+                format!(
+                    r#"<span class="seg-label-expanded">{} {}</span>"#,
+                    name,
+                    escape_html(&format_duration(duration))
+                )
+            } else {
+                String::new()
+            }
+        };
+        let mut summary_bar_segments = String::new();
+        let mut expanded_bar_segments = String::new();
+        for (name, class_name, duration, segment_pct) in [
+            ("Slow", "seg-slow", slow_duration, slow_pct),
+            ("Fast", "seg-fast", fast_duration, fast_pct),
+            ("Share Check", "seg-share-check", check_share_duration, check_share_pct),
+            (
+                "Share Insert",
+                "seg-share-insert",
+                insert_share_cache_duration,
+                insert_share_cache_pct,
+            ),
+            ("Selector Map", "seg-query", query_selector_map_duration, query_selector_map_pct),
+            ("Other", "seg-other", other_duration, other_pct),
+        ] {
+            if segment_pct <= 0.0 {
+                continue;
+            }
+            summary_bar_segments.push_str(&format!(
+                r#"<div class="bar-seg {class_name}" style="width: {segment_pct:.2}%">{label}</div>"#,
+                class_name = class_name,
+                segment_pct = segment_pct,
+                label = summary_label(name, duration, segment_pct),
+            ));
+            expanded_bar_segments.push_str(&format!(
+                r#"<div class="expanded-bar-seg {class_name}" style="width: {segment_pct:.2}%">{label}</div>"#,
+                class_name = class_name,
+                segment_pct = segment_pct,
+                label = expanded_label(name, duration, segment_pct),
+            ));
+        }
+        let legend_item = |class_name: &str, name: &str, duration: Duration| -> String {
+            format!(
+                r#"<span><i class="swatch {class_name}"></i>{name}: {duration}</span>"#,
+                class_name = class_name,
+                name = name,
+                duration = format_duration(duration),
+            )
+        };
+        let mut compact_legend = String::new();
+        let mut expanded_legend = String::new();
+        for (class_name, name, duration) in [
+            ("seg-slow", "Slow Rejecting", slow_duration),
+            ("seg-fast", "Fast Rejecting", fast_duration),
+            ("seg-share-check", "Checking Style Sharing", check_share_duration),
+            ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache_duration),
+            ("seg-query", "Querying Selector Map", query_selector_map_duration),
+            ("seg-other", "Other", other_duration),
+        ] {
+            if duration.is_zero() {
+                continue;
+            }
+            let item = legend_item(class_name, name, duration);
+            compact_legend.push_str(&item);
+            expanded_legend.push_str(&item);
+        }
+        if compact_legend.is_empty() {
+            compact_legend.push_str(&legend_item("seg-other", "Other", Duration::ZERO));
+            expanded_legend.push_str(&legend_item("seg-other", "Other", Duration::ZERO));
+        }
         let website = escape_html(&result.website);
         let json_file = format!("json/{}.json", make_filename_safe(&result.website));
-        let slow_rejecting = format_duration(slow_duration);
-        let other_time = format_duration(other_duration);
         let total_time = format_duration(total_duration);
-        let slow_seg_label = if slow_bar_width_pct >= 18.0 {
-            format!(
-                r#"<span class="seg-label">Slow {}</span>"#,
-                escape_html(&slow_rejecting)
-            )
-        } else {
-            String::new()
-        };
-        let other_seg_label = if other_bar_width_pct >= 18.0 {
-            format!(
-                r#"<span class="seg-label">Other {}</span>"#,
-                escape_html(&other_time)
-            )
-        } else {
-            String::new()
-        };
-        let slow_expanded_seg_label = if slow_of_total_pct >= 8.0 {
-            format!(
-                r#"<span class="seg-label-expanded">Slow Rejecting {}</span>"#,
-                escape_html(&slow_rejecting)
-            )
-        } else {
-            String::new()
-        };
-        let other_expanded_seg_label = if other_of_total_pct >= 8.0 {
-            format!(
-                r#"<span class="seg-label-expanded">Other {}</span>"#,
-                escape_html(&other_time)
-            )
-        } else {
-            String::new()
-        };
         sections.push_str(&format!(
             r#"
 <details class="site">
@@ -244,15 +358,13 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       <div class="name">{website}</div>
       <div class="bar-wrap">
         <div class="bar-total" style="width: {total_width_pct:.2}%">
-          <div class="bar-seg bar-slow" style="width: {slow_of_total_pct:.2}%">{slow_seg_label}</div>
-          <div class="bar-seg bar-other" style="width: {other_of_total_pct:.2}%">{other_seg_label}</div>
+          {summary_bar_segments}
         </div>
       </div>
       <div class="time">{total_time}</div>
     </div>
     <div class="bar-legend">
-      <span><i class="swatch swatch-slow"></i>Slow Rejecting: {slow_rejecting}</span>
-      <span><i class="swatch swatch-other"></i>Other: {other_time}</span>
+      {compact_legend}
     </div>
   </summary>
   <div class="details">
@@ -260,13 +372,11 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       <h5>Timing Breakdown</h5>
       <div class="expanded-bar-wrap">
         <div class="expanded-bar-total">
-          <div class="expanded-bar-seg expanded-bar-slow" style="width: {slow_of_total_pct:.2}%">{slow_expanded_seg_label}</div>
-          <div class="expanded-bar-seg expanded-bar-other" style="width: {other_of_total_pct:.2}%">{other_expanded_seg_label}</div>
+          {expanded_bar_segments}
         </div>
       </div>
       <div class="expanded-legend">
-        <span><i class="swatch swatch-slow"></i>Slow Rejecting: {slow_rejecting}</span>
-        <span><i class="swatch swatch-other"></i>Other: {other_time}</span>
+        {expanded_legend}
         <span>Total: {total_time}</span>
       </div>
     </section>
@@ -284,15 +394,11 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 "#,
             website = website,
             total_width_pct = total_width_pct,
-            slow_of_total_pct = slow_of_total_pct,
-            other_of_total_pct = other_of_total_pct,
-            slow_seg_label = slow_seg_label,
-            other_seg_label = other_seg_label,
-            slow_expanded_seg_label = slow_expanded_seg_label,
-            other_expanded_seg_label = other_expanded_seg_label,
+            summary_bar_segments = summary_bar_segments,
+            expanded_bar_segments = expanded_bar_segments,
+            compact_legend = compact_legend,
+            expanded_legend = expanded_legend,
             total_time = total_time,
-            slow_rejecting = slow_rejecting,
-            other_time = other_time,
             sharing_instances = format_optional_usize(result.stats.sharing_instances),
             selector_map_hits = format_optional_usize(result.stats.selector_map_hits),
             fast_rejects = format_optional_usize(result.stats.fast_rejects),
@@ -399,10 +505,22 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       color: #0f172a;
       font-weight: 600;
     }}
-    .bar-slow {{
+    .seg-slow {{
       background: #f59e0b;
     }}
-    .bar-other {{
+    .seg-fast {{
+      background: #ef4444;
+    }}
+    .seg-share-check {{
+      background: #3b82f6;
+    }}
+    .seg-share-insert {{
+      background: #8b5cf6;
+    }}
+    .seg-query {{
+      background: #22c55e;
+    }}
+    .seg-other {{
       background: var(--bar);
     }}
     .seg-label {{
@@ -454,12 +572,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       color: #0f172a;
       font-weight: 700;
     }}
-    .expanded-bar-slow {{
-      background: #f59e0b;
-    }}
-    .expanded-bar-other {{
-      background: var(--bar);
-    }}
     .seg-label-expanded {{
       padding: 0 8px;
       text-overflow: ellipsis;
@@ -479,12 +591,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       height: 10px;
       margin-right: 6px;
       vertical-align: -1px;
-    }}
-    .swatch-slow {{
-      background: #f59e0b;
-    }}
-    .swatch-other {{
-      background: var(--bar);
     }}
     .time {{
       text-align: right;
