@@ -34,6 +34,7 @@ struct WebsiteStatsJson {
     selector_map_hits: usize,
     fast_rejects: usize,
     slow_rejects: usize,
+    slow_accepts: usize,
     time_spent_updating_bloom_filter_ns: u128,
     time_spent_updating_bloom_filter_display: String,
     time_spent_slow_rejecting_ns: u128,
@@ -175,6 +176,7 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
                 selector_map_hits: result.stats.selector_map_hits,
                 fast_rejects: result.stats.fast_rejects,
                 slow_rejects: result.stats.slow_rejects,
+                slow_accepts: result.stats.slow_accepts,
                 time_spent_updating_bloom_filter_ns: result
                     .stats
                     .times
@@ -393,6 +395,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         <tr><th>Selector Map Hits</th><td>{selector_map_hits}</td></tr>
         <tr><th>Fast Rejects</th><td>{fast_rejects}</td></tr>
         <tr><th>Slow Rejects</th><td>{slow_rejects}</td></tr>
+        <tr><th>Slow Accepts</th><td>{slow_accepts}</td></tr>
       </tbody>
     </table>
     <p><a href="{json_file}">JSON data</a></p>
@@ -410,6 +413,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             selector_map_hits = format_usize(result.stats.selector_map_hits),
             fast_rejects = format_usize(result.stats.fast_rejects),
             slow_rejects = format_usize(result.stats.slow_rejects),
+            slow_accepts = format_usize(result.stats.slow_accepts),
             json_file = escape_html(&json_file),
         ));
     }
