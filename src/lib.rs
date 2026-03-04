@@ -146,7 +146,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
             .iter()
             .filter(|s| {
                 let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
-                debug_assert_eq!(stats.fast_rejects, 0);
+                debug_assert_eq!(stats.time_fast_rejecting, None);
                 res
             })
             .collect();
@@ -361,7 +361,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
                     &mut context
                 );
                 debug_assert!(res);
-                debug_assert_eq!(stats.fast_rejects, 0);
+                debug_assert_eq!(stats.time_fast_rejecting, None);
                 res
             })
             .cloned()

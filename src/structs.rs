@@ -91,7 +91,7 @@ pub mod borrowed {
 pub mod owned {
     use super::{Element, Selector};
     use super::borrowed::{DocumentMatches, ElementMatches, SelectorsOrSharedStyles};
-    use selectors::matching::Statistics;
+    use selectors::matching::SelectorStats;
     use smallvec::SmallVec;
 
     #[derive(Debug, Clone)]
@@ -120,7 +120,7 @@ pub mod owned {
 
     #[derive(Clone, Debug)]
     pub enum OwnedSelectorsOrSharedStyles {
-        Selectors(SmallVec<[(Selector, Statistics); 16]>),
+        Selectors(SmallVec<[(Selector, SelectorStats); 16]>),
         SharedWithElement(u64),
     }
 
@@ -128,7 +128,7 @@ pub mod owned {
         fn from(value: SelectorsOrSharedStyles<'_>) -> Self {
             match value {
                 SelectorsOrSharedStyles::Selectors(selectors) => {
-                    let selectors_and_stats = selectors.into_iter().map(|s| (s.clone(), Statistics::default())).collect();
+                    let selectors_and_stats = selectors.into_iter().map(|s| (s.clone(), SelectorStats::default())).collect();
                     Self::Selectors(selectors_and_stats)
                 }
                 SelectorsOrSharedStyles::SharedWithElement(id) => Self::SharedWithElement(id),
