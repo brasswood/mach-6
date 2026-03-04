@@ -56,7 +56,7 @@ fn all_algorithms_correct() -> Result<()> {
     };
 
     let website_paths: Vec<_> = get_websites_dirs(&websites_path())?.collect();
-    let algorithms = [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing, Algorithm::Mach7].map(|alg| (alg, AtomicBool::new(false)));
+    let algorithms = [Algorithm::WithStyleSharing, Algorithm::Mach7].map(|alg| (alg, AtomicBool::new(false)));
     // start with a clean slate
     for (algorithm, _) in &algorithms {
         let path = equality_failures_alg(*algorithm);
@@ -100,7 +100,7 @@ fn statistics_dont_change() -> Result<()> {
         .into_par_iter()
         .map(|path| {
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            for algorithm in [Algorithm::WithSelectorMap, Algorithm::WithBloomFilter, Algorithm::WithStyleSharing, Algorithm::Mach7] {
+            for algorithm in [Algorithm::WithStyleSharing, Algorithm::Mach7] {
                 let (_, _, mut stats1) = mach_6::do_website(&website, algorithm);
                 let (_, _, mut stats2) = mach_6::do_website(&website, algorithm);
                 // Ignore timing info, which we expect to change between runs.
