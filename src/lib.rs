@@ -9,7 +9,6 @@ use log::info;
 use rustc_hash::FxBuildHasher;
 use selectors::Element as _;
 use style::animation::DocumentAnimationSet;
-use style::bloom::StyleBloom;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
@@ -20,7 +19,6 @@ use style::traversal_flags::TraversalFlags;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::Path;
-use std::time::Duration;
 use std::time::Instant;
 use scraper::ElementRef;
 use scraper::Html;
@@ -148,7 +146,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
             .iter()
             .filter(|s| {
                 let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
-                debug_assert_eq!(stats.fast_rejects, Some(0));
+                debug_assert_eq!(stats.fast_rejects, 0);
                 res
             })
             .collect();
@@ -191,13 +189,6 @@ where
 }
 
 pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
-    #[derive(Default)]
-    struct NonOptionalStats {
-        sharing_instances: usize,
-        sharing_check_duration: Duration,
-        sharing_cache_insert_duration: Duration,
-        bloom_filter_update_duration: Duration,
-    }
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
@@ -206,7 +197,6 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         selector_map: &SelectorMap<Rule>,
         caches: &mut SelectorCaches,
         stats: &mut Statistics,
-        non_optional_stats: &mut NonOptionalStats,
     ) {
         // 1. do thing
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
@@ -214,12 +204,12 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
         // 1.2: update the bloom filter with the current element
         let start = Instant::now();
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
-        non_optional_stats.bloom_filter_update_duration += start.elapsed();
+        stats.times.updating_bloom_filter += start.elapsed();
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Instant::now();
         let style_sharing_result = target.share_style_if_possible(context);
-        non_optional_stats.sharing_check_duration += start.elapsed();
+        stats.times.checking_style_sharing += start.elapsed();
         match style_sharing_result {
             Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
@@ -252,7 +242,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 let element = Element::from(element);
                 let other_element = Element::from(other_element);
                 matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) });
-                non_optional_stats.sharing_instances += 1;
+                stats.sharing_instances += 1;
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
@@ -294,7 +284,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                     element_depth,
                     &context.shared,
                 );
-                non_optional_stats.sharing_cache_insert_duration += start.elapsed();
+                stats.times.inserting_into_sharing_cache += start.elapsed();
             }
         }
         // 2. traverse children
@@ -304,7 +294,7 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             assert_childrens_parent_is_me(&element);
         }
         for child in element.child_elements() {
-            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats, non_optional_stats);
+            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats);
         }
     }
     // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
@@ -338,14 +328,9 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    let mut non_optional_stats = NonOptionalStats::default();
 
     let root = document.root_element();
-    preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats, &mut non_optional_stats);
-    stats.times.updating_bloom_filter = Some(non_optional_stats.bloom_filter_update_duration);
-    stats.sharing_instances = Some(non_optional_stats.sharing_instances);
-    stats.times.checking_style_sharing = Some(non_optional_stats.sharing_check_duration);
-    stats.times.inserting_into_sharing_cache = Some(non_optional_stats.sharing_cache_insert_duration);
+    preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats);
     (OwnedDocumentMatches(result), stats)
 }
 
@@ -376,7 +361,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
                     &mut context
                 );
                 debug_assert!(res);
-                debug_assert_eq!(stats.fast_rejects, Some(0));
+                debug_assert_eq!(stats.fast_rejects, 0);
                 res
             })
             .cloned()
@@ -400,7 +385,7 @@ mod tests {
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing);
-        assert_eq!(stats.sharing_instances, Some(9));
+        assert_eq!(stats.sharing_instances, 9);
         Ok(())
     }
 
@@ -411,7 +396,7 @@ mod tests {
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing);
-        assert_eq!(stats.sharing_instances, Some(5));
+        assert_eq!(stats.sharing_instances, 5);
         Ok(())
     }
 }
