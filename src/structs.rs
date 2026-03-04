@@ -91,6 +91,7 @@ pub mod borrowed {
 pub mod owned {
     use super::{Element, Selector};
     use super::borrowed::{DocumentMatches, ElementMatches, SelectorsOrSharedStyles};
+    use selectors::matching::Statistics;
     use smallvec::SmallVec;
 
     #[derive(Debug, Clone)]
@@ -119,14 +120,17 @@ pub mod owned {
 
     #[derive(Clone, Debug)]
     pub enum OwnedSelectorsOrSharedStyles {
-        Selectors(SmallVec<[Selector; 16]>),
+        Selectors(SmallVec<[(Selector, Statistics); 16]>),
         SharedWithElement(u64),
     }
 
     impl From<SelectorsOrSharedStyles<'_>> for OwnedSelectorsOrSharedStyles {
         fn from(value: SelectorsOrSharedStyles<'_>) -> Self {
             match value {
-                SelectorsOrSharedStyles::Selectors(selectors) => Self::Selectors(selectors.into_iter().cloned().collect()),
+                SelectorsOrSharedStyles::Selectors(selectors) => {
+                    let selectors_and_stats = selectors.into_iter().map(|s| (s.clone(), Statistics::default())).collect();
+                    Self::Selectors(selectors_and_stats)
+                }
                 SelectorsOrSharedStyles::SharedWithElement(id) => Self::SharedWithElement(id),
             }
         }
@@ -139,7 +143,7 @@ pub mod set {
     use ::cssparser::ToCss as _;
     use serde::Serialize;
 
-    use super::{Element, Selector};
+    use super::Element;
     use super::owned::{OwnedDocumentMatches, OwnedElementMatches, OwnedSelectorsOrSharedStyles};
     use super::ser::SerDocumentMatches;
 
@@ -191,7 +195,10 @@ pub mod set {
     impl From<OwnedSelectorsOrSharedStyles> for SetSelectorsOrSharedStyles {
         fn from(value: OwnedSelectorsOrSharedStyles) -> Self {
             match value {
-                OwnedSelectorsOrSharedStyles::Selectors(selectors) => SetSelectorsOrSharedStyles::Selectors(selectors.iter().map(Selector::to_css_string).collect()),
+                OwnedSelectorsOrSharedStyles::Selectors(selectors_and_stats) => {
+                    let selectors = selectors_and_stats.iter().map(|(selector, _stats)| selector.to_css_string()).collect();
+                    SetSelectorsOrSharedStyles::Selectors(selectors)
+                },
                 OwnedSelectorsOrSharedStyles::SharedWithElement(id) => SetSelectorsOrSharedStyles::SharedWithElement(id),
             }
         }
