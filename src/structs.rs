@@ -91,7 +91,6 @@ pub mod borrowed {
 pub mod owned {
     use super::{Element, Selector};
     use super::borrowed::{DocumentMatches, ElementMatches, SelectorsOrSharedStyles};
-    use selectors::matching::SelectorStats;
     use smallvec::SmallVec;
 
     #[derive(Debug, Clone)]
@@ -120,7 +119,7 @@ pub mod owned {
 
     #[derive(Clone, Debug)]
     pub enum OwnedSelectorsOrSharedStyles {
-        Selectors(SmallVec<[(Selector, SelectorStats); 16]>),
+        Selectors(SmallVec<[Selector; 16]>),
         SharedWithElement(u64),
     }
 
@@ -128,7 +127,7 @@ pub mod owned {
         fn from(value: SelectorsOrSharedStyles<'_>) -> Self {
             match value {
                 SelectorsOrSharedStyles::Selectors(selectors) => {
-                    let selectors_and_stats = selectors.into_iter().map(|s| (s.clone(), SelectorStats::default())).collect();
+                    let selectors_and_stats = selectors.into_iter().cloned().collect();
                     Self::Selectors(selectors_and_stats)
                 }
                 SelectorsOrSharedStyles::SharedWithElement(id) => Self::SharedWithElement(id),
@@ -141,6 +140,7 @@ pub mod set {
     use std::collections::{HashMap, HashSet};
 
     use ::cssparser::ToCss as _;
+    use selectors::parser::Selector;
     use serde::Serialize;
 
     use super::Element;
@@ -195,8 +195,8 @@ pub mod set {
     impl From<OwnedSelectorsOrSharedStyles> for SetSelectorsOrSharedStyles {
         fn from(value: OwnedSelectorsOrSharedStyles) -> Self {
             match value {
-                OwnedSelectorsOrSharedStyles::Selectors(selectors_and_stats) => {
-                    let selectors = selectors_and_stats.iter().map(|(selector, _stats)| selector.to_css_string()).collect();
+                OwnedSelectorsOrSharedStyles::Selectors(selectors) => {
+                    let selectors = selectors.iter().map(Selector::to_css_string).collect();
                     SetSelectorsOrSharedStyles::Selectors(selectors)
                 },
                 OwnedSelectorsOrSharedStyles::SharedWithElement(id) => SetSelectorsOrSharedStyles::SharedWithElement(id),

@@ -8,6 +8,7 @@ use derive_more::Display;
 use log::info;
 use rustc_hash::FxBuildHasher;
 use selectors::Element as _;
+use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
@@ -68,6 +69,8 @@ pub enum Algorithm {
     Mach7,
 }
 
+type MatchPair = (Element, Selector);
+
 fn debug_element(element: &ElementRef) {
     if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
         let mut msg = String::new();
@@ -110,7 +113,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
         ),
         Algorithm::WithStyleSharing => {
             let selector_map = build_selector_map(&website.selectors);
-            match_selectors_with_style_sharing(&website.document, &selector_map)
+            match_selectors_with_style_sharing(&website.document, &selector_map, None)
         }
         Algorithm::Mach7 => {
             let document_matches = match_selectors(&website.document, &website.selectors);
@@ -188,12 +191,17 @@ where
     selector_map
 }
 
-pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &SelectorMap<Rule>) -> (OwnedDocumentMatches, Statistics) {
+pub fn match_selectors_with_style_sharing(
+    document: &Html,
+    selector_map: &SelectorMap<Rule>,
+    selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
+) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
         context: &mut StyleContext<ElementRef<'a>>,
         matches: &mut Vec<OwnedElementMatches>,
+        mut selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
         selector_map: &SelectorMap<Rule>,
         caches: &mut SelectorCaches,
         stats: &mut Statistics,
@@ -257,11 +265,13 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                 );
                 // 1.3.2: Use the selector map to get matching rules
                 let mut matched_selectors = SmallVec::new();
+                let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
                 *stats += selector_map.get_all_matching_rules(
                     element,
                     element, // TODO: ????
                     &mut SmallVec::new(),
-                    &mut Some(&mut matched_selectors),
+                    Some(&mut matched_selectors),
+                    sel_stats.as_mut(),
                     &mut matching_context,
                     CascadeLevel::UANormal, // TODO: ??????
                     &CascadeData::new(),
@@ -274,6 +284,14 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
                         selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors)
                     }
                 );
+                if let Some(selector_stats) = selector_stats.as_deref_mut() {
+                    selector_stats.extend(
+                        sel_stats.unwrap().into_iter().map(|(sel, stats)| {
+                            let match_pair = (Element::from(element), sel);
+                            (match_pair, stats)
+                        })
+                    )
+                }
                 // 1.3.4: insert the element into the style sharing cache
                 let start = Instant::now();
                 context.thread_local.sharing_cache.insert_if_possible(
@@ -294,7 +312,16 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
             assert_childrens_parent_is_me(&element);
         }
         for child in element.child_elements() {
-            preorder_traversal(child, element_depth+1, context, matches, selector_map, caches, stats);
+            preorder_traversal(
+                child,
+                element_depth+1,
+                context,
+                matches,
+                selector_stats.as_deref_mut(),
+                selector_map,
+                caches,
+                stats
+            );
         }
     }
     // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
@@ -330,7 +357,16 @@ pub fn match_selectors_with_style_sharing(document: &Html, selector_map: &Select
     let mut stats = Statistics::default();
 
     let root = document.root_element();
-    preorder_traversal(root, 0, &mut style_context, &mut result, selector_map, &mut caches, &mut stats);
+    preorder_traversal(
+        root,
+        0,
+        &mut style_context,
+        &mut result,
+        selector_stats,
+        selector_map,
+        &mut caches,
+        &mut stats
+    );
     (OwnedDocumentMatches(result), stats)
 }
 
