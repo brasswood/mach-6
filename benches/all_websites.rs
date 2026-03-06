@@ -1,6 +1,7 @@
 use log::error;
 use mach_6::{self, get_all_documents_and_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
+use mach_6::structs::{Element, Selector};
 use num_format::{Locale, ToFormattedString};
 use selectors::matching::{SelectorStats, Statistics};
 use serde::Serialize;
@@ -30,6 +31,26 @@ struct SelectorSlowRejectRow {
     selector_css: String,
     source: &'static str,
     slow_reject_time: Option<Duration>,
+}
+
+impl From<((Element, Selector), SelectorStats)> for SelectorSlowRejectRow {
+    fn from(value: ((Element, Selector), SelectorStats)) -> Self {
+        let ((element, selector), selector_stats) = value;
+        let (source, slow_reject_time) = match selector_stats {
+            SelectorStats::Bloom(stats) => ("Simple Bloom Query", stats.time_slow_rejecting),
+            SelectorStats::ScopeProximity(stats) => (
+                "Scope Proximity Lookup",
+                (stats.slow_rejects > 0).then_some(stats.time_slow_rejecting),
+            ),
+        };
+        Self {
+            element_html: element.html,
+            element_id: element.id,
+            selector_css: selector.to_css_string(),
+            source,
+            slow_reject_time,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -80,29 +101,7 @@ fn main() {
             &selector_map,
             Some(&mut selector_stats),
         );
-        let mut selector_slow_reject_rows: Vec<_> = selector_stats
-            .into_iter()
-            .map(|((element, selector), selector_stats)| {
-                let (source, slow_reject_time) = match selector_stats {
-                    SelectorStats::Bloom(stats) => {
-                        ("Simple Bloom Query", stats.time_slow_rejecting)
-                    }
-                    SelectorStats::ScopeProximity(stats) => (
-                        "Scope Proximity Lookup",
-                        (stats.slow_rejects > 0).then_some(stats.time_slow_rejecting),
-                    ),
-                };
-                SelectorSlowRejectRow {
-                    element_html: element.html,
-                    element_id: element.id,
-                    selector_css: selector.to_css_string(),
-                    source,
-                    slow_reject_time,
-                }
-            })
-            .collect();
-        selector_slow_reject_rows
-            .sort_by_key(|row| Reverse(row.slow_reject_time.unwrap_or_default()));
+        let selector_slow_reject_rows = build_selector_slow_reject_rows(selector_stats);
         let TimedResult {
             duration,
             result: (_matches, stats),
@@ -121,6 +120,18 @@ fn main() {
             std::process::exit(1);
         }
     }
+}
+
+fn build_selector_slow_reject_rows<I>(selector_stats: I) -> Vec<SelectorSlowRejectRow>
+where
+    I: IntoIterator<Item = ((Element, Selector), SelectorStats)>,
+{
+    let mut rows: Vec<_> = selector_stats
+        .into_iter()
+        .map(SelectorSlowRejectRow::from)
+        .collect();
+    rows.sort_by_key(|row| Reverse(row.slow_reject_time.unwrap_or_default()));
+    rows
 }
 
 fn get_documents(website_filter: Option<&str>) -> Box<dyn Iterator<Item = ParsedWebsite>> {
