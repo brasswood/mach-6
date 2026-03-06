@@ -30,27 +30,27 @@ struct SelectorSlowRejectRow {
     element_id: u64,
     selector_css: String,
     source: &'static str,
-    slow_reject_time: Option<Duration>,
+    slow_reject_time: Duration,
 }
 
-impl From<((Element, Selector), SelectorStats)> for SelectorSlowRejectRow {
-    fn from(value: ((Element, Selector), SelectorStats)) -> Self {
-        let ((element, selector), selector_stats) = value;
-        let (source, slow_reject_time) = match selector_stats {
-            SelectorStats::Bloom(stats) => ("Simple Bloom Query", stats.time_slow_rejecting),
-            SelectorStats::ScopeProximity(stats) => (
-                "Scope Proximity Lookup",
-                (stats.slow_rejects > 0).then_some(stats.time_slow_rejecting),
-            ),
-        };
-        Self {
-            element_html: element.html,
-            element_id: element.id,
-            selector_css: selector.to_css_string(),
-            source,
-            slow_reject_time,
-        }
-    }
+fn selector_slow_reject_row(
+    value: ((Element, Selector), SelectorStats),
+) -> Option<SelectorSlowRejectRow> {
+    let ((element, selector), selector_stats) = value;
+    let (source, slow_reject_time) = match selector_stats {
+        SelectorStats::Bloom(stats) => ("Simple Bloom Query", stats.time_slow_rejecting),
+        SelectorStats::ScopeProximity(stats) => (
+            "Scope Proximity Lookup",
+            (stats.slow_rejects > 0).then_some(stats.time_slow_rejecting),
+        ),
+    };
+    slow_reject_time.map(|slow_reject_time| SelectorSlowRejectRow {
+        element_html: element.html,
+        element_id: element.id,
+        selector_css: selector.to_css_string(),
+        source,
+        slow_reject_time,
+    })
 }
 
 #[derive(Serialize)]
@@ -129,9 +129,9 @@ where
     const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
     let mut rows: Vec<_> = selector_stats
         .into_iter()
-        .map(SelectorSlowRejectRow::from)
+        .filter_map(selector_slow_reject_row)
         .collect();
-    rows.sort_by_key(|row| Reverse(row.slow_reject_time.unwrap_or_default()));
+    rows.sort_by_key(|row| Reverse(row.slow_reject_time));
     rows.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
     rows
 }
@@ -426,7 +426,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
                 element_id = row.element_id,
                 selector_css = escape_html(&row.selector_css),
                 source = row.source,
-                slow_reject_time = format_optional_duration(row.slow_reject_time),
+                slow_reject_time = format_duration(row.slow_reject_time),
             ));
         }
         if selector_rows_html.is_empty() {
@@ -824,10 +824,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 
 fn format_usize(value: usize) -> String {
     value.to_formatted_string(&Locale::en)
-}
-
-fn format_optional_duration(value: Option<Duration>) -> String {
-    value.map(format_duration).unwrap_or_else(|| "N/A".to_string())
 }
 
 fn make_filename_safe(string: &str) -> String {
