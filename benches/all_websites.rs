@@ -13,6 +13,8 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
 
+const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
+
 struct TimedResult<R> {
     duration: Duration,
     result: R,
@@ -126,7 +128,6 @@ fn build_selector_slow_reject_rows<I>(selector_stats: I) -> Vec<SelectorSlowReje
 where
     I: IntoIterator<Item = ((Element, Selector), SelectorStats)>,
 {
-    const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
     let mut rows: Vec<_> = selector_stats
         .into_iter()
         .filter_map(selector_slow_reject_row)
@@ -475,7 +476,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       </tbody>
     </table>
     <details class="selector-breakdown">
-      <summary>Per (Element, Selector) Slow-Reject Timings</summary>
+      <summary>Per (Element, Selector) Slow-Reject Timings (Top {max_selector_rows})</summary>
       <div class="selector-breakdown-inner">
         <table class="selector-breakdown-table">
           <thead>
@@ -509,6 +510,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             slow_rejects = format_usize(result.stats.slow_rejects),
             slow_accepts = format_usize(result.stats.slow_accepts),
             selector_rows_html = selector_rows_html,
+            max_selector_rows = MAX_SELECTOR_ROWS_PER_WEBSITE,
             json_file = escape_html(&json_file),
         ));
     }
