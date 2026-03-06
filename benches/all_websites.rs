@@ -126,11 +126,13 @@ fn build_selector_slow_reject_rows<I>(selector_stats: I) -> Vec<SelectorSlowReje
 where
     I: IntoIterator<Item = ((Element, Selector), SelectorStats)>,
 {
+    const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 50;
     let mut rows: Vec<_> = selector_stats
         .into_iter()
         .map(SelectorSlowRejectRow::from)
         .collect();
     rows.sort_by_key(|row| Reverse(row.slow_reject_time.unwrap_or_default()));
+    rows.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
     rows
 }
 
