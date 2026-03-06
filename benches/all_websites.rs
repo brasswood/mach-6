@@ -645,7 +645,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       background: #ef4444;
     }}
     .seg-slow-accept {{
-      background: #f97316;
+      background: #14b8a6;
     }}
     .seg-share-check {{
       background: #3b82f6;
