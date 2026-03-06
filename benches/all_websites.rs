@@ -417,10 +417,10 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         for row in &result.selector_slow_reject_rows {
             selector_rows_html.push_str(&format!(
                 r#"<tr>
-  <td><code>{element_html}</code> <span class="muted-inline">(id: {element_id})</span></td>
-  <td><code>{selector_css}</code></td>
-  <td>{source}</td>
-  <td>{slow_reject_time}</td>
+  <td class="col-element"><div class="cell-scroll"><code>{element_html}</code> <span class="muted-inline">(id: {element_id})</span></div></td>
+  <td class="col-selector"><div class="cell-scroll"><code>{selector_css}</code></div></td>
+  <td class="col-source"><div class="cell-scroll">{source}</div></td>
+  <td class="col-time"><div class="cell-scroll">{slow_reject_time}</div></td>
 </tr>"#,
                 element_html = escape_html(&row.element_html),
                 element_id = row.element_id,
@@ -712,14 +712,38 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .selector-breakdown-inner {{
       margin-top: 8px;
-      overflow-x: auto;
     }}
     .selector-breakdown-table {{
-      min-width: 820px;
-      max-width: none;
+      table-layout: fixed;
+      width: 100%;
+      max-width: 100%;
     }}
     .selector-breakdown-table code {{
       white-space: nowrap;
+    }}
+    .selector-breakdown-table th,
+    .selector-breakdown-table td {{
+      width: auto;
+      max-width: none;
+    }}
+    .selector-breakdown-table .col-element {{
+      width: 38%;
+    }}
+    .selector-breakdown-table .col-selector {{
+      width: 38%;
+    }}
+    .selector-breakdown-table .col-source {{
+      width: 14%;
+    }}
+    .selector-breakdown-table .col-time {{
+      width: 10%;
+      white-space: nowrap;
+    }}
+    .cell-scroll {{
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+      max-width: 100%;
     }}
     .muted-inline {{
       color: var(--muted);
