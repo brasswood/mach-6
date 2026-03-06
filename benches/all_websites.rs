@@ -710,6 +710,27 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       padding: 8px 10px;
       background: #fafcfb;
     }}
+    .selector-breakdown > summary {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }}
+    .selector-breakdown > summary::before {{
+      content: "";
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 7px solid var(--muted);
+      transform: rotate(0deg);
+      transform-origin: 40% 50%;
+      transition: transform 120ms ease-out;
+      flex: 0 0 auto;
+    }}
+    .selector-breakdown[open] > summary::before {{
+      transform: rotate(90deg);
+    }}
     .selector-breakdown-inner {{
       margin-top: 8px;
     }}
