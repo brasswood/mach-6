@@ -2,12 +2,15 @@ use log::error;
 use mach_6::{self, get_all_documents_and_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use num_format::{Locale, ToFormattedString};
-use selectors::matching::Statistics;
+use selectors::matching::{SelectorStats, Statistics};
 use serde::Serialize;
+use smallvec::SmallVec;
+use std::cmp::Reverse;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use cssparser::ToCss as _;
 
 struct TimedResult<R> {
     duration: Duration,
@@ -18,6 +21,15 @@ struct WebsiteResult {
     website: String,
     duration: Duration,
     stats: Statistics,
+    selector_slow_reject_rows: Vec<SelectorSlowRejectRow>,
+}
+
+struct SelectorSlowRejectRow {
+    element_html: String,
+    element_id: u64,
+    selector_css: String,
+    source: &'static str,
+    slow_reject_time: Option<Duration>,
 }
 
 #[derive(Serialize)]
@@ -58,10 +70,39 @@ fn main() {
     let websites = get_documents(website_filter.as_deref());
     let results: Vec<_> = websites.map(|website| {
         let selector_map = mach_6::build_selector_map(&website.selectors);
+        let mut selector_stats = SmallVec::new();
         let timed_results = bench_function(
             &website.name,
             || mach_6::match_selectors_with_style_sharing(&website.document, &selector_map, None),
         );
+        let _ = mach_6::match_selectors_with_style_sharing(
+            &website.document,
+            &selector_map,
+            Some(&mut selector_stats),
+        );
+        let mut selector_slow_reject_rows: Vec<_> = selector_stats
+            .into_iter()
+            .map(|((element, selector), selector_stats)| {
+                let (source, slow_reject_time) = match selector_stats {
+                    SelectorStats::Bloom(stats) => {
+                        ("Simple Bloom Query", stats.time_slow_rejecting)
+                    }
+                    SelectorStats::ScopeProximity(stats) => (
+                        "Scope Proximity Lookup",
+                        (stats.slow_rejects > 0).then_some(stats.time_slow_rejecting),
+                    ),
+                };
+                SelectorSlowRejectRow {
+                    element_html: element.html,
+                    element_id: element.id,
+                    selector_css: selector.to_css_string(),
+                    source,
+                    slow_reject_time,
+                }
+            })
+            .collect();
+        selector_slow_reject_rows
+            .sort_by_key(|row| Reverse(row.slow_reject_time.unwrap_or_default()));
         let TimedResult {
             duration,
             result: (_matches, stats),
@@ -70,6 +111,7 @@ fn main() {
             website: website.name,
             duration,
             stats,
+            selector_slow_reject_rows,
         }
     }).collect();
     match write_report(&results) {
@@ -358,6 +400,27 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let website = escape_html(&result.website);
         let json_file = format!("json/{}.json", make_filename_safe(&result.website));
         let total_time = format_duration(total_duration);
+        let mut selector_rows_html = String::new();
+        for row in &result.selector_slow_reject_rows {
+            selector_rows_html.push_str(&format!(
+                r#"<tr>
+  <td><code>{element_html}</code> <span class="muted-inline">(id: {element_id})</span></td>
+  <td><code>{selector_css}</code></td>
+  <td>{source}</td>
+  <td>{slow_reject_time}</td>
+</tr>"#,
+                element_html = escape_html(&row.element_html),
+                element_id = row.element_id,
+                selector_css = escape_html(&row.selector_css),
+                source = row.source,
+                slow_reject_time = format_optional_duration(row.slow_reject_time),
+            ));
+        }
+        if selector_rows_html.is_empty() {
+            selector_rows_html.push_str(
+                r#"<tr><td colspan="4">No selector stats captured.</td></tr>"#,
+            );
+        }
         sections.push_str(&format!(
             r#"
 <details class="site">
@@ -398,6 +461,24 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         <tr><th>Slow Accepts</th><td>{slow_accepts}</td></tr>
       </tbody>
     </table>
+    <details class="selector-breakdown">
+      <summary>Per (Element, Selector) Slow-Reject Timings</summary>
+      <div class="selector-breakdown-inner">
+        <table class="selector-breakdown-table">
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>Selector</th>
+              <th>Source</th>
+              <th>Slow Reject Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {selector_rows_html}
+          </tbody>
+        </table>
+      </div>
+    </details>
     <p><a href="{json_file}">JSON data</a></p>
   </div>
 </details>
@@ -414,6 +495,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             fast_rejects = format_usize(result.stats.fast_rejects),
             slow_rejects = format_usize(result.stats.slow_rejects),
             slow_accepts = format_usize(result.stats.slow_accepts),
+            selector_rows_html = selector_rows_html,
             json_file = escape_html(&json_file),
         ));
     }
@@ -608,6 +690,28 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       margin-top: 10px;
       border-top: 1px solid var(--line);
     }}
+    .selector-breakdown {{
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fafcfb;
+    }}
+    .selector-breakdown-inner {{
+      margin-top: 8px;
+      overflow-x: auto;
+    }}
+    .selector-breakdown-table {{
+      min-width: 820px;
+      max-width: none;
+    }}
+    .selector-breakdown-table code {{
+      white-space: nowrap;
+    }}
+    .muted-inline {{
+      color: var(--muted);
+      font-size: 12px;
+    }}
     table {{
       border-collapse: collapse;
       width: 100%;
@@ -662,6 +766,10 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 
 fn format_usize(value: usize) -> String {
     value.to_formatted_string(&Locale::en)
+}
+
+fn format_optional_duration(value: Option<Duration>) -> String {
+    value.map(format_duration).unwrap_or_else(|| "N/A".to_string())
 }
 
 fn make_filename_safe(string: &str) -> String {
