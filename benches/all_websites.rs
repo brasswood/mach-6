@@ -60,7 +60,7 @@ fn main() {
         let selector_map = mach_6::build_selector_map(&website.selectors);
         let timed_results = bench_function(
             &website.name,
-            || mach_6::match_selectors_with_style_sharing(&website.document, &selector_map),
+            || mach_6::match_selectors_with_style_sharing(&website.document, &selector_map, None),
         );
         let TimedResult {
             duration,
