@@ -437,7 +437,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         }
         sections.push_str(&format!(
             r#"
-<details class="site">
+<details class="site" data-total-ns="{total_ns}" data-slow-reject-ns="{slow_reject_ns}">
   <summary>
     <div class="row">
       <div class="chevron" aria-hidden="true"></div>
@@ -499,6 +499,8 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 "#,
             website = website,
             total_width_pct = total_width_pct,
+            total_ns = total_ns,
+            slow_reject_ns = slow_reject_duration.as_nanos(),
             summary_bar_segments = summary_bar_segments,
             expanded_bar_segments = expanded_bar_segments,
             compact_legend = compact_legend,
@@ -550,6 +552,26 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     .subtitle {{
       margin: 0 0 20px 0;
       color: var(--muted);
+    }}
+    .sort-controls {{
+      display: flex;
+      gap: 8px;
+      margin: 0 0 14px 0;
+      flex-wrap: wrap;
+    }}
+    .sort-btn {{
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--fg);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }}
+    .sort-btn.active {{
+      background: #e7f2ef;
+      border-color: #8fb8af;
     }}
     .site {{
       background: var(--card);
@@ -815,8 +837,50 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
   <main>
     <h1>Mach 6 Benchmark Report</h1>
     <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics and raw JSON.</p>
-    {sections}
+    <div class="sort-controls" role="group" aria-label="Sort websites">
+      <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
+      <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
+    </div>
+    <section id="websites-list">
+      {sections}
+    </section>
   </main>
+  <script>
+    (function () {{
+      const list = document.getElementById("websites-list");
+      const byTotal = document.getElementById("sort-total");
+      const bySlow = document.getElementById("sort-slow");
+      if (!list || !byTotal || !bySlow) return;
+
+      function setActive(activeBtn) {{
+        byTotal.classList.toggle("active", activeBtn === byTotal);
+        bySlow.classList.toggle("active", activeBtn === bySlow);
+      }}
+
+      function sortBy(datasetKey, activeBtn) {{
+        const sites = Array.from(list.querySelectorAll(":scope > details.site"));
+        sites.sort((a, b) => {{
+          const av = BigInt(a.dataset[datasetKey] || "0");
+          const bv = BigInt(b.dataset[datasetKey] || "0");
+          if (av === bv) return 0;
+          return av > bv ? -1 : 1;
+        }});
+        for (const site of sites) {{
+          list.appendChild(site);
+        }}
+        setActive(activeBtn);
+      }}
+
+      byTotal.addEventListener("click", function () {{
+        sortBy("totalNs", byTotal);
+      }});
+      bySlow.addEventListener("click", function () {{
+        sortBy("slowRejectNs", bySlow);
+      }});
+
+      sortBy("totalNs", byTotal);
+    }})();
+  </script>
 </body>
 </html>
 "#,
