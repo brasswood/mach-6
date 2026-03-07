@@ -6,6 +6,7 @@ use num_format::{Locale, ToFormattedString};
 use selectors::matching::{SelectorStats, Statistics};
 use serde::Serialize;
 use smallvec::SmallVec;
+use std::collections::HashMap;
 use std::cmp::Reverse;
 use std::fs;
 use std::io;
@@ -25,6 +26,7 @@ struct WebsiteResult {
     duration: Duration,
     stats: Statistics,
     selector_slow_reject_rows: Vec<SelectorSlowRejectRow>,
+    selector_total_slow_reject_rows: Vec<SelectorTotalSlowRejectRow>,
 }
 
 struct SelectorSlowRejectRow {
@@ -33,6 +35,11 @@ struct SelectorSlowRejectRow {
     selector_css: String,
     source: &'static str,
     slow_reject_time: Duration,
+}
+
+struct SelectorTotalSlowRejectRow {
+    selector_css: String,
+    total_slow_reject_time: Duration,
 }
 
 fn selector_slow_reject_row(
@@ -103,7 +110,8 @@ fn main() {
             &selector_map,
             Some(&mut selector_stats),
         );
-        let selector_slow_reject_rows = build_selector_slow_reject_rows(selector_stats);
+        let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
+            build_selector_slow_reject_rows(selector_stats);
         let TimedResult {
             duration,
             result: (_matches, stats),
@@ -113,6 +121,7 @@ fn main() {
             duration,
             stats,
             selector_slow_reject_rows,
+            selector_total_slow_reject_rows,
         }
     }).collect();
     match write_report(&results) {
@@ -124,17 +133,37 @@ fn main() {
     }
 }
 
-fn build_selector_slow_reject_rows<I>(selector_stats: I) -> Vec<SelectorSlowRejectRow>
+fn build_selector_slow_reject_rows<I>(
+    selector_stats: I,
+) -> (Vec<SelectorSlowRejectRow>, Vec<SelectorTotalSlowRejectRow>)
 where
     I: IntoIterator<Item = ((Element, Selector), SelectorStats)>,
 {
-    let mut rows: Vec<_> = selector_stats
+    let mut pair_rows: Vec<_> = selector_stats
         .into_iter()
         .filter_map(selector_slow_reject_row)
         .collect();
-    rows.sort_by_key(|row| Reverse(row.slow_reject_time));
-    rows.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
-    rows
+    let mut selector_totals = HashMap::<String, Duration>::new();
+    for row in &pair_rows {
+        *selector_totals
+            .entry(row.selector_css.clone())
+            .or_insert(Duration::ZERO) += row.slow_reject_time;
+    }
+    let mut selector_rows: Vec<_> = selector_totals
+        .into_iter()
+        .map(|(selector_css, total_slow_reject_time)| SelectorTotalSlowRejectRow {
+            selector_css,
+            total_slow_reject_time,
+        })
+        .collect();
+
+    pair_rows.sort_by_key(|row| Reverse(row.slow_reject_time));
+    pair_rows.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
+
+    selector_rows.sort_by_key(|row| Reverse(row.total_slow_reject_time));
+    selector_rows.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
+
+    (pair_rows, selector_rows)
 }
 
 fn get_documents(website_filter: Option<&str>) -> Box<dyn Iterator<Item = ParsedWebsite>> {
@@ -435,6 +464,22 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
                 r#"<tr><td colspan="4">No selector stats captured.</td></tr>"#,
             );
         }
+        let mut selector_totals_rows_html = String::new();
+        for row in &result.selector_total_slow_reject_rows {
+            selector_totals_rows_html.push_str(&format!(
+                r#"<tr>
+  <td class="col-selector"><div class="cell-scroll"><code>{selector_css}</code></div></td>
+  <td class="col-time"><div class="cell-scroll">{total_slow_reject_time}</div></td>
+</tr>"#,
+                selector_css = escape_html(&row.selector_css),
+                total_slow_reject_time = format_duration(row.total_slow_reject_time),
+            ));
+        }
+        if selector_totals_rows_html.is_empty() {
+            selector_totals_rows_html.push_str(
+                r#"<tr><td colspan="2">No selector stats captured.</td></tr>"#,
+            );
+        }
         sections.push_str(&format!(
             r#"
 <details class="site" data-total-ns="{total_ns}" data-slow-reject-ns="{slow_reject_ns}">
@@ -477,20 +522,39 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     </table>
     <details class="selector-breakdown">
       <summary>Per (Element, Selector) Slow-Reject Timings (Top {max_selector_rows})</summary>
+      <div class="selector-view-controls" role="group" aria-label="Selector timing view">
+        <button class="selector-view-btn active" type="button" data-view="pairs">Top Pairs</button>
+        <button class="selector-view-btn" type="button" data-view="selectors">Top Selectors</button>
+      </div>
       <div class="selector-breakdown-inner">
-        <table class="selector-breakdown-table">
-          <thead>
-            <tr>
-              <th>Element</th>
-              <th>Selector</th>
-              <th>Source</th>
-              <th>Slow Reject Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {selector_rows_html}
-          </tbody>
-        </table>
+        <div class="selector-view selector-view-pairs">
+          <table class="selector-breakdown-table">
+            <thead>
+              <tr>
+                <th>Element</th>
+                <th>Selector</th>
+                <th>Source</th>
+                <th>Slow Reject Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selector_rows_html}
+            </tbody>
+          </table>
+        </div>
+        <div class="selector-view selector-view-selectors hidden">
+          <table class="selector-breakdown-table selector-breakdown-table-selectors">
+            <thead>
+              <tr>
+                <th>Selector</th>
+                <th>Total Slow Reject Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selector_totals_rows_html}
+            </tbody>
+          </table>
+        </div>
       </div>
     </details>
     <p><a href="{json_file}">JSON data</a></p>
@@ -512,6 +576,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             slow_rejects = format_usize(result.stats.slow_rejects),
             slow_accepts = format_usize(result.stats.slow_accepts),
             selector_rows_html = selector_rows_html,
+            selector_totals_rows_html = selector_totals_rows_html,
             max_selector_rows = MAX_SELECTOR_ROWS_PER_WEBSITE,
             json_file = escape_html(&json_file),
         ));
@@ -758,6 +823,30 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     .selector-breakdown-inner {{
       margin-top: 8px;
     }}
+    .selector-view-controls {{
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }}
+    .selector-view-btn {{
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--fg);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }}
+    .selector-view-btn.active {{
+      background: #e7f2ef;
+      border-color: #8fb8af;
+    }}
+    .selector-view.hidden {{
+      display: none;
+    }}
     .selector-breakdown-table {{
       table-layout: fixed;
       width: 100%;
@@ -783,6 +872,12 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     .selector-breakdown-table .col-time {{
       width: 10%;
       white-space: nowrap;
+    }}
+    .selector-breakdown-table-selectors .col-selector {{
+      width: 80%;
+    }}
+    .selector-breakdown-table-selectors .col-time {{
+      width: 20%;
     }}
     .cell-scroll {{
       overflow-x: auto;
@@ -876,6 +971,28 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       }});
       bySlow.addEventListener("click", function () {{
         sortBy("slowRejectNs", bySlow);
+      }});
+
+      document.addEventListener("click", function (event) {{
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const button = target.closest(".selector-view-btn");
+        if (!button) return;
+        const breakdown = button.closest(".selector-breakdown");
+        if (!breakdown) return;
+
+        const view = button.dataset.view;
+        const pairs = breakdown.querySelector(".selector-view-pairs");
+        const selectors = breakdown.querySelector(".selector-view-selectors");
+        if (!pairs || !selectors) return;
+
+        const buttons = breakdown.querySelectorAll(".selector-view-btn");
+        for (const b of buttons) {{
+          b.classList.toggle("active", b === button);
+        }}
+        const showSelectors = view === "selectors";
+        pairs.classList.toggle("hidden", showSelectors);
+        selectors.classList.toggle("hidden", !showSelectors);
       }});
 
       sortBy("totalNs", byTotal);
