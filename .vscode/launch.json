@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug single website (YouTube)",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "mach-6"
+                ],
+                "filter": {
+                    "name": "mach-6",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--website",
+                "${workspaceFolder}/websites/youtube.com"
+            ],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -6,21 +6,38 @@
  */
 use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
-use mach_6::{Algorithm, result::Result, structs::{ser::SerDocumentMatches, set::SetDocumentMatches}};
+use mach_6::{
+    Algorithm,
+    parse::get_document_and_selectors,
+    result::Result,
+    structs::{ser::SerDocumentMatches, set::SetDocumentMatches},
+};
 use serde_yml;
 use selectors::matching::Statistics;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// The directory of websites
-    websites: PathBuf,
+    /// The directory of website folders
+    #[arg(long, conflicts_with = "website")]
+    websites: Option<PathBuf>,
+
+    /// A single website folder containing one html file
+    #[arg(long, conflicts_with = "websites")]
+    website: Option<PathBuf>,
 }
 
 fn main() -> mach_6::result::Result<()> {
     env_logger::builder().filter_level(log::LevelFilter::Warn).init();
-    let Args{ websites } = Args::parse();
-    let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect();
+    let Args { websites, website } = Args::parse();
+    let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = if let Some(website) = website {
+        Ok(get_document_and_selectors(&website)?
+            .map(|website| vec![mach_6::do_website(&website, Algorithm::Naive)])
+            .unwrap_or_default())
+    } else {
+        let websites = websites.unwrap_or_else(|| PathBuf::from("websites"));
+        mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect()
+    };
     let result: HashMap<String, SerDocumentMatches> = result?
         .into_iter()
         .map(|(name, matches, _stats)| (name, SerDocumentMatches::from(matches)))
