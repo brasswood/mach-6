@@ -135,6 +135,12 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
         matches: &mut Vec<ElementMatches<'a>>,
         caches: &mut SelectorCaches,
     ) {
+        // 0. debug element if applicable
+        #[cfg(debug_assertions)]
+        {
+            debug_element(&element);
+            assert_childrens_parent_is_me(&element);
+        }
         // 1. do thing
         // 1.1: create a MatchingContext
         let mut context = matching::MatchingContext::new(
@@ -156,11 +162,6 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
             .collect();
         matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
-        #[cfg(debug_assertions)]
-        {
-            debug_element(&element);
-            assert_childrens_parent_is_me(&element);
-        }
         for child in element.child_elements() {
             preorder_traversal(child, selectors, matches, caches);
         }
@@ -212,6 +213,12 @@ pub fn match_selectors_with_style_sharing(
         caches: &mut SelectorCaches,
         stats: &mut Statistics,
     ) {
+        // 0. debug element if applicable
+        #[cfg(debug_assertions)]
+        {
+            debug_element(&element);
+            assert_childrens_parent_is_me(&element);
+        }
         // 1. do thing
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
@@ -312,11 +319,6 @@ pub fn match_selectors_with_style_sharing(
             }
         }
         // 2. traverse children
-        #[cfg(debug_assertions)]
-        {
-            debug_element(&element);
-            assert_childrens_parent_is_me(&element);
-        }
         for child in element.child_elements() {
             preorder_traversal(
                 child,
