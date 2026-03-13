@@ -350,21 +350,23 @@ impl Element {
 
     pub(crate) fn classes_atom(&self) -> ClassesAtom<'_> {
         let classes = self.classes.get_or_init(|| {
-            let mut classes = self
+            let classes = self
                 .attrs
                 .iter()
-                .filter(|(name, _)| name.local.as_ref() == "class")
-                .map(|(_, value)| value)
-                .collect::<Vec<_>>();
+                .find(|(name, _)| name.local.as_ref() == "class");
 
-            classes.sort_unstable();
+            let mut classes = match classes {
+                Some((_, classes_str)) => {
+                    classes_str
+                        .split_whitespace()
+                        .map(GenericAtomIdent::from)
+                        .collect::<Vec<_>>()
+                },
+                None => vec![],
+            };
+
             classes.dedup();
-
-            classes
-                .into_iter()
-                .map(|v| GenericAtomIdent(v.clone()))
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
+            classes.into_boxed_slice()
         });
 
         ClassesAtom {
