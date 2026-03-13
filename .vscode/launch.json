@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug single website (YouTube)",
+            "name": "Debug single website",
             "type": "cppvsdbg",
             "request": "launch",
             "preLaunchTask": "cargo build mach-6",
