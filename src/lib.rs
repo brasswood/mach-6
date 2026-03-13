@@ -156,6 +156,11 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
             .collect();
         matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
         // 2. traverse children
+        #[cfg(debug_assertions)]
+        {
+            debug_element(&element);
+            assert_childrens_parent_is_me(&element);
+        }
         for child in element.child_elements() {
             preorder_traversal(child, selectors, matches, caches);
         }
