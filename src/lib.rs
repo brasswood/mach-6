@@ -72,7 +72,7 @@ pub enum Algorithm {
 type MatchPair = (Element, Selector);
 
 fn debug_element(element: &ElementRef) {
-    if element.has_id(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
+    if element.has_class(&AtomIdent::from("PRINT ME"), scraper::CaseSensitivity::CaseSensitive) {
         let mut msg = String::new();
         writeln!(&mut msg, "PRINT ME element encountered!").unwrap();
         writeln!(&mut msg, "I am {:?}", element).unwrap();
