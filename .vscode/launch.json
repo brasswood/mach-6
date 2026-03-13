@@ -17,6 +17,8 @@
                 }
             },
             "args": [
+                "--algorithm",
+                "naive",
                 "--website",
                 "${workspaceFolder}/websites/youtube.com"
             ],

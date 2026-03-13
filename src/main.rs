@@ -25,18 +25,26 @@ struct Args {
     /// A single website folder containing one html file
     #[arg(long, conflicts_with = "websites")]
     website: Option<PathBuf>,
+
+    /// Which matching algorithm to run
+    #[arg(long, value_enum, default_value_t = Algorithm::Naive)]
+    algorithm: Algorithm,
 }
 
 fn main() -> mach_6::result::Result<()> {
     env_logger::builder().filter_level(log::LevelFilter::Warn).init();
-    let Args { websites, website } = Args::parse();
+    let Args {
+        websites,
+        website,
+        algorithm,
+    } = Args::parse();
     let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = if let Some(website) = website {
         Ok(get_document_and_selectors(&website)?
-            .map(|website| vec![mach_6::do_website(&website, Algorithm::Naive)])
+            .map(|website| vec![mach_6::do_website(&website, algorithm)])
             .unwrap_or_default())
     } else {
         let websites = websites.unwrap_or_else(|| PathBuf::from("websites"));
-        mach_6::do_all_websites(&websites, Algorithm::Naive)?.collect()
+        mach_6::do_all_websites(&websites, algorithm)?.collect()
     };
     let result: HashMap<String, SerDocumentMatches> = result?
         .into_iter()
