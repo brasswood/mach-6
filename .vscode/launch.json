@@ -3,19 +3,10 @@
     "configurations": [
         {
             "name": "Debug single website (YouTube)",
-            "type": "lldb",
+            "type": "cppvsdbg",
             "request": "launch",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin",
-                    "mach-6"
-                ],
-                "filter": {
-                    "name": "mach-6",
-                    "kind": "bin"
-                }
-            },
+            "preLaunchTask": "cargo build mach-6",
+            "program": "${workspaceFolder}/target/debug/mach-6.exe",
             "args": [
                 "--algorithm",
                 "naive",
