@@ -6,14 +6,14 @@
  */
 use clap::ValueEnum;
 use derive_more::Display;
-use log::info;
 use rustc_hash::FxBuildHasher;
-use selectors::Element as _;
 use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
+#[cfg(debug_assertions)]
+use style::selector_map::debug_element_selector;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
 use style::sharing::StyleSharingElement as _;
@@ -35,7 +35,6 @@ use style::shared_lock::SharedRwLock;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
 use style::stylist::Stylist;
-use style::values::AtomIdent;
 use style::sharing::StyleSharingTarget;
 use style::thread_state::{self, ThreadState};
 use smallvec::SmallVec;
@@ -72,18 +71,19 @@ pub enum Algorithm {
 
 type MatchPair = (Element, Selector);
 
-fn debug_element(element: &ElementRef) {
-    if element.has_class(&AtomIdent::from("DEBUG_ME"), scraper::CaseSensitivity::CaseSensitive) {
-        let mut msg = String::new();
-        writeln!(&mut msg, "DEBUG_ME element encountered!").unwrap();
-        writeln!(&mut msg, "I am {:?}", element).unwrap();
-        writeln!(&mut msg, "My children are:").unwrap();
-        for child in element.children() {
-            writeln!(&mut msg, "  {:?}", child.value()).unwrap();
-        }
-        info!("{}", msg);
+fn element_to_string(el: ElementRef<'_>) -> String {
+    let name = el.value().name();
+    let mut out = String::new();
+    write!(&mut out, "<{name}").unwrap();
+    for (k, v) in el.value().attrs() {
+        write!(&mut out, " {k}=\"{v}\"").unwrap();
     }
-}
+    out.push('>');
+    out
+} // thanks, ChatGPT
+
+#[cfg(debug_assertions)]
+const DEBUG_SELECTOR_STR: &str = ".mw-parser-output a[href$=\".pdf\"].external";
 
 fn assert_childrens_parent_is_me(parent: &ElementRef) {
     // assert that all of my children's parent is me
@@ -135,12 +135,6 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
         matches: &mut Vec<ElementMatches<'a>>,
         caches: &mut SelectorCaches,
     ) {
-        // 0. debug element if applicable
-        #[cfg(debug_assertions)]
-        {
-            debug_element(&element);
-            assert_childrens_parent_is_me(&element);
-        }
         // 1. do thing
         // 1.1: create a MatchingContext
         let mut context = matching::MatchingContext::new(
@@ -155,6 +149,9 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
         let matched_selectors = selectors
             .iter()
             .filter(|s| {
+                // Debug element if applicable
+                #[cfg(debug_assertions)]
+                debug_element_selector(element, &element_to_string(element), s, DEBUG_SELECTOR_STR);
                 let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
                 debug_assert_eq!(stats.time_fast_rejecting, None);
                 res
@@ -214,11 +211,11 @@ pub fn match_selectors_with_style_sharing(
         stats: &mut Statistics,
     ) {
         // 0. debug element if applicable
-        #[cfg(debug_assertions)]
-        {
-            debug_element(&element);
-            assert_childrens_parent_is_me(&element);
-        }
+        let debug_element_selector = if cfg!(debug_assertions) {
+            Some((element_to_string(element), DEBUG_SELECTOR_STR))
+        } else {
+            None
+        };
         // 1. do thing
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
@@ -289,6 +286,7 @@ pub fn match_selectors_with_style_sharing(
                     CascadeLevel::UANormal, // TODO: ??????
                     &CascadeData::new(),
                     context.shared.stylist,
+                    debug_element_selector.as_ref().map(|(debug_element, debug_selector)| (debug_element.as_str(), *debug_selector)),
                 );
                 // 1.3.3: add the matched selectors to the list
                 matches.push(

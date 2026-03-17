@@ -10,6 +10,8 @@ use std::hash::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher as _;
 
+use crate::element_to_string;
+
 #[derive(Debug, Clone, Eq, Ord)]
 pub struct Element {
     pub id: u64,
@@ -20,24 +22,12 @@ pub type Selector = selectors::parser::Selector<style::selector_parser::Selector
 
 impl From<scraper::ElementRef<'_>> for Element {
     fn from(value: scraper::ElementRef) -> Self {
-        fn get_start_tag(el: ElementRef<'_>) -> String {
-            let name = el.value().name();
-            let mut out = String::new();
-            write!(&mut out, "<{name}").unwrap();
-            for (k, v) in el.value().attrs() {
-                write!(&mut out, " {k}=\"{v}\"").unwrap();
-            }
-            out.push('>');
-            out
-        } // thanks, ChatGPT
-
         let mut hasher = DefaultHasher::new();
         value.id().hash(&mut hasher);
         let id = hasher.finish();
- 
         Self{
             id,
-            html: get_start_tag(value),
+            html: element_to_string(value),
         }
     }
 }
