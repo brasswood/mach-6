@@ -19,6 +19,7 @@ pub struct Error {
 pub enum ErrorKind {
     Io(io::Error),
     MultipleHtmlFiles(Vec<HtmlFile>),
+    Other(String),
 }
 
 impl std::fmt::Display for Error {
@@ -38,6 +39,9 @@ impl std::fmt::Display for Error {
                 }
                 Ok(())
             }
+            ErrorKind::Other(s) => {
+                writeln!(f, "{s}")
+            }
         }
     }
 }
@@ -54,6 +58,13 @@ impl Error {
         match &self.error {
             ErrorKind::MultipleHtmlFiles(v) => f(&v),
             _ => false,
+        }
+    }
+
+    pub fn other(message: String) -> Self {
+        Self {
+            path: None,
+            error: ErrorKind::Other(message),
         }
     }
 }

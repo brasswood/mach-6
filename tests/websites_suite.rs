@@ -5,15 +5,32 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
-use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{IntoResultExt, Result}, structs::ser::SerDocumentMatches};
+use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::ser::SerDocumentMatches};
 use insta;
 use rayon::prelude::*;
 use selectors::matching::TimingStats;
 use test_log::test;
 
+fn website_paths_for_tests() -> Result<Vec<Result<PathBuf>>> {
+    let websites = websites_path();
+    match std::env::var("MACH6_WEBSITE_FILTER") {
+        Ok(filter) => {
+            let website = websites.join(&filter);
+            if !website.is_dir() {
+                return Err(Error::other(format!("MACH6_WEBSITE_FILTER={filter:?} did not resolve to a website directory at {}", website.display())));
+            }
+            Ok(vec![Ok(website)])
+        }
+        Err(std::env::VarError::NotPresent) => Ok(get_websites_dirs(&websites)?.collect()),
+        Err(std::env::VarError::NotUnicode(filter)) => {
+            Err(Error::other(format!("MACH6_WEBSITE_FILTER was not valid unicode: {filter:?}")))
+        }
+    }
+}
+
 #[test]
 fn does_all_websites() -> Result<()> {
-    let website_paths: Vec<_> = get_websites_dirs(&websites_path())?.collect();
+    let website_paths = website_paths_for_tests()?;
     let _: Vec<_> = website_paths
         .into_par_iter()
         .map(|path| {
@@ -55,7 +72,7 @@ fn all_algorithms_correct() -> Result<()> {
         workspace.join(&equality_failures_rel).join(format!("{algorithm}"))
     };
 
-    let website_paths: Vec<_> = get_websites_dirs(&websites_path())?.collect();
+    let website_paths = website_paths_for_tests()?;
     let algorithms = [Algorithm::WithStyleSharing, Algorithm::Mach7].map(|alg| (alg, AtomicBool::new(false)));
     // start with a clean slate
     for (algorithm, _) in &algorithms {
@@ -95,7 +112,7 @@ fn all_algorithms_correct() -> Result<()> {
 
 #[test]
 fn statistics_dont_change() -> Result<()> {
-    let website_paths: Vec<_> = get_websites_dirs(&websites_path())?.collect();
+    let website_paths = website_paths_for_tests()?;
     let _: Vec<_> = website_paths
         .into_par_iter()
         .map(|path| {
