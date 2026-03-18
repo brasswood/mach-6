@@ -12,7 +12,7 @@ use style::animation::DocumentAnimationSet;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug-element")]
 use style::selector_map::debug_element_selector;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
@@ -82,7 +82,7 @@ fn element_to_string(el: ElementRef<'_>) -> String {
     out
 } // thanks, ChatGPT
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug-element")]
 const DEBUG_SELECTOR_STR: &str = ".mw-parser-output a[href$=\".pdf\"].external";
 
 fn assert_childrens_parent_is_me(parent: &ElementRef) {
@@ -150,7 +150,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
             .iter()
             .filter(|s| {
                 // Debug element if applicable
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "debug-element")]
                 debug_element_selector(element, &element_to_string(element), s, DEBUG_SELECTOR_STR);
                 let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
                 debug_assert_eq!(stats.time_fast_rejecting, None);
@@ -212,7 +212,7 @@ pub fn match_selectors_with_style_sharing(
     ) {
         // 0. debug element if applicable
         let debug_element_selector: Option<(String, &str)> = None;
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "debug-element")]
         let debug_element_selector = Some((element_to_string(element), DEBUG_SELECTOR_STR));
         // 1. do thing
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
