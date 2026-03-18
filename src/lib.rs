@@ -211,11 +211,9 @@ pub fn match_selectors_with_style_sharing(
         stats: &mut Statistics,
     ) {
         // 0. debug element if applicable
-        let debug_element_selector = if cfg!(debug_assertions) {
-            Some((element_to_string(element), DEBUG_SELECTOR_STR))
-        } else {
-            None
-        };
+        let debug_element_selector: Option<(String, &str)> = None;
+        #[cfg(debug_assertions)]
+        let debug_element_selector = Some((element_to_string(element), DEBUG_SELECTOR_STR));
         // 1. do thing
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
