@@ -400,6 +400,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         {after_summary}
       </div>
     </div>
+    <div class="bar-legend">
+      {compact_legend}
+    </div>
   </summary>
   <div class="details">
     <div class="details-variants">
@@ -415,6 +418,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             slow_reject_ns = summary_slow_reject_ns,
             before_summary = before_summary,
             after_summary = after_summary,
+            compact_legend = render_compact_legend(),
             before_details = before_details,
             after_details = after_details,
             json_file = escape_html(&json_file),
@@ -579,6 +583,15 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .seg-other {{
       background: var(--bar);
+    }}
+    .bar-legend {{
+      margin-top: 8px;
+      margin-left: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: var(--muted);
+      font-size: 12px;
     }}
     .expanded-chart {{
       margin-bottom: 14px;
@@ -777,6 +790,9 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       }}
       .summary-variants {{
         grid-column: 2 / 3;
+      }}
+      .bar-legend {{
+        margin-left: 18px;
       }}
       .variant-summary {{
         grid-template-columns: 1fr;
@@ -1088,6 +1104,27 @@ fn render_variant_chart_parts(result: &BenchmarkVariantResult) -> (String, Strin
     }
 
     (summary_bar_segments, expanded_bar_segments, expanded_legend)
+}
+
+fn render_compact_legend() -> String {
+    let mut compact_legend = String::new();
+    for (class_name, name) in [
+        ("seg-bloom", "Updating Bloom Filter"),
+        ("seg-share-check", "Checking Style Sharing"),
+        ("seg-query", "Querying Selector Map"),
+        ("seg-fast", "Fast Rejecting"),
+        ("seg-slow", "Slow Rejecting"),
+        ("seg-slow-accept", "Slow Accepting"),
+        ("seg-share-insert", "Inserting Into Sharing Cache"),
+        ("seg-other", "Other"),
+    ] {
+        compact_legend.push_str(&format!(
+            r#"<span><i class="swatch {class_name}"></i>{name}</span>"#,
+            class_name = class_name,
+            name = name,
+        ));
+    }
+    compact_legend
 }
 
 fn format_usize(value: usize) -> String {
