@@ -1,5 +1,5 @@
 use log::error;
-use mach_6::{self, get_all_documents_and_selectors};
+use mach_6::{self, convert_to_is_selectors, get_all_documents_and_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::structs::{Element, Selector};
 use num_format::{Locale, ToFormattedString};
@@ -98,7 +98,16 @@ fn main() {
     let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
     let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
     let websites = get_documents(website_filter.as_deref());
-    let results: Vec<_> = websites.map(|w| bench_website(&w)).collect();
+    let results: Vec<_> = websites.map(|w| {
+        let before_preprocessing = bench_website(&w, &format!("{} before preprocessing", w.name));
+        let w = ParsedWebsite {
+            name: w.name,
+            document: w.document,
+            selectors: convert_to_is_selectors(&w.document, &w.selectors),
+        };
+        let after_preprocessing = bench_website(&w, &format!("{} after preprocessing", w.name));
+        (before_preprocessing, after_preprocessing)
+    }).collect();
     match write_report(&results) {
         Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
         Err(e) => {
@@ -108,11 +117,11 @@ fn main() {
     }
 }
 
-fn bench_website(website: &ParsedWebsite) -> WebsiteResult {
+fn bench_website(website: &ParsedWebsite, benchmark_name: &str) -> WebsiteResult {
     let selector_map = mach_6::build_selector_map(&website.selectors);
     let mut selector_stats = SmallVec::new();
     let timed_results = bench_function(
-        &website.name,
+        benchmark_name,
         || mach_6::match_selectors_with_style_sharing(&website.document, &selector_map, None),
     );
     let _ = mach_6::match_selectors_with_style_sharing(
