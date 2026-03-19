@@ -348,7 +348,8 @@ impl Element {
             .any(|c| case_sensitive.eq(c.as_bytes(), class.as_bytes()))
     }
 
-    pub(crate) fn classes_atom(&self) -> ClassesAtom<'_> {
+    /// Returns the iterator of classes as Atoms.
+    pub fn classes_atom(&self) -> ClassesAtom<'_> {
         let classes = self.classes.get_or_init(|| {
             let classes = self
                 .attrs
@@ -469,9 +470,10 @@ impl<'a> Iterator for Classes<'a> {
     }
 }
 
+/// Iterator over classes as Atoms.
 #[allow(missing_debug_implementations)]
 #[derive(Clone)]
-pub(crate) struct ClassesAtom<'a> {
+pub struct ClassesAtom<'a> {
     inner: SliceIter<'a, style::values::AtomIdent>,
 }
 

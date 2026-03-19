@@ -6,18 +6,28 @@
  */
 use clap::ValueEnum;
 use derive_more::Display;
+use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
+use selectors::attr::AttrSelectorOperator;
+use selectors::attr::ParsedAttrSelectorOperation;
+use selectors::builder::SelectorBuilder;
 use selectors::matching::SelectorStats;
+use selectors::parser::Component;
+use selectors::SelectorList;
 use style::animation::DocumentAnimationSet;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
 #[cfg(feature = "debug_element")]
 use style::selector_map::debug_element_selector;
+use style::selector_parser::SelectorParser;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
 use style::sharing::StyleSharingElement as _;
+use style::stylesheets::UrlExtraData;
 use style::traversal_flags::TraversalFlags;
+use style::values::AtomIdent;
+use style::values::AtomString;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -193,6 +203,125 @@ where
         selector_map.insert(rule, QuirksMode::NoQuirks).unwrap();
     }
     selector_map
+}
+
+pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<Selector> {
+    // iterate through each selector in the list
+    // any with a "[class*=]" or similar operator: look it up in the temp map.
+    // if not in the temp map, traverse the entire HTML tree, look for classes
+    // that will match the substring, and put them in the temp map
+
+    // Helper function which looks up the list of classes with a substring, or computes it
+    // if it is not available yet.
+    fn get_matching_classes<'map>(
+        map: &'map mut HashMap<AtomString, IndexSet<AtomIdent>>,
+        document: &Html,
+        substring: &AtomString,
+    ) -> &'map IndexSet<AtomIdent> {
+        map.entry(substring.clone()).or_insert_with(|| {
+            fn preorder_traversal(
+                matching_classes: &mut IndexSet<AtomIdent>,
+                substring: &AtomString,
+                element: ElementRef,
+            ) {
+                matching_classes.extend(
+                    element
+                        .value()
+                        .classes_atom()
+                        .filter(|class| class.contains(substring.0.as_ref()))
+                        .cloned()
+                );
+                for child in element.child_elements() {
+                    preorder_traversal(matching_classes, substring, child)
+                }
+            }
+            let mut matching_classes = IndexSet::new();
+            preorder_traversal(&mut matching_classes, substring, document.root_element());
+            matching_classes
+        })
+    }
+
+    // Helper function to turn a list of class names into a `SelectorList`
+    fn create_class_selector_list(classes: impl ExactSizeIterator<Item = AtomIdent>) -> SelectorList<style::selector_parser::SelectorImpl> {
+        let selectors = classes.map(|class_str| {
+            let mut builder = SelectorBuilder::default();
+            builder.push_simple_selector(Component::Class(class_str));
+            builder.build_selector(selectors::parser::ParseRelative::No)
+        });
+        SelectorList::from_iter(selectors)
+    }
+
+    // Helper function which takes a Component; if it's an attribute selector with "class*=",
+    // do the work to convert it to an equivalent `is()` selector. Otherwise, just clone
+    // the component and return it.
+    fn convert_to_is_component(
+        map: &mut HashMap<AtomString, IndexSet<AtomIdent>>, // mapping from substrings to lists of classes which match
+        document: &Html,
+        component: &Component<style::selector_parser::SelectorImpl>,
+    ) -> Component<style::selector_parser::SelectorImpl>{
+        match component {
+            Component::AttributeInNoNamespace {
+                local_name,
+                operator: AttrSelectorOperator::Substring,
+                value,
+                ..
+            } if local_name.as_ref() == "class" => {
+                Component::Is(
+                    create_class_selector_list(
+                        get_matching_classes(
+                            map,
+                            document,
+                            value
+                        )
+                        .iter()
+                        .cloned()
+                    )
+                )
+            }
+            c@Component::AttributeOther(attr) 
+                if attr.local_name.as_ref() == "class"
+            => {
+                let ParsedAttrSelectorOperation::WithValue {
+                    operator: AttrSelectorOperator::Substring,
+                    ref value,
+                    ..
+                } = attr.operation else { return c.clone() };
+                Component::Is(
+                    create_class_selector_list(
+                        get_matching_classes(
+                            map,
+                            document,
+                            value
+                        )
+                        .iter()
+                        .cloned()
+                    )
+                )
+            },
+            other => other.clone()
+        }
+    }
+
+    let mut substr_to_classes = HashMap::new();
+    selectors.into_iter().map(|selector| {
+        let mut builder = SelectorBuilder::default();
+        for component in selector.iter_raw_parse_order_from(0) {
+            if let Some(combinator) = component.as_combinator() {
+                builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
+                builder.push_combinator(combinator);
+            } else {
+                builder.push_simple_selector(
+                    convert_to_is_component(
+                        &mut substr_to_classes,
+                        document,
+                        component,
+                    )
+                );
+            }
+        }
+        builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
+        builder.build_selector(selectors::parser::ParseRelative::No)
+    }).collect()
 }
 
 pub fn match_selectors_with_style_sharing(
@@ -414,9 +543,13 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
 #[cfg(test)]
 mod tests {
     use crate::result::Result;
-    use crate::parse::{get_document_and_selectors, websites_path};
-    use crate::do_website;
+    use crate::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
+    use crate::structs::Selector;
+    use crate::{convert_to_is_selectors, do_website};
     use crate::Algorithm;
+    use cssparser::ToCss as _;
+    use style::selector_parser::SelectorParser;
+    use style::stylesheets::UrlExtraData;
     use test_log::test;
 
     #[test]
@@ -437,6 +570,30 @@ mod tests {
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing);
         assert_eq!(stats.sharing_instances, 5);
+        Ok(())
+    }
+
+    #[test]
+    // looks like bad grammar, but this tests that the conversion to "is()" selectors works
+    fn is_conversion_works() -> Result<()> {
+        let ParsedWebsite { document, selectors, .. } = get_document_and_selectors(
+            &websites_path().join("is_conversion_test")
+        )?.unwrap();
+        let converted: Vec<_> = convert_to_is_selectors(&document, &selectors)
+            .iter()
+            .map(Selector::to_css_string)
+            .collect();
+        let expected: Vec<_> = [
+            ":is(.bottom-red, .bottom-green, .bottom-blue)",
+            "div:is(.bottom-blue, .top-blue)", // Note: .bottom-blue appears in preorder before .top-blue
+            "div.top-green div:is(.top-red, .bottom-red)",
+        ].iter().map(|selector_str| {
+            SelectorParser::parse_author_origin_no_namespace(
+                selector_str,
+                &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+            ).unwrap().slice()[0].clone().to_css_string() // god damn insane api
+        }).collect();
+        assert_eq!(converted, expected);
         Ok(())
     }
 }
