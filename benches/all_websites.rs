@@ -98,38 +98,40 @@ fn main() {
     let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
     let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
     let websites = get_documents(website_filter.as_deref());
-    let results: Vec<_> = websites.map(|website| {
-        let selector_map = mach_6::build_selector_map(&website.selectors);
-        let mut selector_stats = SmallVec::new();
-        let timed_results = bench_function(
-            &website.name,
-            || mach_6::match_selectors_with_style_sharing(&website.document, &selector_map, None),
-        );
-        let _ = mach_6::match_selectors_with_style_sharing(
-            &website.document,
-            &selector_map,
-            Some(&mut selector_stats),
-        );
-        let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
-            build_selector_slow_reject_rows(selector_stats);
-        let TimedResult {
-            duration,
-            result: (_matches, stats),
-        } = timed_results;
-        WebsiteResult {
-            website: website.name,
-            duration,
-            stats,
-            selector_slow_reject_rows,
-            selector_total_slow_reject_rows,
-        }
-    }).collect();
+    let results: Vec<_> = websites.map(|w| bench_website(&w)).collect();
     match write_report(&results) {
         Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
         Err(e) => {
             error!("Failed to write report: {}", e);
             std::process::exit(1);
         }
+    }
+}
+
+fn bench_website(website: &ParsedWebsite) -> WebsiteResult {
+    let selector_map = mach_6::build_selector_map(&website.selectors);
+    let mut selector_stats = SmallVec::new();
+    let timed_results = bench_function(
+        &website.name,
+        || mach_6::match_selectors_with_style_sharing(&website.document, &selector_map, None),
+    );
+    let _ = mach_6::match_selectors_with_style_sharing(
+        &website.document,
+        &selector_map,
+        Some(&mut selector_stats),
+    );
+    let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
+        build_selector_slow_reject_rows(selector_stats);
+    let TimedResult {
+        duration,
+        result: (_matches, stats),
+    } = timed_results;
+    WebsiteResult {
+        website: website.name.clone(),
+        duration,
+        stats,
+        selector_slow_reject_rows,
+        selector_total_slow_reject_rows,
     }
 }
 
