@@ -21,12 +21,17 @@ struct TimedResult<R> {
     result: R,
 }
 
-struct WebsiteResult {
-    website: String,
+struct BenchmarkVariantResult {
     duration: Duration,
     stats: Statistics,
     selector_slow_reject_rows: Vec<SelectorSlowRejectRow>,
     selector_total_slow_reject_rows: Vec<SelectorTotalSlowRejectRow>,
+}
+
+struct WebsiteResult {
+    website: String,
+    before_preprocessing: BenchmarkVariantResult,
+    after_preprocessing: BenchmarkVariantResult,
 }
 
 struct SelectorSlowRejectRow {
@@ -65,6 +70,13 @@ fn selector_slow_reject_row(
 #[derive(Serialize)]
 struct WebsiteJson<'a> {
     website: &'a str,
+    before_preprocessing: BenchmarkRunJson,
+    after_preprocessing: BenchmarkRunJson,
+}
+
+#[derive(Serialize)]
+struct BenchmarkRunJson {
+    label: &'static str,
     total_duration_ns: u128,
     total_duration_display: String,
     stats: WebsiteStatsJson,
@@ -100,13 +112,18 @@ fn main() {
     let websites = get_documents(website_filter.as_deref());
     let results: Vec<_> = websites.map(|w| {
         let before_preprocessing = bench_website(&w, &format!("{} before preprocessing", w.name));
+        let preprocessed_selectors = convert_to_is_selectors(&w.document, &w.selectors);
         let w = ParsedWebsite {
             name: w.name,
             document: w.document,
-            selectors: convert_to_is_selectors(&w.document, &w.selectors),
+            selectors: preprocessed_selectors,
         };
         let after_preprocessing = bench_website(&w, &format!("{} after preprocessing", w.name));
-        (before_preprocessing, after_preprocessing)
+        WebsiteResult {
+            website: w.name,
+            before_preprocessing,
+            after_preprocessing,
+        }
     }).collect();
     match write_report(&results) {
         Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
@@ -117,7 +134,7 @@ fn main() {
     }
 }
 
-fn bench_website(website: &ParsedWebsite, benchmark_name: &str) -> WebsiteResult {
+fn bench_website(website: &ParsedWebsite, benchmark_name: &str) -> BenchmarkVariantResult {
     let selector_map = mach_6::build_selector_map(&website.selectors);
     let mut selector_stats = SmallVec::new();
     let timed_results = bench_function(
@@ -135,8 +152,7 @@ fn bench_website(website: &ParsedWebsite, benchmark_name: &str) -> WebsiteResult
         duration,
         result: (_matches, stats),
     } = timed_results;
-    WebsiteResult {
-        website: website.name.clone(),
+    BenchmarkVariantResult {
         duration,
         stats,
         selector_slow_reject_rows,
@@ -265,71 +281,8 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
         let json_path = json_dir.join(file_name);
         let payload = WebsiteJson {
             website: &result.website,
-            total_duration_ns: result.duration.as_nanos(),
-            total_duration_display: format_duration(result.duration),
-            stats: WebsiteStatsJson {
-                sharing_instances: result.stats.sharing_instances,
-                selector_map_hits: result.stats.selector_map_hits,
-                fast_rejects: result.stats.fast_rejects,
-                slow_rejects: result.stats.slow_rejects,
-                slow_accepts: result.stats.slow_accepts,
-                time_spent_updating_bloom_filter_ns: result
-                    .stats
-                    .times
-                    .updating_bloom_filter
-                    .as_nanos(),
-                time_spent_updating_bloom_filter_display: format_duration(
-                    result.stats.times.updating_bloom_filter
-                ),
-                time_spent_slow_rejecting_ns: result
-                    .stats
-                    .times
-                    .slow_rejecting
-                    .as_nanos(),
-                time_spent_slow_rejecting_display: format_duration(
-                    result.stats.times.slow_rejecting
-                ),
-                time_spent_slow_accepting_ns: result
-                    .stats
-                    .times
-                    .slow_accepting
-                    .as_nanos(),
-                time_spent_slow_accepting_display: format_duration(
-                    result.stats.times.slow_accepting
-                ),
-                time_spent_fast_rejecting_ns: result
-                    .stats
-                    .times
-                    .fast_rejecting
-                    .as_nanos(),
-                time_spent_fast_rejecting_display: format_duration(
-                    result.stats.times.fast_rejecting
-                ),
-                time_spent_checking_style_sharing_ns: result
-                    .stats
-                    .times
-                    .checking_style_sharing
-                    .as_nanos(),
-                time_spent_checking_style_sharing_display: format_duration(
-                    result.stats.times.checking_style_sharing
-                ),
-                time_spent_inserting_into_sharing_cache_ns: result
-                    .stats
-                    .times
-                    .inserting_into_sharing_cache
-                    .as_nanos(),
-                time_spent_inserting_into_sharing_cache_display: format_duration(
-                    result.stats.times.inserting_into_sharing_cache
-                ),
-                time_spent_querying_selector_map_ns: result
-                    .stats
-                    .times
-                    .querying_selector_map
-                    .as_nanos(),
-                time_spent_querying_selector_map_display: format_duration(
-                    result.stats.times.querying_selector_map
-                ),
-            },
+            before_preprocessing: variant_json("before_preprocessing", &result.before_preprocessing),
+            after_preprocessing: variant_json("after_preprocessing", &result.after_preprocessing),
         };
         let serialized = serde_json::to_string_pretty(&payload)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
@@ -341,156 +294,100 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     Ok(report_dir)
 }
 
+fn variant_json(label: &'static str, result: &BenchmarkVariantResult) -> BenchmarkRunJson {
+    BenchmarkRunJson {
+        label,
+        total_duration_ns: result.duration.as_nanos(),
+        total_duration_display: format_duration(result.duration),
+        stats: WebsiteStatsJson {
+            sharing_instances: result.stats.sharing_instances,
+            selector_map_hits: result.stats.selector_map_hits,
+            fast_rejects: result.stats.fast_rejects,
+            slow_rejects: result.stats.slow_rejects,
+            slow_accepts: result.stats.slow_accepts,
+            time_spent_updating_bloom_filter_ns: result.stats.times.updating_bloom_filter.as_nanos(),
+            time_spent_updating_bloom_filter_display: format_duration(
+                result.stats.times.updating_bloom_filter
+            ),
+            time_spent_slow_rejecting_ns: result.stats.times.slow_rejecting.as_nanos(),
+            time_spent_slow_rejecting_display: format_duration(result.stats.times.slow_rejecting),
+            time_spent_slow_accepting_ns: result.stats.times.slow_accepting.as_nanos(),
+            time_spent_slow_accepting_display: format_duration(result.stats.times.slow_accepting),
+            time_spent_fast_rejecting_ns: result.stats.times.fast_rejecting.as_nanos(),
+            time_spent_fast_rejecting_display: format_duration(result.stats.times.fast_rejecting),
+            time_spent_checking_style_sharing_ns: result
+                .stats
+                .times
+                .checking_style_sharing
+                .as_nanos(),
+            time_spent_checking_style_sharing_display: format_duration(
+                result.stats.times.checking_style_sharing
+            ),
+            time_spent_inserting_into_sharing_cache_ns: result
+                .stats
+                .times
+                .inserting_into_sharing_cache
+                .as_nanos(),
+            time_spent_inserting_into_sharing_cache_display: format_duration(
+                result.stats.times.inserting_into_sharing_cache
+            ),
+            time_spent_querying_selector_map_ns: result.stats.times.querying_selector_map.as_nanos(),
+            time_spent_querying_selector_map_display: format_duration(
+                result.stats.times.querying_selector_map
+            ),
+        },
+    }
+}
+
 fn render_index_html(results: &[WebsiteResult]) -> String {
     let max_duration_ns = results
         .iter()
-        .map(|result| result.duration.as_nanos())
+        .flat_map(|result| {
+            [
+                result.before_preprocessing.duration.as_nanos(),
+                result.after_preprocessing.duration.as_nanos(),
+            ]
+        })
         .max()
         .unwrap_or(1)
         .max(1);
 
     let mut sections = String::new();
     for result in results {
-        let total_duration = result.duration;
-        let total_ns = total_duration.as_nanos();
-        let update_bloom = result.stats.times.updating_bloom_filter;
-        let slow_reject = result.stats.times.slow_rejecting;
-        let slow_accept = result.stats.times.slow_accepting;
-        let fast_reject = result.stats.times.fast_rejecting;
-        let check_share = result.stats.times.checking_style_sharing;
-        let insert_share_cache = result.stats.times.inserting_into_sharing_cache;
-        let query_selector_map = result.stats.times.querying_selector_map;
-        let update_bloom_duration = update_bloom;
-        let slow_reject_duration = slow_reject;
-        let slow_accept_duration = slow_accept;
-        let fast_reject_duration = fast_reject;
-        let check_share_duration = check_share;
-        let insert_share_cache_duration = insert_share_cache;
-        let query_selector_map_duration = query_selector_map;
-        let measured_sum = update_bloom_duration
-            + slow_reject_duration
-            + slow_accept_duration
-            + fast_reject_duration
-            + check_share_duration
-            + insert_share_cache_duration
-            + query_selector_map_duration;
-        if measured_sum > total_duration {
-            panic!(
-                "Measured timing sum exceeded total duration for {}: measured_sum={}, total_duration={}",
-                result.website,
-                format_duration(measured_sum),
-                format_duration(total_duration),
-            );
-        }
-        let other_duration = total_duration.saturating_sub(measured_sum);
-        let stack_total = total_duration;
-        let total_width_pct = (total_ns as f64 / max_duration_ns as f64) * 100.0;
-        let pct = |duration: Duration| -> f64 {
-            if stack_total.is_zero() {
-                0.0
-            } else {
-                (duration.as_nanos() as f64 / stack_total.as_nanos() as f64) * 100.0
-            }
-        };
-        let slow_reject_pct = pct(slow_reject_duration);
-        let slow_accept_pct = pct(slow_accept_duration);
-        let fast_reject_pct = pct(fast_reject_duration);
-        let update_bloom_pct = pct(update_bloom_duration);
-        let check_share_pct = pct(check_share_duration);
-        let insert_share_cache_pct = pct(insert_share_cache_duration);
-        let query_selector_map_pct = pct(query_selector_map_duration);
-        let other_pct = pct(other_duration);
-        let mut summary_bar_segments = String::new();
-        let mut expanded_bar_segments = String::new();
-        for (class_name, segment_pct) in [
-            ("seg-bloom", update_bloom_pct),
-            ("seg-share-check", check_share_pct),
-            ("seg-query", query_selector_map_pct),
-            ("seg-fast", fast_reject_pct),
-            ("seg-slow", slow_reject_pct),
-            ("seg-slow-accept", slow_accept_pct),
-            ("seg-share-insert", insert_share_cache_pct),
-            ("seg-other", other_pct),
-        ] {
-            if segment_pct <= 0.0 {
-                continue;
-            }
-            summary_bar_segments.push_str(&format!(
-                r#"<div class="bar-seg {class_name}" style="width: {segment_pct:.2}%"></div>"#,
-                class_name = class_name,
-                segment_pct = segment_pct,
-            ));
-            expanded_bar_segments.push_str(&format!(
-                r#"<div class="expanded-bar-seg {class_name}" style="width: {segment_pct:.2}%"></div>"#,
-                class_name = class_name,
-                segment_pct = segment_pct,
-            ));
-        }
-        let legend_item = |class_name: &str, name: &str, duration: Duration| -> String {
-            format!(
-                r#"<span><i class="swatch {class_name}"></i>{name}: {duration}</span>"#,
-                class_name = class_name,
-                name = name,
-                duration = format_duration(duration),
-            )
-        };
-        let mut compact_legend = String::new();
-        let mut expanded_legend = String::new();
-        for (class_name, name, duration) in [
-            ("seg-bloom", "Updating Bloom Filter", update_bloom),
-            ("seg-share-check", "Checking Style Sharing", check_share),
-            ("seg-query", "Querying Selector Map", query_selector_map),
-            ("seg-fast", "Fast Rejecting", fast_reject),
-            ("seg-slow", "Slow Rejecting", slow_reject),
-            ("seg-slow-accept", "Slow Accepting", slow_accept),
-            ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache),
-        ] {
-            let item = legend_item(class_name, name, duration);
-            compact_legend.push_str(&item);
-            expanded_legend.push_str(&item);
-        }
-        compact_legend.push_str(&legend_item("seg-other", "Other", other_duration));
-        expanded_legend.push_str(&legend_item("seg-other", "Other", other_duration));
         let website = escape_html(&result.website);
         let json_file = format!("json/{}.json", make_filename_safe(&result.website));
-        let total_time = format_duration(total_duration);
-        let mut selector_rows_html = String::new();
-        for row in &result.selector_slow_reject_rows {
-            selector_rows_html.push_str(&format!(
-                r#"<tr>
-  <td class="col-element"><div class="cell-scroll"><code>{element_html}</code> <span class="muted-inline">(id: {element_id})</span></div></td>
-  <td class="col-selector"><div class="cell-scroll"><code>{selector_css}</code></div></td>
-  <td class="col-source"><div class="cell-scroll">{source}</div></td>
-  <td class="col-time"><div class="cell-scroll">{slow_reject_time}</div></td>
-</tr>"#,
-                element_html = escape_html(&row.element_html),
-                element_id = row.element_id,
-                selector_css = escape_html(&row.selector_css),
-                source = row.source,
-                slow_reject_time = format_duration(row.slow_reject_time),
-            ));
-        }
-        if selector_rows_html.is_empty() {
-            selector_rows_html.push_str(
-                r#"<tr><td colspan="4">No selector stats captured.</td></tr>"#,
-            );
-        }
-        let mut selector_totals_rows_html = String::new();
-        for row in &result.selector_total_slow_reject_rows {
-            selector_totals_rows_html.push_str(&format!(
-                r#"<tr>
-  <td class="col-selector"><div class="cell-scroll"><code>{selector_css}</code></div></td>
-  <td class="col-time"><div class="cell-scroll">{total_slow_reject_time}</div></td>
-</tr>"#,
-                selector_css = escape_html(&row.selector_css),
-                total_slow_reject_time = format_duration(row.total_slow_reject_time),
-            ));
-        }
-        if selector_totals_rows_html.is_empty() {
-            selector_totals_rows_html.push_str(
-                r#"<tr><td colspan="2">No selector stats captured.</td></tr>"#,
-            );
-        }
+        let before_summary = render_summary_variant(
+            "Before preprocessing",
+            &result.before_preprocessing,
+            max_duration_ns,
+        );
+        let after_summary = render_summary_variant(
+            "After preprocessing",
+            &result.after_preprocessing,
+            max_duration_ns,
+        );
+        let before_details = render_detail_variant(
+            "Before preprocessing",
+            &result.before_preprocessing,
+            "before",
+        );
+        let after_details = render_detail_variant(
+            "After preprocessing",
+            &result.after_preprocessing,
+            "after",
+        );
+        let summary_total_ns = result
+            .before_preprocessing
+            .duration
+            .as_nanos()
+            .max(result.after_preprocessing.duration.as_nanos());
+        let summary_slow_reject_ns = result
+            .before_preprocessing
+            .stats
+            .times
+            .slow_rejecting
+            .as_nanos()
+            .max(result.after_preprocessing.stats.times.slow_rejecting.as_nanos());
         sections.push_str(&format!(
             r#"
 <details class="site" data-total-ns="{total_ns}" data-slow-reject-ns="{slow_reject_ns}">
@@ -498,97 +395,28 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     <div class="row">
       <div class="chevron" aria-hidden="true"></div>
       <div class="name">{website}</div>
-      <div class="bar-wrap">
-        <div class="bar-total" style="width: {total_width_pct:.2}%">
-          {summary_bar_segments}
-        </div>
+      <div class="summary-variants">
+        {before_summary}
+        {after_summary}
       </div>
-      <div class="time">{total_time}</div>
-    </div>
-    <div class="bar-legend">
-      {compact_legend}
     </div>
   </summary>
   <div class="details">
-    <section class="expanded-chart">
-      <h5>Timing Breakdown</h5>
-      <div class="expanded-bar-wrap">
-        <div class="expanded-bar-total">
-          {expanded_bar_segments}
-        </div>
-      </div>
-      <div class="expanded-legend">
-        {expanded_legend}
-        <span>Total: {total_time}</span>
-      </div>
-    </section>
-    <table>
-      <tbody>
-        <tr><th>Sharing Instances</th><td>{sharing_instances}</td></tr>
-        <tr><th>Selector Map Hits</th><td>{selector_map_hits}</td></tr>
-        <tr><th>Fast Rejects</th><td>{fast_rejects}</td></tr>
-        <tr><th>Slow Rejects</th><td>{slow_rejects}</td></tr>
-        <tr><th>Slow Accepts</th><td>{slow_accepts}</td></tr>
-      </tbody>
-    </table>
-    <details class="selector-breakdown">
-      <summary>Per (Element, Selector) Slow-Reject Timings (Top {max_selector_rows})</summary>
-      <div class="selector-view-controls" role="group" aria-label="Selector timing view">
-        <button class="selector-view-btn active" type="button" data-view="pairs">Top Pairs</button>
-        <button class="selector-view-btn" type="button" data-view="selectors">Top Selectors</button>
-      </div>
-      <div class="selector-breakdown-inner">
-        <div class="selector-view selector-view-pairs">
-          <table class="selector-breakdown-table">
-            <thead>
-              <tr>
-                <th>Element</th>
-                <th>Selector</th>
-                <th>Source</th>
-                <th>Slow Reject Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selector_rows_html}
-            </tbody>
-          </table>
-        </div>
-        <div class="selector-view selector-view-selectors hidden">
-          <table class="selector-breakdown-table selector-breakdown-table-selectors">
-            <thead>
-              <tr>
-                <th>Selector</th>
-                <th>Total Slow Reject Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selector_totals_rows_html}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </details>
+    <div class="details-variants">
+      {before_details}
+      {after_details}
+    </div>
     <p><a href="{json_file}">JSON data</a></p>
   </div>
 </details>
 "#,
             website = website,
-            total_width_pct = total_width_pct,
-            total_ns = total_ns,
-            slow_reject_ns = slow_reject_duration.as_nanos(),
-            summary_bar_segments = summary_bar_segments,
-            expanded_bar_segments = expanded_bar_segments,
-            compact_legend = compact_legend,
-            expanded_legend = expanded_legend,
-            total_time = total_time,
-            sharing_instances = format_usize(result.stats.sharing_instances),
-            selector_map_hits = format_usize(result.stats.selector_map_hits),
-            fast_rejects = format_usize(result.stats.fast_rejects),
-            slow_rejects = format_usize(result.stats.slow_rejects),
-            slow_accepts = format_usize(result.stats.slow_accepts),
-            selector_rows_html = selector_rows_html,
-            selector_totals_rows_html = selector_totals_rows_html,
-            max_selector_rows = MAX_SELECTOR_ROWS_PER_WEBSITE,
+            total_ns = summary_total_ns,
+            slow_reject_ns = summary_slow_reject_ns,
+            before_summary = before_summary,
+            after_summary = after_summary,
+            before_details = before_details,
+            after_details = after_details,
             json_file = escape_html(&json_file),
         ));
     }
@@ -665,8 +493,8 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .row {{
       display: grid;
-      grid-template-columns: 12px minmax(150px, 220px) minmax(120px, 1fr) 120px;
-      align-items: center;
+      grid-template-columns: 12px minmax(150px, 220px) minmax(260px, 1fr);
+      align-items: start;
       gap: 12px;
     }}
     .chevron {{
@@ -687,6 +515,23 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       text-overflow: ellipsis;
       white-space: nowrap;
       font-weight: 600;
+    }}
+    .summary-variants {{
+      display: grid;
+      gap: 8px;
+    }}
+    .variant-summary {{
+      display: grid;
+      grid-template-columns: minmax(130px, 170px) minmax(120px, 1fr) 120px;
+      align-items: center;
+      gap: 10px;
+    }}
+    .variant-label {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
     }}
     .bar-wrap {{
       width: 100%;
@@ -734,15 +579,6 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .seg-other {{
       background: var(--bar);
-    }}
-    .bar-legend {{
-      margin-top: 6px;
-      margin-left: 24px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 18px;
-      color: var(--muted);
-      font-size: 12px;
     }}
     .expanded-chart {{
       margin-bottom: 14px;
@@ -802,6 +638,22 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       padding-top: 12px;
       margin-top: 10px;
       border-top: 1px solid var(--line);
+    }}
+    .details-variants {{
+      display: grid;
+      gap: 18px;
+    }}
+    .variant-details {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fcfdfb;
+    }}
+    .variant-details-title {{
+      margin: 0 0 12px 0;
+      color: var(--fg);
+      font-size: 14px;
+      font-weight: 700;
     }}
     .selector-breakdown {{
       margin-top: 12px;
@@ -923,18 +775,18 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         grid-template-columns: 12px 1fr;
         gap: 6px;
       }}
-      .bar-wrap {{
+      .summary-variants {{
         grid-column: 2 / 3;
       }}
-      .bar-legend {{
-        margin-left: 18px;
+      .variant-summary {{
+        grid-template-columns: 1fr;
+        gap: 6px;
       }}
       .expanded-bar-wrap {{
         height: 28px;
       }}
       .time {{
         text-align: left;
-        grid-column: 2 / 3;
       }}
     }}
   </style>
@@ -1014,6 +866,228 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 "#,
         sections = sections
     )
+}
+
+fn render_summary_variant(
+    label: &str,
+    result: &BenchmarkVariantResult,
+    max_duration_ns: u128,
+) -> String {
+    let total_width_pct = (result.duration.as_nanos() as f64 / max_duration_ns as f64) * 100.0;
+    let (summary_bar_segments, _, _) = render_variant_chart_parts(result);
+
+    format!(
+        r#"<div class="variant-summary">
+  <div class="variant-label">{label}</div>
+  <div class="bar-wrap">
+    <div class="bar-total" style="width: {total_width_pct:.2}%">
+      {summary_bar_segments}
+    </div>
+  </div>
+  <div class="time">{total_time}</div>
+</div>"#,
+        label = escape_html(label),
+        total_width_pct = total_width_pct,
+        summary_bar_segments = summary_bar_segments,
+        total_time = format_duration(result.duration),
+    )
+}
+
+fn render_detail_variant(label: &str, result: &BenchmarkVariantResult, _variant_key: &str) -> String {
+    let (_, expanded_bar_segments, expanded_legend) = render_variant_chart_parts(result);
+    let mut selector_rows_html = String::new();
+    for row in &result.selector_slow_reject_rows {
+        selector_rows_html.push_str(&format!(
+            r#"<tr>
+  <td class="col-element"><div class="cell-scroll"><code>{element_html}</code> <span class="muted-inline">(id: {element_id})</span></div></td>
+  <td class="col-selector"><div class="cell-scroll"><code>{selector_css}</code></div></td>
+  <td class="col-source"><div class="cell-scroll">{source}</div></td>
+  <td class="col-time"><div class="cell-scroll">{slow_reject_time}</div></td>
+</tr>"#,
+            element_html = escape_html(&row.element_html),
+            element_id = row.element_id,
+            selector_css = escape_html(&row.selector_css),
+            source = row.source,
+            slow_reject_time = format_duration(row.slow_reject_time),
+        ));
+    }
+    if selector_rows_html.is_empty() {
+        selector_rows_html.push_str(r#"<tr><td colspan="4">No selector stats captured.</td></tr>"#);
+    }
+
+    let mut selector_totals_rows_html = String::new();
+    for row in &result.selector_total_slow_reject_rows {
+        selector_totals_rows_html.push_str(&format!(
+            r#"<tr>
+  <td class="col-selector"><div class="cell-scroll"><code>{selector_css}</code></div></td>
+  <td class="col-time"><div class="cell-scroll">{total_slow_reject_time}</div></td>
+</tr>"#,
+            selector_css = escape_html(&row.selector_css),
+            total_slow_reject_time = format_duration(row.total_slow_reject_time),
+        ));
+    }
+    if selector_totals_rows_html.is_empty() {
+        selector_totals_rows_html.push_str(r#"<tr><td colspan="2">No selector stats captured.</td></tr>"#);
+    }
+
+    format!(
+        r#"<section class="variant-details">
+  <h4 class="variant-details-title">{label}</h4>
+  <section class="expanded-chart">
+    <h5>Timing Breakdown</h5>
+    <div class="expanded-bar-wrap">
+      <div class="expanded-bar-total">
+        {expanded_bar_segments}
+      </div>
+    </div>
+    <div class="expanded-legend">
+      {expanded_legend}
+      <span>Total: {total_time}</span>
+    </div>
+  </section>
+  <table>
+    <tbody>
+      <tr><th>Sharing Instances</th><td>{sharing_instances}</td></tr>
+      <tr><th>Selector Map Hits</th><td>{selector_map_hits}</td></tr>
+      <tr><th>Fast Rejects</th><td>{fast_rejects}</td></tr>
+      <tr><th>Slow Rejects</th><td>{slow_rejects}</td></tr>
+      <tr><th>Slow Accepts</th><td>{slow_accepts}</td></tr>
+    </tbody>
+  </table>
+  <details class="selector-breakdown">
+    <summary>Per (Element, Selector) Slow-Reject Timings (Top {max_selector_rows})</summary>
+    <div class="selector-view-controls" role="group" aria-label="Selector timing view">
+      <button class="selector-view-btn active" type="button" data-view="pairs">Top Pairs</button>
+      <button class="selector-view-btn" type="button" data-view="selectors">Top Selectors</button>
+    </div>
+    <div class="selector-breakdown-inner">
+      <div class="selector-view selector-view-pairs">
+        <table class="selector-breakdown-table">
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>Selector</th>
+              <th>Source</th>
+              <th>Slow Reject Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {selector_rows_html}
+          </tbody>
+        </table>
+      </div>
+      <div class="selector-view selector-view-selectors hidden">
+        <table class="selector-breakdown-table selector-breakdown-table-selectors">
+          <thead>
+            <tr>
+              <th>Selector</th>
+              <th>Total Slow Reject Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {selector_totals_rows_html}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+</section>"#,
+        label = escape_html(label),
+        expanded_bar_segments = expanded_bar_segments,
+        expanded_legend = expanded_legend,
+        total_time = format_duration(result.duration),
+        sharing_instances = format_usize(result.stats.sharing_instances),
+        selector_map_hits = format_usize(result.stats.selector_map_hits),
+        fast_rejects = format_usize(result.stats.fast_rejects),
+        slow_rejects = format_usize(result.stats.slow_rejects),
+        slow_accepts = format_usize(result.stats.slow_accepts),
+        max_selector_rows = MAX_SELECTOR_ROWS_PER_WEBSITE,
+        selector_rows_html = selector_rows_html,
+        selector_totals_rows_html = selector_totals_rows_html,
+    )
+}
+
+fn render_variant_chart_parts(result: &BenchmarkVariantResult) -> (String, String, String) {
+    let update_bloom = result.stats.times.updating_bloom_filter;
+    let slow_reject = result.stats.times.slow_rejecting;
+    let slow_accept = result.stats.times.slow_accepting;
+    let fast_reject = result.stats.times.fast_rejecting;
+    let check_share = result.stats.times.checking_style_sharing;
+    let insert_share_cache = result.stats.times.inserting_into_sharing_cache;
+    let query_selector_map = result.stats.times.querying_selector_map;
+    let measured_sum = update_bloom
+        + slow_reject
+        + slow_accept
+        + fast_reject
+        + check_share
+        + insert_share_cache
+        + query_selector_map;
+    if measured_sum > result.duration {
+        panic!(
+            "Measured timing sum exceeded total duration: measured_sum={}, total_duration={}",
+            format_duration(measured_sum),
+            format_duration(result.duration),
+        );
+    }
+    let other_duration = result.duration.saturating_sub(measured_sum);
+    let pct = |duration: Duration| -> f64 {
+        if result.duration.is_zero() {
+            0.0
+        } else {
+            (duration.as_nanos() as f64 / result.duration.as_nanos() as f64) * 100.0
+        }
+    };
+
+    let mut summary_bar_segments = String::new();
+    let mut expanded_bar_segments = String::new();
+    for (class_name, segment_pct) in [
+        ("seg-bloom", pct(update_bloom)),
+        ("seg-share-check", pct(check_share)),
+        ("seg-query", pct(query_selector_map)),
+        ("seg-fast", pct(fast_reject)),
+        ("seg-slow", pct(slow_reject)),
+        ("seg-slow-accept", pct(slow_accept)),
+        ("seg-share-insert", pct(insert_share_cache)),
+        ("seg-other", pct(other_duration)),
+    ] {
+        if segment_pct <= 0.0 {
+            continue;
+        }
+        summary_bar_segments.push_str(&format!(
+            r#"<div class="bar-seg {class_name}" style="width: {segment_pct:.2}%"></div>"#,
+            class_name = class_name,
+            segment_pct = segment_pct,
+        ));
+        expanded_bar_segments.push_str(&format!(
+            r#"<div class="expanded-bar-seg {class_name}" style="width: {segment_pct:.2}%"></div>"#,
+            class_name = class_name,
+            segment_pct = segment_pct,
+        ));
+    }
+
+    let legend_item = |class_name: &str, name: &str, duration: Duration| -> String {
+        format!(
+            r#"<span><i class="swatch {class_name}"></i>{name}: {duration}</span>"#,
+            class_name = class_name,
+            name = name,
+            duration = format_duration(duration),
+        )
+    };
+    let mut expanded_legend = String::new();
+    for (class_name, name, duration) in [
+        ("seg-bloom", "Updating Bloom Filter", update_bloom),
+        ("seg-share-check", "Checking Style Sharing", check_share),
+        ("seg-query", "Querying Selector Map", query_selector_map),
+        ("seg-fast", "Fast Rejecting", fast_reject),
+        ("seg-slow", "Slow Rejecting", slow_reject),
+        ("seg-slow-accept", "Slow Accepting", slow_accept),
+        ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache),
+        ("seg-other", "Other", other_duration),
+    ] {
+        expanded_legend.push_str(&legend_item(class_name, name, duration));
+    }
+
+    (summary_bar_segments, expanded_bar_segments, expanded_legend)
 }
 
 fn format_usize(value: usize) -> String {
