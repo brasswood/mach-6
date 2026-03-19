@@ -76,6 +76,7 @@ use crate::structs::{
 pub enum Algorithm {
     Naive,
     WithStyleSharing,
+    WithPreprocessing,
     Mach7,
 }
 
@@ -125,6 +126,26 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
         Algorithm::WithStyleSharing => {
             let selector_map = build_selector_map(&website.selectors);
             match_selectors_with_style_sharing(&website.document, &selector_map, None)
+        },
+        Algorithm::WithPreprocessing => {
+            let preprocessed_selectors = convert_to_is_selectors(&website.document, &website.selectors);
+            let reverse = |preprocessed_selector: &Selector| -> &Selector {
+                let found_idx = preprocessed_selectors
+                    .iter()
+                    .position(|item| item == preprocessed_selector)
+                    .unwrap();
+                &website.selectors[found_idx]
+            };
+            let selector_map = build_selector_map(&preprocessed_selectors);
+            let mut result = match_selectors_with_style_sharing(&website.document, &selector_map, None);
+            for oem in result.0.0.iter_mut() {
+                if let OwnedSelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
+                    for selector in selectors.iter_mut() {
+                        *selector = reverse(selector).clone();
+                    }
+                }
+            }
+            result
         }
         Algorithm::Mach7 => {
             let document_matches = match_selectors(&website.document, &website.selectors);
@@ -132,7 +153,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
                 OwnedDocumentMatches::from(mach_7(&document_matches)),
                 Statistics::default()
             )
-        }
+        },
     };
     (website.name.clone(), matches.into(), stats)
 }
