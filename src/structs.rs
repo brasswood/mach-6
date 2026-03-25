@@ -4,15 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use scraper::ElementRef;
-use std::fmt::Write as _;
+use serde::Serialize;
 use std::hash::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher as _;
 
 use crate::element_to_string;
 
-#[derive(Debug, Clone, Eq, Ord)]
+#[derive(Debug, Clone, Eq, Ord, Serialize)]
 pub struct Element {
     pub id: u64,
     pub html: String,
@@ -135,10 +134,8 @@ pub mod set {
 
     use super::Element;
     use super::owned::{OwnedDocumentMatches, OwnedElementMatches, OwnedSelectorsOrSharedStyles};
-    use super::ser::SerDocumentMatches;
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-    #[serde(into = "SerDocumentMatches")]
     pub struct SetDocumentMatches(pub HashMap<u64, SetElementMatches>);
 
     impl From<OwnedDocumentMatches> for SetDocumentMatches {
@@ -161,7 +158,7 @@ pub mod set {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     pub struct SetElementMatches {
         pub element: Element,
         pub selectors: SetSelectorsOrSharedStyles,
@@ -176,7 +173,7 @@ pub mod set {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     pub enum SetSelectorsOrSharedStyles {
         Selectors(HashSet<String>),
         SharedWithElement(u64),

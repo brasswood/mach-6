@@ -48,15 +48,18 @@ fn does_all_websites() -> Result<()> {
 fn compare_with_naive(input: &ParsedWebsite, algorithm: Algorithm, equality_failures_alg_path: &Path) -> Result<bool> {
     let (name1, matches1, _stats) = mach_6::do_website(input, Algorithm::Naive);
     let (name2, matches2, _stats) = mach_6::do_website(input, algorithm);
-    let website1 = (name1, SerDocumentMatches::from(matches1));
-    let website2 = (name2, SerDocumentMatches::from(matches2));
+    let website1 = (name1, SerDocumentMatches::from(matches1.clone()), matches1);
+    let website2 = (name2, SerDocumentMatches::from(matches2.clone()), matches2);
     if website1 != website2 {
         for (algorithm, website) in [(Algorithm::Naive, website1), (algorithm, website2)] {
             let website_folder = equality_failures_alg_path.join(&website.0);
             std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
             let yaml_path = website_folder.join(format!("{web}.{alg}.yaml", web=website.0, alg=algorithm));
+            let debug_yaml_path = website_folder.join(format!("{web}.{alg}.debug.yaml", web=website.0, alg=algorithm));
             let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
+            let f_debug = std::fs::File::create(&debug_yaml_path).into_result(Some(debug_yaml_path))?;
             serde_yml::to_writer(f, &website.1).unwrap(); // TODO: make a mach_6::Result and propagate instead of unwrapping
+            serde_yml::to_writer(f_debug, &website.2).unwrap();
         }
         Ok(false)
     } else {
