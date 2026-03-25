@@ -11,6 +11,12 @@ use std::hash::Hasher as _;
 
 use crate::element_to_string;
 
+pub fn element_id(value: scraper::ElementRef<'_>) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.id().hash(&mut hasher);
+    hasher.finish()
+}
+
 #[derive(Debug, Clone, Eq, Ord, Serialize)]
 pub struct Element {
     pub id: u64,
@@ -21,11 +27,8 @@ pub type Selector = selectors::parser::Selector<style::selector_parser::Selector
 
 impl From<scraper::ElementRef<'_>> for Element {
     fn from(value: scraper::ElementRef) -> Self {
-        let mut hasher = DefaultHasher::new();
-        value.id().hash(&mut hasher);
-        let id = hasher.finish();
         Self{
-            id,
+            id: element_id(value),
             html: element_to_string(value),
         }
     }

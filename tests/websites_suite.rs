@@ -5,10 +5,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
-use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::ser::SerDocumentMatches};
+use html5ever::{LocalName, QualName, ns};
+use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{element_id, ser::SerDocumentMatches}};
 use insta;
 use rayon::prelude::*;
+use scraper::{ElementRef, Html, Node};
 use selectors::matching::TimingStats;
+use style::Atom;
 use test_log::test;
 
 fn website_paths_for_tests() -> Result<Vec<Result<PathBuf>>> {
@@ -45,15 +48,37 @@ fn does_all_websites() -> Result<()> {
     Ok(())
 }
 
+fn annotated_html(document: &Html) -> String {
+    let mut debug_document = Html::parse_document(&document.html());
+    let attr_name = QualName::new(None, ns!(), LocalName::from("data-mach6-id"));
+    let element_ids: Vec<_> = debug_document
+        .tree
+        .nodes()
+        .filter_map(ElementRef::wrap)
+        .map(|element| (element.id(), element_id(element)))
+        .collect();
+    for (node_id, id) in element_ids {
+        let mut node = debug_document.tree.get_mut(node_id).expect("node should still exist");
+        let Node::Element(element) = node.value() else {
+            continue;
+        };
+        element.attrs.push((attr_name.clone(), Atom::from(id.to_string())));
+    }
+    debug_document.html()
+}
+
 fn compare_with_naive(input: &ParsedWebsite, algorithm: Algorithm, equality_failures_alg_path: &Path) -> Result<bool> {
     let (name1, matches1, _stats) = mach_6::do_website(input, Algorithm::Naive);
     let (name2, matches2, _stats) = mach_6::do_website(input, algorithm);
     let website1 = (name1, SerDocumentMatches::from(matches1.clone()), matches1);
     let website2 = (name2, SerDocumentMatches::from(matches2.clone()), matches2);
     if website1 != website2 {
+        let website_folder = equality_failures_alg_path.join(&website1.0);
+        std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
+        let annotated_html_path = website_folder.join(format!("{web}.debug.html", web=website1.0));
+        std::fs::write(&annotated_html_path, annotated_html(&input.document))
+            .into_result(Some(annotated_html_path))?;
         for (algorithm, website) in [(Algorithm::Naive, website1), (algorithm, website2)] {
-            let website_folder = equality_failures_alg_path.join(&website.0);
-            std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
             let yaml_path = website_folder.join(format!("{web}.{alg}.yaml", web=website.0, alg=algorithm));
             let debug_yaml_path = website_folder.join(format!("{web}.{alg}.debug.yaml", web=website.0, alg=algorithm));
             let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
