@@ -7,14 +7,23 @@
 use crate::Selector;
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
+use scraper::Html;
 use selectors::parser::{Component, RelativeSelector};
 use selectors::visitor::SelectorVisitor;
 use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::io;
 use std::path::{Path, PathBuf};
-use scraper::Html;
+use std::sync::OnceLock;
 use serde::Serialize;
+use style::context::QuirksMode;
+use style::media_queries::MediaList;
+use style::servo_arc::Arc;
+use style::shared_lock::{SharedRwLock, SharedRwLockReadGuard};
+use style::stylesheets::{
+    AllowImportRules, CssRule, DocumentStyleSheet, Origin, Stylesheet,
+    StylesheetInDocument, UrlExtraData,
+};
 
 mod cssparser;
 
@@ -26,7 +35,26 @@ pub fn websites_path() -> PathBuf {
 pub struct ParsedWebsite {
     pub name: String,
     pub document: Html,
-    pub selectors: Vec<Selector>,
+    pub stylesheet_lock: SharedRwLock,
+    pub stylesheets: Vec<DocumentStyleSheet>,
+    selectors: OnceLock<Vec<Selector>>,
+}
+
+impl ParsedWebsite {
+    pub fn selectors(&self) -> &[Selector] {
+        self.selectors.get_or_init(|| {
+            let guard = self.stylesheet_lock.read();
+            let mut selectors = Vec::new();
+            for stylesheet in &self.stylesheets {
+                collect_selectors_from_rules(
+                    stylesheet.contents(&guard).rules(&guard).iter(),
+                    &guard,
+                    &mut selectors,
+                );
+            }
+            selectors
+        })
+    }
 }
 
 pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<ParsedWebsite>> + use<>> {
@@ -55,30 +83,34 @@ pub fn get_document_and_selectors(
         },
         Err(e) => return Err(e),
     };
+    let stylesheet_lock = SharedRwLock::new();
     let style_tag_selector = scraper::Selector::parse("style").unwrap();
     let style_tags = document.select(&style_tag_selector);
-    let selectors_from_style_tags = style_tags.filter_map(|elt| {
-        match parse_stylesheet(&elt.inner_html()) {
+    let stylesheets_from_style_tags = style_tags.filter_map(|elt| {
+        match parse_stylesheet(
+            &elt.inner_html(),
+            UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+            &stylesheet_lock,
+        ) {
             Ok(v) => Some(v),
             Err(e) => {
                 warn!("error parsing a style tag from website {}: {}. Skipping.", website_path.display(), e);
                 None
             }
         }
-    }).flatten();
-    let stylesheets: Vec<CssFile> = get_stylesheet_paths(&document);
-    let selectors_from_stylesheets = stylesheets.into_iter()
+    });
+    let stylesheet_paths: Vec<CssFile> = get_stylesheet_paths(&document);
+    let stylesheets_from_files = stylesheet_paths.into_iter()
         .filter_map(|f| {
-            match parse_css_file(&website_path, &f) {
+            match parse_css_file(&website_path, &f, &stylesheet_lock) {
                 Ok(v) => Some(v),
                 Err(e) => {
                     warn!("error parsing CSS file {}: {}. Skipping.", f.0.display(), e);
                     None
                 },
             }
-        })
-        .flatten();
-    let selectors = selectors_from_style_tags.chain(selectors_from_stylesheets).collect();
+        });
+    let stylesheets = stylesheets_from_style_tags.chain(stylesheets_from_files).collect();
     let website_name = website_path
         .file_name()
         .and_then(OsStr::to_str)
@@ -87,7 +119,9 @@ pub fn get_document_and_selectors(
     Ok(Some(ParsedWebsite {
         name: website_name,
         document,
-        selectors,
+        stylesheet_lock,
+        stylesheets,
+        selectors: OnceLock::new(),
     }))
 }
 
@@ -149,22 +183,81 @@ fn get_stylesheet_paths(document: &Html) -> Vec<CssFile> {
 }
 
 // TODO: returning iterator from these would probably be ideal.
-fn parse_css_file(base: &Path, CssFile(stylesheet_path): &CssFile) -> Result<Vec<Selector>> {
+fn parse_css_file(
+    base: &Path,
+    CssFile(stylesheet_path): &CssFile,
+    shared_lock: &SharedRwLock,
+) -> Result<DocumentStyleSheet> {
     let full_path = base.join(stylesheet_path);
     let css = fs::read_to_string(&full_path).into_result(Some(full_path))?;
-    parse_stylesheet(&css)
+    let url = url::Url::from_file_path(base.join(stylesheet_path))
+        .unwrap_or_else(|_| url::Url::parse("about:blank").unwrap());
+    parse_stylesheet(&css, UrlExtraData::from(url), shared_lock)
 }
 
-fn parse_stylesheet(css: &str) -> Result<Vec<Selector>> {
-    let res = cssparser::get_all_selectors(&css)
-        .into_iter()
-        .filter_map(|r| {
-            r.ok().flatten().map(|sel_list| sel_list.selectors.slice().iter().cloned().collect::<Vec<_>>().into_iter())
-        })
-        .flatten()
-        .filter(|selector| !selector_has_pseudo_class(selector))
-        .collect();
-    Ok(res)
+fn parse_stylesheet(
+    css: &str,
+    url_data: UrlExtraData,
+    shared_lock: &SharedRwLock,
+) -> Result<DocumentStyleSheet> {
+    let media = Arc::new(shared_lock.wrap(MediaList::empty()));
+    Ok(DocumentStyleSheet(Arc::new(Stylesheet::from_str(
+        css,
+        url_data,
+        Origin::Author,
+        media,
+        shared_lock.clone(),
+        None,
+        None,
+        QuirksMode::NoQuirks,
+        AllowImportRules::No,
+    ))))
+}
+
+fn collect_selectors_from_rules<'a>(
+    rules: impl IntoIterator<Item = &'a CssRule>,
+    guard: &SharedRwLockReadGuard<'_>,
+    out: &mut Vec<Selector>,
+) {
+    for rule in rules {
+        match rule {
+            CssRule::Style(rule) => {
+                let rule = rule.read_with(guard);
+                out.extend(
+                    rule.selectors
+                        .slice()
+                        .iter()
+                        .filter(|selector| !selector_has_pseudo_class(selector))
+                        .cloned()
+                );
+                if let Some(nested_rules) = &rule.rules {
+                    collect_selectors_from_rules(nested_rules.read_with(guard).0.iter(), guard, out);
+                }
+            }
+            CssRule::Media(rule) => {
+                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
+            }
+            CssRule::Supports(rule) => {
+                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
+            }
+            CssRule::Container(rule) => {
+                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
+            }
+            CssRule::Document(rule) => {
+                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
+            }
+            CssRule::LayerBlock(rule) => {
+                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
+            }
+            CssRule::Scope(rule) => {
+                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
+            }
+            CssRule::StartingStyle(rule) => {
+                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
+            }
+            _ => (),
+        }
+    }
 }
 
 fn selector_has_pseudo_class(selector: &Selector) -> bool {

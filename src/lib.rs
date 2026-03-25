@@ -117,24 +117,24 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
 pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, SetDocumentMatches, Statistics){
     let (matches, stats) = match algorithm {
         Algorithm::Naive => (
-            OwnedDocumentMatches::from(match_selectors(&website.document, &website.selectors)),
+            OwnedDocumentMatches::from(match_selectors(&website.document, website.selectors())),
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
-            let selector_map = build_selector_map(&website.selectors);
-            match_selectors_with_style_sharing(&website.document, &selector_map, None)
+            let selector_map = build_selector_map(website.selectors());
+            match_selectors_with_style_sharing(website, &selector_map, None)
         },
         Algorithm::WithPreprocessing => {
-            let preprocessed_selectors = convert_to_is_selectors(&website.document, &website.selectors);
+            let preprocessed_selectors = convert_to_is_selectors(&website.document, website.selectors());
             let reverse = |preprocessed_selector: &Selector| -> &Selector {
                 let found_idx = preprocessed_selectors
                     .iter()
                     .position(|item| item == preprocessed_selector)
                     .unwrap();
-                &website.selectors[found_idx]
+                &website.selectors()[found_idx]
             };
             let selector_map = build_selector_map(&preprocessed_selectors);
-            let mut result = match_selectors_with_style_sharing(&website.document, &selector_map, None);
+            let mut result = match_selectors_with_style_sharing(website, &selector_map, None);
             for oem in result.0.0.iter_mut() {
                 if let OwnedSelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
                     for selector in selectors.iter_mut() {
@@ -145,7 +145,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
             result
         }
         Algorithm::Mach7 => {
-            let document_matches = match_selectors(&website.document, &website.selectors);
+            let document_matches = match_selectors(&website.document, website.selectors());
             (
                 OwnedDocumentMatches::from(mach_7(&document_matches)),
                 Statistics::default()
@@ -343,7 +343,7 @@ pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<S
 }
 
 pub fn match_selectors_with_style_sharing(
-    document: &Html,
+    website: &ParsedWebsite,
     selector_map: &SelectorMap<Rule>,
     selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
 ) -> (OwnedDocumentMatches, Statistics) {
@@ -476,9 +476,17 @@ pub fn match_selectors_with_style_sharing(
         }
     }
     // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
-    let stylist = Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
-    let author_lock = SharedRwLock::new();
+    let mut stylist = Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
+    let author_guard = website.stylesheet_lock.read();
+    for sheet in &website.stylesheets {
+        stylist.append_stylesheet(sheet.clone(), &author_guard);
+    }
     let ua_or_user_lock = SharedRwLock::new();
+    let ua_or_user_guard = ua_or_user_lock.read();
+    stylist.flush_without_invalidation(&StylesheetGuards {
+        author: &author_guard,
+        ua_or_user: &ua_or_user_guard,
+    });
     let shared_style_context = SharedStyleContext {
         stylist: &stylist,
         visited_styles_enabled: true,
@@ -488,8 +496,8 @@ pub fn match_selectors_with_style_sharing(
             style_statistics_threshold: 0, // TODO: maybe change this later
         },
         guards: StylesheetGuards {
-            author: &author_lock.read(),
-            ua_or_user: &ua_or_user_lock.read()
+            author: &author_guard,
+            ua_or_user: &ua_or_user_guard
         },
         current_time_for_animations: 0.0,
         traversal_flags: TraversalFlags::empty(),
@@ -507,7 +515,7 @@ pub fn match_selectors_with_style_sharing(
     let mut result = Vec::new();
     let mut stats = Statistics::default();
 
-    let root = document.root_element();
+    let root = website.document.root_element();
     preorder_traversal(
         root,
         0,
@@ -594,10 +602,10 @@ mod tests {
     #[test]
     // looks like bad grammar, but this tests that the conversion to "is()" selectors works
     fn is_conversion_works() -> Result<()> {
-        let ParsedWebsite { document, selectors, .. } = get_document_and_selectors(
+        let website = get_document_and_selectors(
             &websites_path().join("is_conversion_test")
         )?.unwrap();
-        let converted: Vec<_> = convert_to_is_selectors(&document, &selectors)
+        let converted: Vec<_> = convert_to_is_selectors(&website.document, website.selectors())
             .iter()
             .map(Selector::to_css_string)
             .collect();
