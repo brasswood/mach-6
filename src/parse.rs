@@ -8,8 +8,6 @@ use crate::Selector;
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
 use scraper::Html;
-use selectors::parser::{Component, RelativeSelector};
-use selectors::visitor::SelectorVisitor;
 use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::io;
@@ -19,7 +17,8 @@ use serde::Serialize;
 use style::context::QuirksMode;
 use style::media_queries::MediaList;
 use style::servo_arc::Arc;
-use style::shared_lock::{SharedRwLock, SharedRwLockReadGuard};
+use style::shared_lock::{SharedRwLock, SharedRwLockReadGuard, StylesheetGuards};
+use style::stylist::Stylist;
 use style::stylesheets::{
     AllowImportRules, CssRule, DocumentStyleSheet, Origin, Stylesheet,
     StylesheetInDocument, UrlExtraData,
@@ -31,16 +30,36 @@ pub fn websites_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites")
 }
 
-#[derive(Debug)]
 pub struct ParsedWebsite {
     pub name: String,
     pub document: Html,
     pub stylesheet_lock: SharedRwLock,
     pub stylesheets: Vec<DocumentStyleSheet>,
+    stylist: OnceLock<Stylist>,
     selectors: OnceLock<Vec<Selector>>,
 }
 
 impl ParsedWebsite {
+    pub fn stylist(&self) -> &Stylist {
+        self.stylist.get_or_init(|| {
+            let mut stylist = Stylist::new(
+                crate::stylo_interface::mock_device(),
+                selectors::matching::QuirksMode::NoQuirks,
+            );
+            let author_guard = self.stylesheet_lock.read();
+            for sheet in &self.stylesheets {
+                stylist.append_stylesheet(sheet.clone(), &author_guard);
+            }
+            let ua_or_user_lock = SharedRwLock::new();
+            let ua_or_user_guard = ua_or_user_lock.read();
+            stylist.flush_without_invalidation(&StylesheetGuards {
+                author: &author_guard,
+                ua_or_user: &ua_or_user_guard,
+            });
+            stylist
+        })
+    }
+
     pub fn selectors(&self) -> &[Selector] {
         self.selectors.get_or_init(|| {
             let guard = self.stylesheet_lock.read();
@@ -121,6 +140,7 @@ pub fn get_document_and_selectors(
         document,
         stylesheet_lock,
         stylesheets,
+        stylist: OnceLock::new(),
         selectors: OnceLock::new(),
     }))
 }
@@ -227,7 +247,6 @@ fn collect_selectors_from_rules<'a>(
                     rule.selectors
                         .slice()
                         .iter()
-                        .filter(|selector| !selector_has_pseudo_class(selector))
                         .cloned()
                 );
                 if let Some(nested_rules) = &rule.rules {
@@ -258,56 +277,6 @@ fn collect_selectors_from_rules<'a>(
             _ => (),
         }
     }
-}
-
-fn selector_has_pseudo_class(selector: &Selector) -> bool {
-    struct Visitor {
-        found: bool,
-    }
-
-    impl SelectorVisitor for Visitor {
-        type Impl = style::selector_parser::SelectorImpl;
-
-        fn visit_simple_selector(&mut self, component: &Component<Self::Impl>) -> bool {
-            use Component::*;
-            if matches!(
-                component,
-                Negation(..)
-                    | Root
-                    | Empty
-                    | Scope
-                    | ImplicitScope
-                    | ParentSelector
-                    | Nth(..)
-                    | NthOf(..)
-                    | NonTSPseudoClass(..)
-                    | Host(..)
-                    | Where(..)
-                    | Is(..)
-                    | Has(..)
-            ) {
-                self.found = true;
-                return false;
-            }
-            true
-        }
-
-        fn visit_relative_selector_list(
-            &mut self,
-            list: &[RelativeSelector<Self::Impl>],
-        ) -> bool {
-            for relative in list {
-                if !relative.selector.visit(self) {
-                    return false;
-                }
-            }
-            true
-        }
-    }
-
-    let mut visitor = Visitor { found: false };
-    selector.visit(&mut visitor);
-    visitor.found
 }
 
 #[cfg(test)]

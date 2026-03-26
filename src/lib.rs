@@ -20,11 +20,9 @@ use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
 #[cfg(feature = "debug_element")]
 use style::selector_map::debug_element_selector;
-use style::selector_parser::SelectorParser;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
 use style::sharing::StyleSharingElement as _;
-use style::stylesheets::UrlExtraData;
 use style::traversal_flags::TraversalFlags;
 use style::values::AtomIdent;
 use style::values::AtomString;
@@ -44,8 +42,8 @@ use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
-use style::stylist::Stylist;
 use style::sharing::StyleSharingTarget;
+use style::stylesheets::Origin;
 use style::thread_state::{self, ThreadState};
 use smallvec::SmallVec;
 
@@ -121,8 +119,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
-            let selector_map = build_selector_map(website.selectors());
-            match_selectors_with_style_sharing(website, &selector_map, None)
+            match_selectors_with_style_sharing(website, None, None)
         },
         Algorithm::WithPreprocessing => {
             let preprocessed_selectors = convert_to_is_selectors(&website.document, website.selectors());
@@ -134,7 +131,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
                 &website.selectors()[found_idx]
             };
             let selector_map = build_selector_map(&preprocessed_selectors);
-            let mut result = match_selectors_with_style_sharing(website, &selector_map, None);
+            let mut result = match_selectors_with_style_sharing(website, Some(&selector_map), None);
             for oem in result.0.0.iter_mut() {
                 if let OwnedSelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
                     for selector in selectors.iter_mut() {
@@ -344,7 +341,7 @@ pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<S
 
 pub fn match_selectors_with_style_sharing(
     website: &ParsedWebsite,
-    selector_map: &SelectorMap<Rule>,
+    selector_map_override: Option<&SelectorMap<Rule>>,
     selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
 ) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
@@ -354,7 +351,7 @@ pub fn match_selectors_with_style_sharing(
         matches: &mut Vec<OwnedElementMatches>,
         mut selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
         selector_map: &SelectorMap<Rule>,
-        caches: &mut SelectorCaches,
+        cascade_data: &CascadeData,
         stats: &mut Statistics,
     ) {
         // 0. debug element if applicable
@@ -413,7 +410,7 @@ pub fn match_selectors_with_style_sharing(
                 let mut matching_context = matching::MatchingContext::new(
                     matching::MatchingMode::Normal,
                     Some(context.thread_local.bloom_filter.filter()),
-                    caches,
+                    &mut context.thread_local.selector_caches,
                     matching::QuirksMode::NoQuirks,
                     matching::NeedsSelectorFlags::No,
                     matching::MatchingForInvalidation::No,
@@ -428,8 +425,8 @@ pub fn match_selectors_with_style_sharing(
                     Some(&mut matched_selectors),
                     sel_stats.as_mut(),
                     &mut matching_context,
-                    CascadeLevel::UANormal, // TODO: ??????
-                    &CascadeData::new(),
+                    CascadeLevel::same_tree_author_normal(),
+                    cascade_data,
                     context.shared.stylist,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
@@ -470,23 +467,29 @@ pub fn match_selectors_with_style_sharing(
                 matches,
                 selector_stats.as_deref_mut(),
                 selector_map,
-                caches,
+                cascade_data,
                 stats
             );
         }
     }
-    // TODO: I probably want to put the creation of the Stylist outside of the benchmark, but I don't see a very easy way to do that at the moment. Will need to do pinning and a self-referential struct and all that, or a macro.
-    let mut stylist = Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
+    let stylist = website.stylist();
     let author_guard = website.stylesheet_lock.read();
-    for sheet in &website.stylesheets {
-        stylist.append_stylesheet(sheet.clone(), &author_guard);
-    }
     let ua_or_user_lock = SharedRwLock::new();
     let ua_or_user_guard = ua_or_user_lock.read();
-    stylist.flush_without_invalidation(&StylesheetGuards {
-        author: &author_guard,
-        ua_or_user: &ua_or_user_guard,
-    });
+    let empty_selector_map;
+    let empty_cascade_data;
+    let cascade_data = if selector_map_override.is_some() {
+        empty_cascade_data = CascadeData::new();
+        &empty_cascade_data
+    } else {
+        stylist.cascade_data().borrow_for_origin(Origin::Author)
+    };
+    let selector_map = if let Some(selector_map) = selector_map_override {
+        selector_map
+    } else {
+        empty_selector_map = SelectorMap::new();
+        cascade_data.normal_rules(&[]).unwrap_or(&empty_selector_map)
+    };
     let shared_style_context = SharedStyleContext {
         stylist: &stylist,
         visited_styles_enabled: true,
@@ -511,7 +514,6 @@ pub fn match_selectors_with_style_sharing(
         shared: &shared_style_context,
         thread_local: &mut ThreadLocalStyleContext::new(),
     };
-    let mut caches = SelectorCaches::default();
     let mut result = Vec::new();
     let mut stats = Statistics::default();
 
@@ -523,7 +525,7 @@ pub fn match_selectors_with_style_sharing(
         &mut result,
         selector_stats,
         selector_map,
-        &mut caches,
+        cascade_data,
         &mut stats
     );
     (OwnedDocumentMatches(result), stats)
@@ -569,7 +571,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
 #[cfg(test)]
 mod tests {
     use crate::result::Result;
-    use crate::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
+    use crate::parse::{get_document_and_selectors, websites_path};
     use crate::structs::Selector;
     use crate::{convert_to_is_selectors, do_website};
     use crate::Algorithm;
