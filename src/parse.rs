@@ -5,9 +5,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use crate::Selector;
+use ::cssparser::ToCss as _;
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
 use scraper::Html;
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::io;
@@ -17,11 +19,12 @@ use serde::Serialize;
 use style::context::QuirksMode;
 use style::media_queries::MediaList;
 use style::servo_arc::Arc;
-use style::shared_lock::{SharedRwLock, SharedRwLockReadGuard, StylesheetGuards};
+use style::shared_lock::{SharedRwLock, StylesheetGuards};
+use style::selector_map::SelectorMap;
 use style::stylist::Stylist;
+use style::stylist::Rule;
 use style::stylesheets::{
-    AllowImportRules, CssRule, DocumentStyleSheet, Origin, Stylesheet,
-    StylesheetInDocument, UrlExtraData,
+    AllowImportRules, DocumentStyleSheet, Origin, Stylesheet, UrlExtraData,
 };
 
 mod cssparser;
@@ -62,16 +65,12 @@ impl ParsedWebsite {
 
     pub fn selectors(&self) -> &[Selector] {
         self.selectors.get_or_init(|| {
-            let guard = self.stylesheet_lock.read();
-            let mut selectors = Vec::new();
-            for stylesheet in &self.stylesheets {
-                collect_selectors_from_rules(
-                    stylesheet.contents(&guard).rules(&guard).iter(),
-                    &guard,
-                    &mut selectors,
-                );
+            let mut selectors = BTreeMap::new();
+            let cascade_data = self.stylist().cascade_data().borrow_for_origin(Origin::Author);
+            if let Some(map) = cascade_data.normal_rules(&[]) {
+                collect_selectors_from_map(map, &mut selectors);
             }
-            selectors
+            selectors.into_values().collect()
         })
     }
 }
@@ -234,47 +233,47 @@ fn parse_stylesheet(
     ))))
 }
 
-fn collect_selectors_from_rules<'a>(
-    rules: impl IntoIterator<Item = &'a CssRule>,
-    guard: &SharedRwLockReadGuard<'_>,
-    out: &mut Vec<Selector>,
+fn collect_selectors_from_map(
+    map: &SelectorMap<Rule>,
+    out: &mut BTreeMap<(u32, String), Selector>,
 ) {
-    for rule in rules {
-        match rule {
-            CssRule::Style(rule) => {
-                let rule = rule.read_with(guard);
-                out.extend(
-                    rule.selectors
-                        .slice()
-                        .iter()
-                        .cloned()
-                );
-                if let Some(nested_rules) = &rule.rules {
-                    collect_selectors_from_rules(nested_rules.read_with(guard).0.iter(), guard, out);
-                }
-            }
-            CssRule::Media(rule) => {
-                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
-            }
-            CssRule::Supports(rule) => {
-                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
-            }
-            CssRule::Container(rule) => {
-                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
-            }
-            CssRule::Document(rule) => {
-                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
-            }
-            CssRule::LayerBlock(rule) => {
-                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
-            }
-            CssRule::Scope(rule) => {
-                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
-            }
-            CssRule::StartingStyle(rule) => {
-                collect_selectors_from_rules(rule.rules.read_with(guard).0.iter(), guard, out);
-            }
-            _ => (),
+    let mut push_rule = |rule: &Rule| {
+        out.entry((rule.source_order, rule.selector.to_css_string()))
+            .or_insert_with(|| rule.selector.clone());
+    };
+
+    for rule in &map.root {
+        push_rule(rule);
+    }
+    for rule in &map.rare_pseudo_classes {
+        push_rule(rule);
+    }
+    for rule in &map.other {
+        push_rule(rule);
+    }
+    for (_, bucket) in map.id_hash.iter() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for (_, bucket) in map.class_hash.iter() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for bucket in map.attribute_hash.values() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for bucket in map.local_name_hash.values() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for bucket in map.namespace_hash.values() {
+        for rule in bucket {
+            push_rule(rule);
         }
     }
 }
