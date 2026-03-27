@@ -138,7 +138,7 @@ pub mod set {
     use super::Element;
     use super::owned::{OwnedDocumentMatches, OwnedElementMatches, OwnedSelectorsOrSharedStyles};
 
-    #[derive(Clone, Debug, Serialize)]
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     pub struct SetDocumentMatches(pub HashMap<u64, SetElementMatches>);
 
     impl From<OwnedDocumentMatches> for SetDocumentMatches {
@@ -160,23 +160,6 @@ pub mod set {
             }
         }
     }
-
-    impl PartialEq for SetDocumentMatches {
-        fn eq(&self, other: &Self) -> bool {
-            if self.0.len() != other.0.len() {
-                return false;
-            }
-            self.0.iter().all(|(id, left)| {
-                let Some(right) = other.0.get(id) else {
-                    return false;
-                };
-                left.element == right.element &&
-                    self.find_selectors(*id) == other.find_selectors(*id)
-            })
-        }
-    }
-
-    impl Eq for SetDocumentMatches {}
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     pub struct SetElementMatches {
