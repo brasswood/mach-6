@@ -72,7 +72,7 @@ fn compare_with_naive(input: &ParsedWebsite, algorithm: Algorithm, equality_fail
     let (name2, matches2, _stats) = mach_6::do_website(input, algorithm);
     let website1 = (name1, SerDocumentMatches::from(matches1.clone()), matches1);
     let website2 = (name2, SerDocumentMatches::from(matches2.clone()), matches2);
-    if website1 != website2 {
+    if website1.1 != website2.1 {
         let website_folder = equality_failures_alg_path.join(&website1.0);
         std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
         let annotated_html_path = website_folder.join(format!("{web}.debug.html", web=website1.0));
