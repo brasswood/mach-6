@@ -214,7 +214,7 @@ fn parse_css_file(
     parse_stylesheet(&css, UrlExtraData::from(url), shared_lock)
 }
 
-fn parse_stylesheet(
+pub(crate) fn parse_stylesheet(
     css: &str,
     url_data: UrlExtraData,
     shared_lock: &SharedRwLock,

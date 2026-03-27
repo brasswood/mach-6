@@ -17,15 +17,14 @@ use selectors::parser::Component;
 use selectors::SelectorList;
 use style::animation::DocumentAnimationSet;
 use style::context::SharedStyleContext;
-use style::context::QuirksMode;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
 #[cfg(feature = "debug_element")]
 use style::selector_map::debug_element_selector;
 use style::selector_parser::SnapshotMap;
-use style::shared_lock::StylesheetGuards;
+use style::shared_lock::{SharedRwLock, StylesheetGuards};
 use style::sharing::StyleSharingElement as _;
-use style::stylesheets::{AllowImportRules, DocumentStyleSheet, Stylesheet, UrlExtraData};
+use style::stylesheets::UrlExtraData;
 use style::traversal_flags::TraversalFlags;
 use style::values::AtomIdent;
 use style::values::AtomString;
@@ -38,12 +37,10 @@ use scraper::Html;
 use selectors::context::SelectorCaches;
 use selectors::matching::{self, Statistics};
 use style::context::StyleContext;
-use style::media_queries::MediaList;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMapElement as _;
 use style::selector_map::SelectorMap;
 use style::servo_arc::Arc;
-use style::shared_lock::SharedRwLock;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
 use style::sharing::StyleSharingTarget;
@@ -355,18 +352,12 @@ fn stylist_from_selectors(selectors: &[Selector]) -> (style::stylist::Stylist, S
         .map(|selector| format!("{} {{}}", selector.to_css_string()))
         .collect::<Vec<_>>()
         .join("\n");
-    let media = Arc::new(stylesheet_lock.wrap(MediaList::empty()));
-    let stylesheet = DocumentStyleSheet(Arc::new(Stylesheet::from_str(
+    let stylesheet = parse::parse_stylesheet(
         &css,
         UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
-        style::stylesheets::Origin::Author,
-        media,
-        stylesheet_lock.clone(),
-        None,
-        None,
-        QuirksMode::NoQuirks,
-        AllowImportRules::No,
-    )));
+        &stylesheet_lock,
+    )
+    .expect("synthetic selector stylesheet should parse");
     let mut stylist = style::stylist::Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
     {
         let author_guard = stylesheet_lock.read();
