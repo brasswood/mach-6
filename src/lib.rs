@@ -5,6 +5,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use clap::ValueEnum;
+use ::cssparser::ToCss as _;
 use derive_more::Display;
 use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
@@ -16,6 +17,7 @@ use selectors::parser::Component;
 use selectors::SelectorList;
 use style::animation::DocumentAnimationSet;
 use style::context::SharedStyleContext;
+use style::context::QuirksMode;
 use style::context::StyleSystemOptions;
 use style::context::ThreadLocalStyleContext;
 #[cfg(feature = "debug_element")]
@@ -23,6 +25,7 @@ use style::selector_map::debug_element_selector;
 use style::selector_parser::SnapshotMap;
 use style::shared_lock::StylesheetGuards;
 use style::sharing::StyleSharingElement as _;
+use style::stylesheets::{AllowImportRules, DocumentStyleSheet, Stylesheet, UrlExtraData};
 use style::traversal_flags::TraversalFlags;
 use style::values::AtomIdent;
 use style::values::AtomString;
@@ -35,6 +38,7 @@ use scraper::Html;
 use selectors::context::SelectorCaches;
 use selectors::matching::{self, Statistics};
 use style::context::StyleContext;
+use style::media_queries::MediaList;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMapElement as _;
 use style::selector_map::SelectorMap;
@@ -119,7 +123,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
-            match_selectors_with_style_sharing(website, None, None)
+            match_selectors_with_style_sharing(&website.document, website.stylist(), &website.stylesheet_lock, None)
         },
         Algorithm::WithPreprocessing => {
             let preprocessed_selectors = convert_to_is_selectors(&website.document, website.selectors());
@@ -130,8 +134,13 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
                     .unwrap();
                 &website.selectors()[found_idx]
             };
-            let selector_map = build_selector_map(&preprocessed_selectors);
-            let mut result = match_selectors_with_style_sharing(website, Some(&selector_map), None);
+            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
+            let mut result = match_selectors_with_style_sharing(
+                &website.document,
+                &preprocessed_stylist,
+                &preprocessed_lock,
+                None,
+            );
             for oem in result.0.0.iter_mut() {
                 if let OwnedSelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
                     for selector in selectors.iter_mut() {
@@ -339,9 +348,43 @@ pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<S
     }).collect()
 }
 
+fn stylist_from_selectors(selectors: &[Selector]) -> (style::stylist::Stylist, SharedRwLock) {
+    let stylesheet_lock = SharedRwLock::new();
+    let css = selectors
+        .iter()
+        .map(|selector| format!("{} {{}}", selector.to_css_string()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let media = Arc::new(stylesheet_lock.wrap(MediaList::empty()));
+    let stylesheet = DocumentStyleSheet(Arc::new(Stylesheet::from_str(
+        &css,
+        UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+        style::stylesheets::Origin::Author,
+        media,
+        stylesheet_lock.clone(),
+        None,
+        None,
+        QuirksMode::NoQuirks,
+        AllowImportRules::No,
+    )));
+    let mut stylist = style::stylist::Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
+    {
+        let author_guard = stylesheet_lock.read();
+        stylist.append_stylesheet(stylesheet, &author_guard);
+        let ua_or_user_lock = SharedRwLock::new();
+        let ua_or_user_guard = ua_or_user_lock.read();
+        stylist.flush_without_invalidation(&StylesheetGuards {
+            author: &author_guard,
+            ua_or_user: &ua_or_user_guard,
+        });
+    }
+    (stylist, stylesheet_lock)
+}
+
 pub fn match_selectors_with_style_sharing(
-    website: &ParsedWebsite,
-    selector_map_override: Option<&SelectorMap<Rule>>,
+    document: &Html,
+    stylist: &style::stylist::Stylist,
+    stylesheet_lock: &SharedRwLock,
     selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
 ) -> (OwnedDocumentMatches, Statistics) {
     fn preorder_traversal<'a>(
@@ -472,26 +515,14 @@ pub fn match_selectors_with_style_sharing(
             );
         }
     }
-    let stylist = website.stylist();
-    let author_guard = website.stylesheet_lock.read();
+    let author_guard = stylesheet_lock.read();
     let ua_or_user_lock = SharedRwLock::new();
     let ua_or_user_guard = ua_or_user_lock.read();
-    let empty_selector_map;
-    let empty_cascade_data;
-    let cascade_data = if selector_map_override.is_some() {
-        empty_cascade_data = CascadeData::new();
-        &empty_cascade_data
-    } else {
-        stylist.cascade_data().borrow_for_origin(Origin::Author)
-    };
-    let selector_map = if let Some(selector_map) = selector_map_override {
-        selector_map
-    } else {
-        empty_selector_map = SelectorMap::new();
-        cascade_data.normal_rules(&[]).unwrap_or(&empty_selector_map)
-    };
+    let cascade_data = stylist.cascade_data().borrow_for_origin(Origin::Author);
+    // TODO: It's evident from this that we get one selector map per origin. How do real browsers handle all three origins (Author, User, User Agent)?
+    let selector_map = cascade_data.normal_rules(&[]).unwrap();
     let shared_style_context = SharedStyleContext {
-        stylist: &stylist,
+        stylist,
         visited_styles_enabled: true,
         options: StyleSystemOptions {
             disable_style_sharing_cache: false,
@@ -517,7 +548,7 @@ pub fn match_selectors_with_style_sharing(
     let mut result = Vec::new();
     let mut stats = Statistics::default();
 
-    let root = website.document.root_element();
+    let root = document.root_element();
     preorder_traversal(
         root,
         0,
