@@ -200,32 +200,6 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
     DocumentMatches(result)
 }
 
-pub fn build_selector_map<'a, I>(selectors: I) -> SelectorMap<Rule>
-where
-    I: IntoIterator<Item = &'a Selector>,
-{
-    let mut selector_map: SelectorMap<Rule> = SelectorMap::new();
-    let iter = selectors.into_iter()
-        .map(Clone::clone)
-        .enumerate();
-    for (i, selector) in iter {
-        use style::context::QuirksMode;
-        let hashes = selectors::parser::AncestorHashes::new(&selector, QuirksMode::NoQuirks); // needed to avoid borrow after move. TODO: look at what this does.
-        let rule = Rule {
-            selector,
-            hashes, 
-            source_order: i.try_into().unwrap(),
-            layer_id: style::stylist::LayerId::root(),
-            container_condition_id: style::stylist::ContainerConditionId::none(),
-            is_starting_style: false,
-            scope_condition_id: style::stylist::ScopeConditionId::none(),
-            style_source: style::rule_tree::StyleSource::from_declarations(Arc::new(SharedRwLock::new().wrap(Default::default()))),
-        };
-        selector_map.insert(rule, QuirksMode::NoQuirks).unwrap();
-    }
-    selector_map
-}
-
 pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<Selector> {
     // iterate through each selector in the list
     // any with a "[class*=]" or similar operator: look it up in the temp map.
@@ -345,7 +319,7 @@ pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<S
     }).collect()
 }
 
-fn stylist_from_selectors(selectors: &[Selector]) -> (style::stylist::Stylist, SharedRwLock) {
+pub fn stylist_from_selectors(selectors: &[Selector]) -> (style::stylist::Stylist, SharedRwLock) {
     let stylesheet_lock = SharedRwLock::new();
     let css = selectors
         .iter()

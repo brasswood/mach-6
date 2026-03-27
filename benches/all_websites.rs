@@ -1,11 +1,14 @@
 use log::error;
-use mach_6::{self, convert_to_is_selectors, get_all_documents_and_selectors};
+use mach_6::{self, stylist_from_selectors, convert_to_is_selectors, get_all_documents_and_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::structs::{Element, Selector};
 use num_format::{Locale, ToFormattedString};
+use scraper::Html;
 use selectors::matching::{SelectorStats, Statistics};
 use serde::Serialize;
 use smallvec::SmallVec;
+use style::shared_lock::SharedRwLock;
+use style::stylist::Stylist;
 use std::collections::HashMap;
 use std::cmp::Reverse;
 use std::fs;
@@ -111,14 +114,9 @@ fn main() {
     let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
     let websites = get_documents(website_filter.as_deref());
     let results: Vec<_> = websites.map(|w| {
-        let before_preprocessing = bench_website(&w, &format!("{} before preprocessing", w.name));
-        let preprocessed_selectors = convert_to_is_selectors(&w.document, &w.selectors);
-        let w = ParsedWebsite {
-            name: w.name,
-            document: w.document,
-            selectors: preprocessed_selectors,
-        };
-        let after_preprocessing = bench_website(&w, &format!("{} after preprocessing", w.name));
+        let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document, &w.stylist(), &w.stylesheet_lock);
+        let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&convert_to_is_selectors(&w.document, &w.selectors()));
+        let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), &w.document, &preprocessed_stylist, &preprocessed_lock);
         WebsiteResult {
             website: w.name,
             before_preprocessing,
@@ -134,16 +132,16 @@ fn main() {
     }
 }
 
-fn bench_website(website: &ParsedWebsite, benchmark_name: &str) -> BenchmarkVariantResult {
-    let selector_map = mach_6::build_selector_map(&website.selectors);
+fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> BenchmarkVariantResult {
     let mut selector_stats = SmallVec::new();
     let timed_results = bench_function(
         benchmark_name,
-        || mach_6::match_selectors_with_style_sharing(&website.document, &selector_map, None),
+        || mach_6::match_selectors_with_style_sharing(document, stylist, stylesheet_lock, None),
     );
     let _ = mach_6::match_selectors_with_style_sharing(
-        &website.document,
-        &selector_map,
+        document,
+        stylist,
+        stylesheet_lock,
         Some(&mut selector_stats),
     );
     let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
