@@ -22,8 +22,10 @@ use style::context::ThreadLocalStyleContext;
 #[cfg(feature = "debug_element")]
 use style::selector_map::debug_element_selector;
 use style::selector_parser::SnapshotMap;
+use style::shared_lock::SharedRwLockReadGuard;
 use style::shared_lock::{SharedRwLock, StylesheetGuards};
 use style::sharing::StyleSharingElement as _;
+use style::stylesheets::DocumentStyleSheet;
 use style::stylesheets::UrlExtraData;
 use style::stylist::Stylist;
 use style::traversal_flags::TraversalFlags;
@@ -334,18 +336,31 @@ pub fn stylist_from_selectors(selectors: &[Selector]) -> (Stylist, SharedRwLock)
         &stylesheet_lock,
     )
     .expect("synthetic selector stylesheet should parse");
-    let mut stylist = style::stylist::Stylist::new(stylo_interface::mock_device(), matching::QuirksMode::NoQuirks);
-    {
-        let author_guard = stylesheet_lock.read();
-        stylist.append_stylesheet(stylesheet, &author_guard);
-        let ua_or_user_lock = SharedRwLock::new();
-        let ua_or_user_guard = ua_or_user_lock.read();
-        stylist.flush_without_invalidation(&StylesheetGuards {
-            author: &author_guard,
-            ua_or_user: &ua_or_user_guard,
-        });
-    }
+    let stylist = stylist_from_stylesheets(
+        std::iter::once(&stylesheet),
+        &stylesheet_lock.read(),
+    );
     (stylist, stylesheet_lock)
+}
+
+pub fn stylist_from_stylesheets<'a>(
+    stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
+    author_guard: &SharedRwLockReadGuard
+) -> Stylist {
+    let mut stylist = Stylist::new(
+        stylo_interface::mock_device(),
+        selectors::matching::QuirksMode::NoQuirks,
+    );
+    for sheet in stylesheets {
+        stylist.append_stylesheet(sheet.clone(), &author_guard);
+    }
+    let ua_or_user_lock = SharedRwLock::new();
+    let ua_or_user_guard = ua_or_user_lock.read();
+    stylist.flush_without_invalidation(&StylesheetGuards {
+        author: &author_guard,
+        ua_or_user: &ua_or_user_guard,
+    });
+    stylist
 }
 
 pub fn selectors_from_stylist(stylist: &Stylist) -> Vec<Selector> {

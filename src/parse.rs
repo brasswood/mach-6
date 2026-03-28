@@ -4,12 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use crate::{Selector, selectors_from_stylist};
-use ::cssparser::ToCss as _;
+use crate::{Selector, selectors_from_stylist, stylist_from_stylesheets};
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
 use scraper::Html;
-use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::io;
@@ -19,15 +17,11 @@ use serde::Serialize;
 use style::context::QuirksMode;
 use style::media_queries::MediaList;
 use style::servo_arc::Arc;
-use style::shared_lock::{SharedRwLock, StylesheetGuards};
-use style::selector_map::SelectorMap;
+use style::shared_lock::SharedRwLock;
 use style::stylist::Stylist;
-use style::stylist::Rule;
 use style::stylesheets::{
-    AllowImportRules, DocumentStyleSheet, Origin, Stylesheet, UrlExtraData,
+    AllowImportRules, DocumentStyleSheet, Origin, Stylesheet, UrlExtraData
 };
-
-mod cssparser;
 
 pub fn websites_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("websites")
@@ -44,23 +38,7 @@ pub struct ParsedWebsite {
 
 impl ParsedWebsite {
     pub fn stylist(&self) -> &Stylist {
-        self.stylist.get_or_init(|| {
-            let mut stylist = Stylist::new(
-                crate::stylo_interface::mock_device(),
-                selectors::matching::QuirksMode::NoQuirks,
-            );
-            let author_guard = self.stylesheet_lock.read();
-            for sheet in &self.stylesheets {
-                stylist.append_stylesheet(sheet.clone(), &author_guard);
-            }
-            let ua_or_user_lock = SharedRwLock::new();
-            let ua_or_user_guard = ua_or_user_lock.read();
-            stylist.flush_without_invalidation(&StylesheetGuards {
-                author: &author_guard,
-                ua_or_user: &ua_or_user_guard,
-            });
-            stylist
-        })
+        self.stylist.get_or_init(|| stylist_from_stylesheets(self.stylesheets.iter(), &self.stylesheet_lock.read()))
     }
 
     pub fn selectors(&self) -> &[Selector] {
@@ -228,9 +206,12 @@ pub(crate) fn parse_stylesheet(
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Write as _;
     use std::{fs, path::PathBuf};
     use crate::result::IntoResultExt;
-    use crate::parse::{CssFile, get_main_html, get_stylesheet_paths, parse_main_html};
+    use crate::parse::{CssFile, get_main_html, get_stylesheet_paths, parse_css_file, parse_main_html};
+    use cssparser::ToCss as _;
+    use style::shared_lock::SharedRwLock;
     use test_log::test;
 
     /// In all of these tests:
@@ -319,4 +300,24 @@ mod tests {
         assert_eq!(stylesheets, expected);
         Ok(())
     }
+
+    #[test]
+    fn parses_github_rust_scraper_css() -> super::Result<()> {
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let css_path = CssFile(PathBuf::from("src/test_github_rust_scraper.css"));
+        let lock = SharedRwLock::new();
+        let stylesheet = parse_css_file(&base, &css_path, &lock)?;
+        let stylist = super::stylist_from_stylesheets(
+            std::iter::once(&stylesheet),
+            &lock.read(),
+        );
+        let selectors = super::selectors_from_stylist(&stylist);
+        let mut res = String::new();
+        for selector in selectors {
+            writeln!(&mut res, "{}", selector.to_css_string()).unwrap();
+        }
+        insta::assert_snapshot!(res);
+        Ok(())
+    }
+
 }
