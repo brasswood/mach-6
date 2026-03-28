@@ -40,7 +40,7 @@ fn does_all_websites() -> Result<()> {
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
             let (name, match_result, _stats) = mach_6::do_website(&website, Algorithm::Naive);
             insta::with_settings!({ snapshot_path => websites_path().join("snapshots")}, {
-                insta::assert_yaml_snapshot!(name, match_result);
+                insta::assert_yaml_snapshot!(name, SerDocumentMatches::from(&match_result));
             });
             Ok(())
         })
