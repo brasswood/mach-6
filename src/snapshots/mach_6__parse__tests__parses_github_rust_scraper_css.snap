@@ -1,0 +1,1394 @@
+---
+source: src/parse.rs
+expression: res
+---
+.min-height-full
+.hanging-icon-list
+.hanging-icon-list li
+.hanging-icon-list .octicon
+.hanging-icon-list .octicon-check
+.hanging-icon-list .octicon-x
+.integrations-install-target .select-menu
+.integrations-install-target input[type="radio"]
+.integrations-install-target .flash
+.integrations-install-target .flash-error
+.integrations-install-target .octicon-lock
+.integrations-install-target .octicon-repo
+.integrations-install-target .octicon-repo-forked
+.integrations-install-target .octicon-lock
+.integrations-install-target .private
+.integrations-install-target .navigation-focus.private
+.integrations-install-target [aria-selected="true"].private
+.integrations-install-target .navigation-focus .octicon-lock
+.integrations-install-target [aria-selected="true"].octicon-lock
+.integrations-setup-note
+.listgroup-item
+.listgroup-item.disabled
+.listgroup-item.disabled .listgroup-item-title
+.link-small
+.sub-permissions-error
+.has-removed-contents
+.org-login
+.org-login img
+.member-list-item .member-username
+.member-list-item .member-link
+.actor-and-action
+.vertical-separator
+.audit-log-search .audit-search-form
+.audit-log-search .audit-results-actions
+.audit-log-search .audit-search-clear
+.audit-log-search .audit-log-alert .js-filter-input-support-url
+.entry-details
+.entry-details .entry-details-td
+.entry-details .entry-details-th
+.entry-details .entry-details-td:hover
+.entry-details .entry-details-th:hover
+.entry-details .entry-details-tr:hover .entry-details-td
+.entry-details .entry-details-tr:hover .entry-details-th
+.audit-log-details-cont.open .entry-details
+.billing-credit-card .javascript-disabled-overlay
+.billing-credit-card.disabled .javascript-disabled-overlay
+.usage-bar
+.usage-bar.exceeded .progress
+.lfs-data-pack-field
+.lfs-data-icon
+.lfs-data-icon.dark
+.lfs-data-icon.octicon-database
+.payment-methods
+.payment-methods .selected-payment-method
+.payment-methods .selected-payment-method.active
+.payment-methods .form-group dd .form-control.short.input-vat
+.payment-methods .pay-with-header
+.payment-methods .pay-with-paypal .loading-paypal-spinner
+.payment-methods .pay-with-paypal .paypal-down-flash
+.payment-methods .pay-with-paypal .paypal-form-actions
+.payment-methods .pay-with-paypal .paypal-signed-in
+.payment-methods .pay-with-paypal .setup-creditcard-form
+.payment-methods .pay-with-paypal .terms
+.payment-methods.paypal-loading .loading-paypal-spinner
+.payment-methods.paypal-down .paypal-down-flash
+.payment-methods.paypal-logged-in .paypal-sign-in
+.payment-methods.paypal-logged-in .paypal-form-actions
+.payment-methods.paypal-logged-in .paypal-signed-in
+.payment-methods.paypal-logged-in .setup-creditcard-form
+.payment-methods.paypal-logged-in .terms
+.payment-methods.has-paypal-account .paypal-sign-in
+.payment-methods.has-paypal-account .paypal-signed-in
+.paypal-label
+.paypal-container
+.braintree-paypal-loggedin
+.bt-pp-name
+.bt-pp-email
+.bt-pp-cancel
+.paypal-icon
+.currency-container .local-currency
+.currency-container .local-currency-block
+.currency-container.open .local-currency
+.currency-container.open .local-currency-block
+.currency-container.open .default-currency
+.strong-label
+.discounted-original-price
+.billing-manager-input
+.seats-change-arrow
+.plan-choice
+.plan-choice.open
+.plan-choice.selected
+.line-item-value
+.condensed-payment-methods .vat-field
+.condensed-payment-methods .state-field
+.condensed-payment-methods .postcode-field
+.condensed-payment-methods .country-field
+.condensed-payment-methods .is-international .country-field
+.condensed-payment-methods .is-international.no-postcodes .country-field
+.zuora-billing-section.PaymentMethod--creditcard:not(.has-removed-contents) ~ .SignUpContinueActions
+.zuora-billing-section.PaymentMethod--creditcard-added ~ .SignUpContinueActions
+.zuora-billing-section.PaymentMethod--paypal ~ .SignUpContinueActions
+.billing-box-accordion[open] .octicon-chevron-right
+.billing-box-accordion:hover .billing-box-accordion-state .octicon
+.billing-box-accordion-chevron[open] .octicon-chevron-right
+.billing-box-accordion-state .octicon
+.billing-box-progress
+.Details-element:focus
+.blob-interaction-bar
+.blob-interaction-bar .octicon-search
+.blob-filter
+.blob-filter:focus
+.blob-code-content .line-alert
+.diff-table .line-alert
+.blob-code-content .codeowners-error
+.diff-table .codeowners-error
+.blob-code-content .error-highlight
+.diff-table .error-highlight
+.blob-code-content .blob-num .line-alert
+.diff-table .blob-num .line-alert
+.csv-data .line-alert
+.CopyBlock
+.CopyBlock .octicon-copy
+.CopyBlock:active
+.CopyBlock:focus
+.CopyBlock:hover
+.CopyBlock:active .octicon-copy
+.CopyBlock:focus .octicon-copy
+.CopyBlock:hover .octicon-copy
+.blob-header.is-stuck
+.CodeMirror-hints
+.CodeMirror-hint
+.CodeMirror-hint .CodeMirror-hint:first-child
+.CodeMirror-hint .CodeMirror-hint:last-child
+.CodeMirror-hint-active
+.CodeMirror-lint-tooltip
+.CodeMirror-lint-mark-error
+.cm-lintRange.cm-lintRange-error
+.CodeMirror-lint-mark-warning
+.cm-lintRange.cm-lintRange-warning
+.CodeMirror-lint-mark-info
+.cm-lintRange.cm-lintRange-info
+.CodeMirror-hint-active .CodeMirror-hint-description
+.status-heading
+.merge-status-list
+.merge-status-list.hide-closed-list
+.statuses-toggle-opened
+.merge-status-item
+.merge-status-item:last-child:not(.review-item)
+.merge-status-item .css-truncate-target
+.merge-status-item .dismiss-review-form
+.merge-status-item.open .review-status-item
+.merge-status-item.open .dismiss-review-form
+.status-meta
+.status-actions
+.branch-action-item-icon
+.merge-status-icon
+.branch-action
+.branch-action .merge-branch-heading
+.branch-action-icon
+.branch-action-body
+.branch-action-body .spinner
+.branch-action-body .merge-branch-form
+.branch-action-body .merge-message
+.branch-action-body .queue-branch-form
+.branch-action-item
+.branch-action-item + .branch-action-item
+.branch-action-item + .mergeability-details
+.branch-action-item.open > .merge-status-list
+.branch-action-item.open > .merge-status-list-wrapper > .merge-status-list
+.branch-action-item.open > .merge-status-list-wrapper > .merge-status-list.hide-closed-list
+.branch-action-item.open > .merge-status-list.hide-closed-list
+.branch-action-item.open .statuses-toggle-opened
+.branch-action-item.open .statuses-toggle-closed
+.branch-action-item-simple
+.branch-action-item-simple .merge-status-list
+.branch-action-item-simple .merge-status-item
+.branch-action-state-unknown .branch-action-icon
+.branch-action-state-unstable .branch-action-icon
+.branch-action-state-unknown .branch-action-body
+.branch-action-state-unstable .branch-action-body
+.branch-action-state-closed-dirty .branch-action-icon
+.branch-action-state-dirty .branch-action-icon
+.is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-icon
+.branch-action-state-closed-dirty .branch-action-body
+.branch-action-state-dirty .branch-action-body
+.is-rebasing .branch-action-state-dirty-if-rebasing .branch-action-body
+.merge-button-matrix-merge-form .merge-branch-form
+.completeness-indicator
+.completeness-indicator-success
+.completeness-indicator-error
+.completeness-indicator-problem
+.completeness-indicator-warning
+.dormant-users-recent-reports
+.business-global-sidebar
+.business-global-sidebar
+.business-content
+.business-content h1:not(dialog h1)
+.business-content h2:not(dialog h2)
+.business-content h3:not(dialog h3)
+.business-content h4:not(dialog h4)
+.business-content h5:not(dialog h5)
+.business-content h6:not(dialog h6)
+.enterprise-upload-file-input:focus + .f4 .enterprise-upload-label
+.enterprise-upload-file-input:focus-visible + .f4 .enterprise-upload-label
+.business-content .h1-override-shared-component
+.business-content .h2-override-shared-component
+body.full-width-p-0 .new-discussion-timeline
+body.full-width-p-0 .footer .mt-6
+.checks-list-item-icon
+.check-annotation
+.file .check-annotation
+.file .check-annotation:last-child
+.check-annotation .annotation-actions
+.check-annotation .annotation-octicon
+.check-annotation.Details--on .Details-content--hidden
+.annotation-title
+.check-annotation-failure
+.check-annotation-failure .annotation-title
+.check-annotation-neutral
+.check-annotation-warning
+.check-annotation-warning .octicon-alert
+.check-annotation-warning .annotation-title
+.neutral-check
+.check-page-commit-message
+.check-page-commit-message
+.check-page-commit-message-container
+.check-page-commit-message-container
+.code-frequency .addition
+.code-frequency .deletion
+.code-list .file-box
+.code-list .title
+.code-list .repo-specific .full-path
+.code-list .repo-specific .title
+.code-list .match-count
+.code-list .updated-at
+.code-list .language
+.code-list .avatar
+.code-list .code-list-item + .code-list-item
+.code-list .blob-num
+.code-list .blob-num a
+.code-list .blob-num a:hover
+.code-list .blob-code
+.code-list .divider .blob-code
+.code-list .divider .blob-num
+.code-list .divider .blob-num
+.code-list .full-path
+.code-list .full-path .octicon-repo
+.code-list .full-path .octicon-lock
+.code-list .full-path a
+.code-list-item-private .file-box
+.code-list-item-private .blob-num
+.code-list-item-private .blob-num a
+.code-list-item-private .divider .blob-code
+.code-list-item-private .divider .blob-num
+.code-scanning-alert-warning-message
+.code-scanning-font-size-inherit
+.cs-status-message .md-list
+.cs-status-message .md-paragraph
+.cs-status-message .md-list:last-child
+.cs-status-message .md-paragraph:last-child
+.cs-message .md-list
+.cs-status-message .md-list
+.cs-status-message .md-pre
+.codesearch-head.pagehead h1
+.advanced-search-form .flattened dt
+.advanced-search-form .flattened dt label
+.advanced-search-form .flattened dd
+.advanced-search-form .form-checkbox
+.search-form-fluid .TableObject-item--primary
+.search-form-fluid .completed-query
+.search-form-fluid .completed-query span
+.search-form-fluid .search-page-label
+.search-form-fluid .search-page-label.focus .completed-query
+.search-form-fluid .search-page-input
+.search-form-fluid .search-page-input:focus
+.topics-row-container
+.codespaces-policy-item-no-hover:hover
+.codespaces-policy-item-no-hover:hover .codespaces-policy-constraint-error
+.codespaces-policy-constraint-menu-item-muted-hover:hover
+.codespaces-policy-form-blue-hover:hover
+.codespaces-policy-form-blue-hover:hover svg
+.codespaces-policy-form-blue-hover:focus svg
+.codespaces-policy-form-danger-hover:hover
+.codespaces-list-box .css-truncate-target
+.codespaces-policy-allowed-values-dropdown
+.codespaces-policy-allowed-values-base-images-input
+.codespaces-policy-repository-dialog .css-truncate-target
+.commit-activity-master
+.is-graph-loading .commit-activity-master
+rect
+rect.max
+g.bar
+g.mini
+g.active rect
+circle.focus
+.dot text
+span.no-nl-marker
+.symlink .no-nl-marker
+.contrib-person path
+.contrib-person .midlabel
+.coupons .setup-plans td img
+.coupons .coupon-form-body
+.coupons .coupon-form-body .input-block
+.coupons .coupon-form-body .btn
+.coupon-icon
+.coupon-icon .octicon
+.edit-thi-file
+.universe-promo-container
+.universe-promo-container
+.universe-dismiss-form
+.universe-dismiss-form .octicon
+.universe-header
+.universe-header-logo
+.universe-hero-section
+.universe-hero-image
+.universe-event-info
+.universe-date-location
+.universe-location-separator
+.universe-promotion
+.universe-promo-description
+.universe-actions
+.universe-cta
+[data-color-mode="dark"] .universe-cta
+[data-color-mode="dark"] .universe-cta:hover
+[data-color-mode="light"] .universe-cta
+[data-color-mode="light"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="dark"] .universe-cta
+[data-color-mode="auto"][data-light-theme="dark_colorblind"] .universe-cta
+[data-color-mode="auto"][data-light-theme="dark_dimmed"] .universe-cta
+[data-color-mode="auto"][data-light-theme="dark_high_contrast"] .universe-cta
+[data-color-mode="auto"][data-light-theme="dark_tritanopia"] .universe-cta
+[data-color-mode="auto"][data-light-theme="dark"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="dark_colorblind"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="dark_dimmed"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="dark_high_contrast"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="dark_tritanopia"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="light"] .universe-cta
+[data-color-mode="auto"][data-light-theme="light_colorblind"] .universe-cta
+[data-color-mode="auto"][data-light-theme="light_high_contrast"] .universe-cta
+[data-color-mode="auto"][data-light-theme="light_tritanopia"] .universe-cta
+[data-color-mode="auto"][data-light-theme="light"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="light_colorblind"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="light_high_contrast"] .universe-cta:hover
+[data-color-mode="auto"][data-light-theme="light_tritanopia"] .universe-cta:hover
+.spark-public-preview-nudge-container
+.spark-public-preview-nudge-container
+[data-color-mode="auto"][data-light-theme="light"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="light_high_contrast"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="light_tritanopia"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="light_tritanopia_high_contrast"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="dark"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="dark_dimmed"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="dark_dimmed_high_contrast"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="dark_high_contrast"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="dark_tritanopia"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="dark_tritanopia_high_contrast"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="dark"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="light"] .spark-public-preview-nudge-container.variant1
+[data-color-mode="auto"][data-light-theme="light"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="light_high_contrast"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="light_tritanopia"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="light_tritanopia_high_contrast"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="dark"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="dark_dimmed"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="dark_dimmed_high_contrast"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="dark_high_contrast"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="dark_tritanopia"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="auto"][data-light-theme="dark_tritanopia_high_contrast"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="dark"] .spark-public-preview-nudge-container.variant2
+[data-color-mode="light"] .spark-public-preview-nudge-container.variant2
+.spark-public-preview-nudge-dismiss-form
+.spark-public-preview-nudge-image
+.spark-public-preview-nudge-header
+.variant1 .spark-public-preview-nudge-header
+.variant2 .spark-public-preview-nudge-header
+.spark-public-preview-nudge-description
+.variant1 .spark-public-preview-nudge-description
+.variant2 .spark-public-preview-nudge-description
+.nudge-inverse-button
+.nudge-inverse-button:hover
+.repo-private-icon
+.dashboard-rollup-items > .dashboard-rollup-item
+.pinned-favorites-update-form
+.dashboard-break-word
+.news .bio g-emoji
+.news .repo-description g-emoji
+.news .feed-item-heading-menu-button
+.news .feed-item-heading-menu-button:hover
+.suggest-icon
+.suggest-icon path
+.suggest-icon svg
+.suggest-icon .suggest-icon-bubble
+.suggest-icon .suggest-icon-bubble:nth-of-type(2n)
+.suggest-icon .suggest-icon-bubble:nth-of-type(1)
+.suggest-icon .suggest-icon-bubble:nth-of-type(2)
+.suggest-icon .suggest-icon-bubble:nth-of-type(3)
+.feed-filter-menu .feed-filter-menu-body
+.dashboard-notice
+.dashboard-notice .dismiss
+.dashboard-notice .dismiss:hover
+.dashboard-notice .notice-icon
+.dashboard-notice .octicon-organization
+.dashboard-notice h2
+.dashboard-notice p.no-title
+.dashboard-notice ul
+.dashboard-notice li
+.dashboard-notice .coupon
+.dependabot-rules-banner-container
+.dependabot-rules-banner-container
+[data-color-mode="dark"][data-dark-theme*="dark"] .dependabot-rules-banner-container
+[data-color-mode="light"][data-light-theme*="dark"] .dependabot-rules-banner-container
+[data-color-mode="dark"][data-dark-theme*="dark"] .dependabot-rules-banner-container
+[data-color-mode="light"][data-light-theme*="dark"] .dependabot-rules-banner-container
+[data-color-mode="auto"][data-light-theme*="dark"] .dependabot-rules-banner-container
+[data-color-mode="auto"][data-light-theme*="dark"] .dependabot-rules-banner-container
+dl.form.developer-select-account
+development-menu .line-clamp-1
+development-menu .form-control[is-loading]
+development-menu .development-menu-component-dialog-modal
+development-menu .development-menu-component-menu-modal
+development-menu .SelectMenu-item:focus-visible
+development-menu .SelectMenu-item:hover
+development-menu .SelectMenu-item:focus-visible .arrow
+development-menu .SelectMenu-item:hover .arrow
+development-menu .SelectMenu-item:focus-visible p
+development-menu .SelectMenu-item:focus-visible span
+development-menu .SelectMenu-item:focus-visible svg
+development-menu .SelectMenu-item:hover p
+development-menu .SelectMenu-item:hover span
+development-menu .SelectMenu-item:hover svg
+development-menu .development-menu-component-dialog
+development-menu .development-menu-component-dialog-modal
+development-menu .development-menu-component-menu-modal
+development-menu .development-menu-component-dialog
+development-menu .development-menu-component-dialog-modal
+development-menu .development-menu-component-menu-modal
+development-menu .development-menu-component-dialog:not([hidden]) + .development-menu-component-dialog-overlay
+development-menu .development-menu-component-dialog:not([hidden]) + .development-menu-component-dialog-overlay
+development-menu .development-menu-component-dialog
+development-menu .development-menu-component-dialog
+development-menu .development-menu-component-dialog .development-menu-component-dialog-modal
+development-menu .SelectMenu-item[aria-disabled="true"]
+.file-diff-split[data-lock-side-selection="left"] [data-split-side="right"]
+.file-diff-split[data-lock-side-selection="right"] [data-split-side="left"]
+.invisible
+.label-select-menu .color
+.label-select-menu .select-menu-item:focus
+.label-select-menu .select-menu-item:hover
+.label-select-menu .select-menu-item[aria-checked="true"]:focus
+.label-select-menu .select-menu-item[aria-checked="true"]:hover
+.label-select-menu .label-options-icon
+.label-select-menu .select-menu-item-icon
+.user-has-reacted .octicon
+.discussions-header-wrap
+.discussions-header-wrap
+.discussions-query-builder
+.discussions-query-builder
+.discussions-button-wrap
+.discussions-button-wrap
+.discussions-button-wrap
+.discussions-select-menu a:focus
+.discussions-label-select-menu
+.hx_discussion_section_row
+.donut-chart > .action_required
+.donut-chart > .cancelled
+.donut-chart > .error
+.donut-chart > .failure
+.donut-chart > .timed_out
+.donut-chart > .expected
+.donut-chart > .in_progress
+.donut-chart > .pending
+.donut-chart > .queued
+.donut-chart > .requested
+.donut-chart > .waiting
+.donut-chart > .success
+.donut-chart > .neutral
+.donut-chart > .skipped
+.donut-chart > .stale
+.ghe-license-status
+.ghe-license-status .octocat
+.ghe-license-status h1
+.ghe-license-status p
+.ghe-license-expiry-icon
+.feature-preview-dialog
+.feature-preview-dialog .feature-preview-info
+.global-nav-feature-preview-dialog
+.file
+.file .drag-and-drop
+.file:target
+.file .data.empty
+.file:not(.open) .file-header.file-header--expandable
+.file .data.suppressed
+.file.open .image
+.file.open .data.suppressed
+.file .image
+.file .image table
+.file .image td
+.file .image td img
+.file .image .border-wrap
+.file .image a
+.file .image canvas
+.file .image img
+.file .image .view canvas
+.file .image .view img
+.file .image .view > span
+.file .empty
+.file-header
+.file-actions
+.file-actions select
+.file-info
+.file-info .octicon
+.sticky-file-header
+.sticky-file-header.has-open-dropdown
+.diff-progressive-loader
+.load-diff-button
+.load-diff-retry
+.diff-placeholder-svg
+.copilot-text-completion[data-disabled]
+.graphs .area
+.graphs .path
+.graphs .dot
+.graphs .dot.padded
+.graphs .dot.padded circle:hover
+.graphs .d3-tip
+.graphs .d3-tip text
+.graphs .dir
+.graphs .selection .overlay
+.graphs .selection .selection
+.svg-tip
+.svg-tip.is-visible
+.svg-tip.comparison
+.svg-tip.comparison .title
+.svg-tip.comparison ul
+.svg-tip.comparison li
+.svg-tip.comparison .metric-0
+.svg-tip.comparison .metric-1
+.team-breadcrumb .team-breadcrumb-item
+.team-discussions-container
+.team-left-column
+.team-left-column .team-avatar
+.team-left-column .team-avatar
+.team-discussions
+.team-discussions .previewable-comment-form .comment
+.team-discussions .previewable-comment-form .tabnav-tab.selected
+.hooks-listing .boxed-group-action.select-menu
+.hooks-listing .boxed-group-inner
+.hook-item a:hover
+.hook-item .item-status
+.hook-item .description
+.hook-item .description .css-truncate-target
+.hook-item .icon-for-failure
+.hook-item .icon-for-inactive
+.hook-item .icon-for-mute
+.hook-item .icon-for-pending
+.hook-item .icon-for-success
+.hook-item.success .icon-for-success
+.hook-item.failure .icon-for-failure
+.hook-item.pending .icon-for-pending
+.hook-item.inactive .icon-for-inactive
+.hook-item.mute .icon-for-mute
+.hook-item .icon-for-disabled
+.hook-item .icon-for-enabled
+.hook-item.enabled .icon-for-enabled
+.hook-item.disabled .icon-for-disabled
+.hook-item .hook-error-message
+.hook-url.css-truncate-target
+.hooks-oap-warning
+.hooks-oap-warning ul
+.hooks-oap-warning ul li
+.item-name
+.hovercard-icon
+.integrations-select-repos
+.integrations-select-repos .mini-repo-list-item
+.integrations-select-repos .mini-repo-list-item:hover .owner
+.integrations-select-repos .mini-repo-list-item:hover .repo
+.integrations-select-repos .mini-repo-list-item .css-truncate-target
+.integrations-repository-picker
+.select-permission-modal
+.issue-list-item + .issue-list-item
+.issue-list-item
+.pinned-issue-item .pinned-issue-handle
+.pinned-issue-item.is-dragging
+.pinned-issue-item.is-dragging .pinned-issue-handle
+.pinned-issue-item.is-dragging
+.pinned-issue-item.sortable-ghost
+.issues-reset-query-wrapper
+.label-link:hover
+.issues-reset-query
+.issues-reset-query:hover
+.issues-reset-query:hover .issues-reset-query-icon
+.issues-reset-query-icon
+.task-progress
+.task-progress .octicon
+.task-progress .progress-bar
+.task-progress .progress-bar .progress
+.task-progress-counts
+a.task-progress:hover
+a.task-progress:hover .octicon
+a.task-progress:hover .progress-bar .progress
+.issue-meta-section .octicon
+.issue-milestone
+.issue-milestone .css-truncate-target
+.milestone-link .octicon
+.milestone-link:hover .octicon
+.label-select-menu .description
+.label-select-menu .color
+.label-select-menu .selected .select-menu-item-icon
+.label-select-menu [aria-checked="mixed"] .select-menu-item-icon
+.label-select-menu [aria-checked="true"] .select-menu-item-icon
+.label-select-menu .selected .octicon-circle-slash
+.label-select-menu [aria-checked="mixed"] .octicon-circle-slash
+.label-select-menu [aria-checked="true"] .octicon-circle-slash
+.label-select-menu .selected:active
+.label-select-menu [aria-checked="mixed"]:active
+.label-select-menu [aria-checked="true"]:active
+.label-select-menu .select-menu-item
+.label-select-menu .select-menu-item.navigation-focus
+.label-select-menu .select-menu-item:focus
+.label-select-menu .select-menu-item:hover
+.label-select-menu .select-menu-item[aria-selected="true"]
+.label-select-menu .select-menu-item.navigation-focus .select-menu-item-icon
+.label-select-menu .select-menu-item:focus .select-menu-item-icon
+.label-select-menu .select-menu-item:hover .select-menu-item-icon
+.label-select-menu .select-menu-item[aria-selected="true"] .select-menu-item-icon
+.label-select-menu .select-menu-item.navigation-focus .label-options-icon
+.label-select-menu .select-menu-item:focus .label-options-icon
+.label-select-menu .select-menu-item:hover .label-options-icon
+.label-select-menu .select-menu-item[aria-selected="true"] .label-options-icon
+.label-select-menu .select-menu-item.navigation-focus .description
+.label-select-menu .select-menu-item:focus .description
+.label-select-menu .select-menu-item:hover .description
+.label-select-menu .select-menu-item[aria-selected="true"] .description
+.label-select-menu > form
+.subnav .btn + .issues-search
+.reaction-sort-item
+.reaction-sort-item:focus
+.reaction-sort-item:hover
+.reaction-sort-item[aria-checked="true"]
+.issue-keyword
+.issue-keyword:hover
+.new-label-color-dimensions
+.select-menu-item.navigation-focus > .octicon.label-options-icon
+.select-menu-item[aria-selected="true"] > .octicon.label-options-icon
+.new-label-color-input:invalid
+.issue-form-textarea
+.issue-forms-wysiwyg-container .comment-form-head
+.issue-forms-wysiwyg-container .comment-body
+.issue-form-body > :first-child
+react-app[app-name="issues"]
+react-app[app-name="issues"] > [data-target="react-app.reactRoot"]
+.octocat-spinner
+.octocat-spinner-32
+.map-container .activity
+.map-container .is-graph-loading .activity
+.map
+.map-background
+.map-background-zoom
+.map-land
+.map-country
+.map-country.hk
+.map-country:hover
+.map-country.active
+.map-borders
+.map-graticule
+.map-graticule :nth-child(2n)
+.map-legend .map-legend-circle
+.map-legend .map-legend-text
+.map-legend .map-legend-link
+.map-point
+.map-point:hover
+.map-country-info
+.CircleBadge--feature
+.MarketplaceFeature
+.MarketplaceFeature-text
+.MarketplaceFeature-link:hover .CircleBadge--feature
+.MarketplaceFeature-link:hover .MarketplaceFeature-text
+.MarketplaceFeature-link:active .CircleBadge--feature
+.ScreenshotCarousel
+.ScreenshotCarousel-screenshot
+.ScreenshotCarousel-nav
+.ScreenshotCarousel-navitem
+.ScreenshotCarousel-navitem:last-child
+.ScreenshotCarousel-navitem.selected
+.marketplace-listing-details-sidebar
+.marketplace-listing-details-sidebar
+.marketplace-listing-details-description
+.marketplace-listing-details-description
+.marketplace-billing-modal
+.marketplace-product-callout
+.marketplace-product-callout .branch-action-item-icon
+.filter-item.selected .Label--secondary
+.MarketplaceEdit-body .CircleIcon
+.MarketplaceEdit-body .CircleIcon .octicon
+.CircleBadge--tiny
+.CircleBadge--github
+body.page-responsive .flash-full .container
+.ClipboardButton
+.ClipboardButton.ClipboardButton--success
+.ClipboardButton.ClipboardButton--success:focus
+.Link--muted.filter-item.selected
+.member-list-item .table-list-cell-checkbox
+.member-list-item.adminable .member-info
+.member-list-item .member-avatar-cell
+.triage-mode .none-selected
+.merge-branch-description
+.merge-branch-description.multi-line-error
+.alt-merge-options
+.merged .merge-branch-description .commit-ref .css-truncate-target
+.select-menu-merge-method
+.select-menu-merge-method .select-menu-item:hover
+.select-menu-merge-method .select-menu-item:hover .octicon
+.select-menu-merge-method .select-menu-item:hover .select-menu-item-text
+.select-menu-merge-method .select-menu-item:hover .description
+.unavailable-merge-method
+.navigation-focus.disabled .unavailable-merge-method
+[aria-selected="true"].disabled .unavailable-merge-method
+.network .network-tree
+.network .gravatar
+.network .octicon
+.news .release
+.news blockquote
+.news .alert
+.news .alert .commits
+.news .alert .css-truncate .css-truncate-target
+.news .alert .css-truncate.css-truncate-target
+.news .alert p
+.news .alert .markdown-body blockquote
+.news .alert .octicon
+.news .alert .dashboard-event-icon
+.news .alert .body
+.news .alert .time
+.news .alert .title
+.news .alert .title .subtle
+.news .alert .gravatar
+.news .alert .simple .title
+.news .alert .simple .time
+.news .alert:first-child
+.news .alert:first-child .body
+.news .alert:first-child .dashboard-event-icon
+.news .github-welcome .done
+.news .commits li
+.news .commits li.more
+.news .commits li .committer
+.news .commits li img
+.news .commits li img.emoji
+.news .commits li .message
+.news div.message
+.news li blockquote
+.oauth-no-description
+.boxed-group-inner .oauth-application-info
+.oauth-application-info .application-title
+.oauth-application-info .application-description
+.oauth-application-info .listgroup-item
+.oauth-application-info .app-approved
+.oauth-application-info .app-denied
+.oauth-application-info .app-approved
+.oauth-application-info .octicon-check
+.oauth-application-info .app-denied
+.oauth-application-info .octicon-x
+.developer-app-item .developer-app-avatar-cell
+.developer-app-item .developer-app-name
+.developer-app-item .developer-app-name:hover
+.developer-app-item .developer-app-info-cell
+.developer-app-item .developer-app-list-meta
+.org-transfer-requests
+.toggle-secret-field .secret-standin
+.toggle-secret-field .secret-field
+.toggle-secret-field.open .secret-standin
+.toggle-secret-field.open .secret-field
+.invitation-2fa-banner
+.sign-up-via-invitation .bleed-flush
+.sign-up-via-invitation label
+.security-secret-leaks-promo-banner
+.dismissable .security-secret-leaks-promo-banner
+.security-secret-leaks-promo-banner-content
+.security-secret-leaks-promo-banner-dismiss
+.security-secret-leaks-promo-banner-actions
+.security-secret-leaks-promo-banner-remind-icon
+.security-secret-leaks-promo-banner-remind-label
+.security-secret-leaks-promo-banner-image-container
+.dismissable .security-secret-leaks-promo-banner-image-container
+.security-secret-leaks-promo-banner-image-el
+.security-secret-leaks-promo-banner-image
+.scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="dark"][data-dark-theme="dark"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="dark"][data-dark-theme="dark_colorblind"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="dark"][data-dark-theme="dark_tritanopia"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="dark"][data-dark-theme="dark_dimmed"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="dark"][data-dark-theme="dark_high_contrast"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="light"][data-light-theme="light"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="light"][data-light-theme="light_colorblind"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="light"][data-light-theme="light_tritanopia"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="light"][data-light-theme="light_high_contrast"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="dark"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="dark_colorblind"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="dark_tritanopia"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="dark_dimmed"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="dark_high_contrast"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="light"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="light_colorblind"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="light_tritanopia"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+[data-color-mode="auto"][data-light-theme="light_high_contrast"] .scan-secret-leaks .security-secret-leaks-promo-banner-image
+.github-roadmap-webinar-control-dismiss
+.github-roadmap-webinar-treatment-dismiss
+.github-roadmap-webinar-control-cta
+.github-roadmap-webinar-treatment-cta
+.github-roadmap-webinar-control-cta:hover
+.github-roadmap-webinar-treatment-cta:hover
+.github-roadmap-webinar-control-date
+.github-roadmap-webinar-treatment-date
+.github-roadmap-webinar-control-header
+.github-roadmap-webinar-treatment-header
+.github-roadmap-webinar-control
+.github-roadmap-webinar-treatment
+.github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="light"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="light_high_contrast"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="light_tritanopia"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="light_tritanopia_high_contrast"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="dark"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="dark_dimmed"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="dark_dimmed_high_contrast"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="dark_high_contrast"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="dark_tritanopia"] .github-roadmap-webinar-control
+[data-color-mode="auto"][data-light-theme="dark_tritanopia_high_contrast"] .github-roadmap-webinar-control
+[data-color-mode="dark"] .github-roadmap-webinar-control
+[data-color-mode="light"] .github-roadmap-webinar-control
+.github-roadmap-webinar-control-date
+.github-roadmap-webinar-control-header
+.github-roadmap-webinar-control-subtext
+.github-roadmap-webinar-control-image
+.github-roadmap-webinar-control-image
+.github-roadmap-webinar-treatment
+.github-roadmap-webinar-treatment-content
+.github-roadmap-webinar-treatment-image
+[data-color-mode="auto"][data-light-theme="light"] .github-roadmap-webinar-treatment-image.dark
+[data-color-mode="auto"][data-light-theme="light_high_contrast"] .github-roadmap-webinar-treatment-image.dark
+[data-color-mode="auto"][data-light-theme="light_tritanopia"] .github-roadmap-webinar-treatment-image.dark
+[data-color-mode="auto"][data-light-theme="light_tritanopia_high_contrast"] .github-roadmap-webinar-treatment-image.dark
+[data-color-mode="auto"][data-light-theme="dark"] .github-roadmap-webinar-treatment-image.light
+[data-color-mode="auto"][data-light-theme="dark_dimmed"] .github-roadmap-webinar-treatment-image.light
+[data-color-mode="auto"][data-light-theme="dark_dimmed_high_contrast"] .github-roadmap-webinar-treatment-image.light
+[data-color-mode="auto"][data-light-theme="dark_high_contrast"] .github-roadmap-webinar-treatment-image.light
+[data-color-mode="auto"][data-light-theme="dark_tritanopia"] .github-roadmap-webinar-treatment-image.light
+[data-color-mode="auto"][data-light-theme="dark_tritanopia_high_contrast"] .github-roadmap-webinar-treatment-image.light
+[data-color-mode="dark"] .github-roadmap-webinar-treatment-image.light
+[data-color-mode="light"] .github-roadmap-webinar-treatment-image.dark
+.github-roadmap-webinar-treatment-date
+.github-roadmap-webinar-treatment-header
+.github-roadmap-webinar-treatment-topics
+.github-roadmap-webinar-treatment-topic
+.github-roadmap-webinar-treatment-cta
+.orghead
+.orghead .orgnav
+.org-repos .TableObject-item--primary
+.org-name
+.audit-log-search .member-info
+.audit-log-search .member-info .member-avatar
+.audit-log-search .member-info .member-link
+.audit-log-search .member-info .member-list-avatar
+.audit-log-search .member-info .ghost
+.audit-log-search .blankslate
+.audit-log-search .export-phrase
+.audit-results-actions
+.audit-search-clear
+.audit-search-clear .issues-reset-query
+.audit-type
+.audit-type .octicon
+.audit-type .repo
+.audit-type .team
+.audit-type .user
+.audit-type .oauth_access
+.audit-type .hook
+.export-phrase
+.export-phrase pre
+.saml-enabled-banner-container
+.member-avatar
+.auto-search-group
+.auto-search-group .auto-search-input
+.auto-search-group .spinner
+.auto-search-group > .octicon
+.auto-search-group .spinner
+.auto-search-group > .octicon
+.org-list .list-item
+.permission-level-cell .select-menu-button
+.permission-level-cell .spinner
+.permission-level-cell .is-loading .spinner
+.select-menu-option-title
+.reinstate-org-member
+.reinstate-org-member .reinstate-lead
+.reinstate-org-member label
+.reinstate-org-member .reinstate-detail-container
+.reinstate-org-member .reinstate-title
+.reinstate-org-member .reinstate-title .octicon
+.invite-member-results ul
+.team-member-list
+.team-member-list .table-list-cell
+.team-member-list .team-member-content
+.team-member-list .team-member-username
+.team-member-list .Label--secondary
+.team-member-list .invite-icon
+.menu-item-danger
+.menu-item-danger.selected
+.menu-item-danger.navigation-focus
+.menu-item-danger.selected.navigation-focus
+.menu-item-danger.selected:hover
+.menu-item-danger.selected[aria-selected="true"]
+.menu-item-danger:hover
+.menu-item-danger[aria-selected="true"]
+.team-member-list-avatar
+.team-member-list-avatar .octicon
+.confirm-removal-list-container
+.confirm-removal-list-item
+.confirm-removal-list-item:first-child
+.manage-member-meta
+.manage-member-meta-item
+.manage-member-meta-item:first-child
+.manage-member-meta-item .btn-link
+.manage-member-meta-item > .octicon
+.manage-member-meta-item > .octicon-alert
+.ldap-group-dn
+.team-name-field
+.invited .team-member-list
+.invited .team-member-list .list-item
+.invited .team-member-list .list-item:last-of-type
+.invited .team-member-list .list-item .edit-invitation
+.invited-banner .btn-sm
+.invited-banner p
+.invited-banner .inviter-link
+.manage-member-sso-sessions.has-active-sessions .blankslate
+.org-menu-item:not([aria-current="page"]) + .org-sub-menu
+.trial-banner-notice
+.Popover-message--extra-large
+.theme-name
+.pinned-items-spinner
+.pinned-items-setting-link
+.pinned-item-name
+.pinned-item-checkbox + .pinned-item-name:hover
+.pinned-item-checkbox:disabled + .pinned-item-name
+.pinned-item-checkbox:disabled + .pinned-item-name:hover
+.pinned-gist-blob-num
+.pinned-gist-blob-num:hover
+.projects-splash-dialog
+.projects-splash-dialog
+.projects-splash-banner
+.projects-splash-banner
+.projects-splash-banner p
+.projects-splash-banner p
+[data-color-mode="dark"][data-dark-theme*="dark"] .projects-splash-banner
+[data-color-mode="light"][data-light-theme*="dark"] .projects-splash-banner
+[data-color-mode="auto"][data-light-theme*="dark"] .projects-splash-banner
+.project-description p:last-child
+.pending-cards-status
+.project-column
+.project-column:focus
+.project-column
+.project-column:focus
+.project-column.moving
+.sortable-ghost
+.project-card
+.project-card .project-reference-markdown > p
+.project-card:last-child
+.project-card:first-child
+.project-card:first-child
+.project-card ol
+.project-card ul
+.project-card blockquote
+.project-card .contains-task-list
+.project-card:hover
+.project-card:focus
+.project-card:focus
+.project-card.moving
+.issue-card.draggable
+.issue-card .AvatarStack:hover .from-avatar
+.issue-card pre
+.project-note-form textarea
+.card-menu-container .dropdown-menu
+.column-menu-container .dropdown-menu
+.card-octicon
+.card-note-octicon
+.is-sending .auto-search-group .chooser-spinner
+.card-filter-autocomplete-dropdown
+.card-filter-autocomplete-dropdown .navigation-focus
+.card-filter-autocomplete-dropdown [aria-selected="true"]
+.card-filter-autocomplete-dropdown .navigation-focus .autocomplete-text-qualifier
+.card-filter-autocomplete-dropdown [aria-selected="true"] .autocomplete-text-qualifier
+.projects-reset-query:hover
+.projects-reset-query:hover .projects-reset-query-icon
+.projects-reset-query-icon
+.project-edit-mode .column-menu-container
+.project-edit-mode .column-menu-item
+.project-edit-mode .project-move-actions
+.push-board-over
+.push-board-over
+.projects-comment-form .comment-md-support-link
+.projects-comment-form .comment-form-actions
+.projects-comment-form .comment-form-actions button
+.projects-comment-form .comment-form-head
+.projects-comment-form .comment-form-head .tabnav-tabs
+.projects-comment-form .comment-form-textarea
+.projects-comment-form .preview-content
+.projects-comment-form .preview-content .comment-body
+.project-issue-body-wrapper
+.Details--on .project-issue-body-wrapper
+.project-issue-body-blur
+.Details--on .project-issue-body-blur
+.project-comment-body-hover .comment-action
+.project-comment-title-hover .comment-action
+.project-comment-body-hover:hover .comment-action
+.project-comment-title-hover:hover .comment-action
+.project-comment-body-reaction .timeline-comment-action
+.project-name-hover .project-name-edit-action
+.project-name-hover:hover .project-name-edit-action
+.project-icon path
+.remove-spacing-wrapper .FormControl-spacingWrapper
+.vcard-fullname
+.vcard-username
+.user-profile-bio-message
+.profile-readme .markdown-body .anchor
+#package-results .package-grid
+#package-results .package-grid
+.user-profile-following-container .user-following-container .unfollow
+.user-profile-following-container .user-following-container.on .follow
+.user-profile-following-container .user-following-container .follow
+.user-profile-following-container .user-following-container.on .unfollow
+.user-repo-search-results-summary
+.pull-request-tab-content
+.pull-request-tab-content.is-visible
+.pull-request-ref-restore
+.pull-request-ref-restore-text
+.pull-request-queued-state
+.stale-files-tab
+.stale-files-tab-link
+.commit-build-statuses .status-checks-dropdown
+.add-comment-label
+.is-review-pending .start-review-label
+.is-review-pending .add-comment-label
+.start-review-label
+.is-review-pending .review-simple-reply-button
+.review-comment-contents
+.review-comment
+.review-comment:first-child
+.review-comment:last-child
+.review-comment .comment-body
+.review-comment .comment-reactions
+.review-comment .comment-body
+.review-comment .comment-body .suggested-change-form-container:nth-last-of-type(2)
+.review-comment .comment-reactions
+.review-comment .pull-review-comment-reaction .has-reactions
+.review-comment .show-more-popover.dropdown-menu-sw
+.review-comment .timeline-comment-action
+.review-comment .is-comment-editing
+.review-comment .is-comment-editing .edit-comment-hide
+.review-comment .is-comment-editing .timeline-comment-actions
+.review-comment .is-comment-editing .previewable-comment-form
+.review-comment.is-comment-loading .previewable-comment-form
+.pr-review-reactions .has-reactions
+.pr-review-reactions .has-reactions.comment-reactions
+.pr-review-reactions .just-bottom
+.pr-review-reactions.pr-review-reactions-next-to-feedback .has-reactions
+.pr-review-reactions.pr-review-reactions-next-to-feedback .has-reactions.comment-reactions
+.pr-review-reactions.pr-review-reactions-next-to-feedback .just-bottom
+.pr-review-reactions.pr-review-reactions-no-margin .has-reactions
+.pr-review-reactions.pr-review-reactions-no-margin .has-reactions.comment-reactions
+.pr-review-reactions.pr-review-reactions-no-margin .just-bottom
+.timeline-comment.is-comment-editing .discussion-item-header
+.timeline-comment.is-comment-editing .pr-review-reactions
+.review-thread-reply
+.review-thread-reply .inline-comment-form
+.review-thread-reply-button
+.readme.contributing > div
+.readme .markdown-body
+.readme .plain
+.readme .plain pre
+.file .readme table[data-table-type="yaml-metadata"]
+.file .readme table[data-table-type="yaml-metadata"] table
+.labels-list .blankslate
+.labels-list .table-list-header
+.labels-list.is-empty .blankslate
+.labels-list.is-empty .table-list-header
+.label-select-menu-item .g-emoji
+.label-edit label
+.label-edit .error
+.label-edit.loading
+.label-characters-remaining
+.repo-list
+.repo-list-item
+.repo-list-item-with-avatar
+.repo-list-item-hanging-avatar
+.mini-repo-list-item
+.mini-repo-list-item:hover
+.mini-repo-list-item:hover .owner
+.mini-repo-list-item:hover .repo
+.mini-repo-list-item .repo-icon
+.mini-repo-list-item .repo-and-owner
+.mini-repo-list-item .owner
+.mini-repo-list-item .repo
+.mini-repo-list-item .stars
+.mini-repo-list-item .repo-description
+.private .mini-repo-list-item
+.private .mini-repo-list-item .repo-icon
+.form-group.errored label .commit-ref
+.repo-menu-item:not([aria-current="page"]) + .repo-sub-menu
+.repository-og-image
+.line-clamp-2
+.timeout
+.timeout h3
+.repo-language-color
+.iconbutton .octicon
+.prereceive-feedback
+.prereceive-feedback-heading
+.revert-error
+.revert-error-heading
+.repository-item-checkbox:checked + .repository-item-name
+.custom-role-icon
+.security-center-filter-wrap
+.security-center-filter-wrap
+.recent-user-key-access
+.access-token
+.access-token:last-child
+.access-token .last-used
+.access-token.new-token
+.access-token.new-token .octicon-check
+.access-token .token-description
+.access-token .token
+.access-token .token-type
+table.security-history-detail
+table.security-history-detail td
+.u2f-registration
+.new-u2f-registration
+.new-u2f-registration .add-u2f-registration-form:not(.for-trusted-device)
+.new-u2f-registration.is-active .add-u2f-registration-link
+.new-u2f-registration.is-active .add-u2f-registration-form
+.new-u2f-registration .webauthn-request-error
+.new-u2f-registration .webauthn-request-interaction
+.new-u2f-registration.is-sending .webauthn-request-interaction
+.new-u2f-registration.is-showing-error .webauthn-request-error
+.spinner
+.is-sending .spinner
+.collaborators .collab-list
+.collaborators .collab-list-item:first-child .collab-list-cell
+.collaborators .collab-list-cell
+.collaborators .collab-meta
+.collaborators .collab-remove
+.collaborators .collab-remove .remove-link
+.collaborators .collab-remove .remove-link:hover
+.collaborators .collab-team-link
+.collaborators .collab-team-link:hover
+.collaborators .collab-team-link .avatar
+.collaborators .collab-team-link.disabled
+.collaborators .collab-info
+.collaborators .collab-info .description
+.collaborators .collab-info .collab-name
+.settings-next
+.settings-next label
+.settings-next .note
+.settings-next .form-checkbox input[type="checkbox"]
+.settings-next .form-checkbox input[type="radio"]
+dl.form-group > dd textarea.compact
+.form-hr
+.listgroup
+.listgroup-item
+.listgroup-item + .listgroup-item
+.listgroup-item .css-truncate-target
+.listgroup-item-title
+.listgroup-item-body
+.listgroup-header
+.listgroup-overflow
+.listgroup-sm .listgroup-item
+.recovery-codes-container
+.two-factor-recovery-codes
+.two-factor-recovery-code-mark
+.two-factor-recovery-code
+.recovery-codes-saving-options
+.recovery-codes-saving-options .recovery-code-save-button
+.recovery-codes-warning
+.two-factor-steps
+.setup-form
+.setup-form .form-group.successed .error
+.setup-form .form-group dd .form-control
+.setup-form .form-group dd .form-control.short
+.setup-form dd
+.setup-form dd .octicon
+.setup-form .octicon-alert
+.setup-form .octicon-check
+.setup-form .setup-organization-next
+.setup-form .tos-info
+.setup-form .tos-info
+.setup-form .setup-organization-next
+.setup-form .setup-plans
+.setup-form .setup-plans tr.selected
+.setup-form .setup-plans .name
+.setup-form .setup-plans .choose-plan input[type="radio"]
+.setup-creditcard-form .country-form
+.setup-creditcard-form .state-form
+.setup-creditcard-form .country-form
+.setup-creditcard-form .postal-code-form
+.setup-creditcard-form .form-group select.select-country
+.setup-creditcard-form .form-group select:invalid
+.setup-creditcard-form .form-group select.select-state
+.setup-creditcard-form .form-group .input-vat
+.setup-creditcard-form .form-group input.input-postal-code
+.setup-creditcard-form.is-vat-country .vat-field
+.setup-creditcard-form.is-international .form-group select.select-country
+.setup-creditcard-form.is-international .state-form
+.setup-creditcard-form.no-postcodes .postal-code-form
+.setup-creditcard-form dd .octicon-credit-card
+.setup-creditcard-form .vat-field
+.setup-creditcard-form .vat-field.prefilled
+.setup-creditcard-form .help-text
+.signup-plan-summary-subhead
+.signup-btn:disabled
+.signup-plan-details[open] .octicon-chevron-right
+.collection-search-results em
+.draft-tag
+.showcase-page-pattern
+.showcase-page-repo-list
+.slash-command-menu-item .command-description
+.slash-command-menu-item[aria-selected="true"]
+.slash-command-menu-item[aria-selected="true"] .command-description
+.sortable-button-item:first-of-type .sortable-button[data-direction="up"]
+.sortable-button-item:last-of-type .sortable-button[data-direction="down"]
+.sponsors-funded-dependencies-percent-circle
+.sponsors-funded-dependencies-percent-circle-bg
+.sponsors-funded-dependencies-percent-circle-bg
+.sponsors-funded-dependencies-percent-circle
+.sponsors-goal-progress-bar
+.sponsors-goals-heart-anim
+.sponsors-goals-heart-anim.is-active
+.open > .sponsors-foldable
+.open .sponsors-foldable-opened
+.open .sponsors-foldable-closed
+.sponsors-foldable
+.sponsors-foldable-opened
+.sponsors-foldable-closed
+.hx_status-indicator .status-indicator-spinner
+.hx_status-indicator.status-indicator-loading
+.hx_status-indicator.status-indicator-loading .status-indicator-spinner
+.sponsors-fold
+.sponsors-unfold
+.sponsors-foldable-details[open] .sponsors-fold
+.sponsors-foldable-details[open] .sponsors-unfold
+.tab-size[data-tab-size="1"]
+.tab-size[data-tab-size="2"]
+.tab-size[data-tab-size="3"]
+.tab-size[data-tab-size="4"]
+.tab-size[data-tab-size="5"]
+.tab-size[data-tab-size="6"]
+.tab-size[data-tab-size="7"]
+.tab-size[data-tab-size="8"]
+.tab-size[data-tab-size="9"]
+.tab-size[data-tab-size="10"]
+.tab-size[data-tab-size="11"]
+.tab-size[data-tab-size="12"]
+.team-label-ldap
+.team-label-ldap.header-label-ldap
+.team-member-ellipsis
+.team-member-ellipsis:hover
+.team-listing .nested-teams-checkbox
+.team-listing .nested-teams-checkbox.show
+.team-listing .nested-teams-checkbox.indent-1
+.team-listing .nested-teams-checkbox.indent-2
+.team-listing .nested-teams-checkbox.indent-3
+.team-listing .nested-teams-checkbox.indent-4
+.team-listing .nested-teams-checkbox.indent-5
+.team-listing .nested-teams-checkbox.indent-6
+.team-listing .nested-teams-checkbox.indent-7
+.team-listing .nested-teams-checkbox.indent-8
+.team-listing .nested-teams-checkbox.indent-9
+.team-listing .nested-teams-checkbox.indent-10
+.team-listing .nested-teams-checkbox.indent-11
+.team-listing .nested-teams-checkbox.indent-12
+.team-listing .nested-teams-checkbox.indent-13
+.team-listing .nested-teams-checkbox.indent-14
+.team-listing .nested-teams-checkbox.indent-15
+.team-listing .nested-enterprise-teams-checkbox.indent-1
+.team-listing .nested-enterprise-teams-checkbox.indent-2
+.team-listing .nested-enterprise-teams-checkbox.indent-3
+.team-listing .nested-enterprise-teams-checkbox.indent-4
+.team-listing .nested-enterprise-teams-checkbox.indent-5
+.team-listing .nested-enterprise-teams-checkbox.indent-6
+.team-listing .nested-enterprise-teams-checkbox.indent-7
+.team-listing .nested-enterprise-teams-checkbox.indent-8
+.team-listing .nested-enterprise-teams-checkbox.indent-9
+.team-listing .nested-enterprise-teams-checkbox.indent-10
+.team-listing .nested-enterprise-teams-checkbox.indent-11
+.team-listing .nested-enterprise-teams-checkbox.indent-12
+.team-listing .nested-enterprise-teams-checkbox.indent-13
+.team-listing .nested-enterprise-teams-checkbox.indent-14
+.team-listing .nested-enterprise-teams-checkbox.indent-15
+.team-listing .team-short-info
+.team-listing .nested-team-info
+.team-listing .nested-team-name
+.team-listing .shortened-teams-avatars
+.team-listing .shortened-teams-avatars.width-0
+.team-listing .shortened-teams-avatars.width-1
+.team-listing .shortened-teams-avatars.width-2
+.team-listing .shortened-teams-avatars.width-3
+.team-listing .team-members-count
+.team-listing .team-members-count-with-roles
+.team-listing .team-roles-count
+.team-listing .team-show-more-cell
+.team-listing .team-buttons
+.team-listing .octicon-wrapper
+.team-listing .is-open.root-team
+.team-listing .is-open .expand-nested-team
+.team-listing .is-open .octicon-chevron-down
+.svg-tip .date
+.totals circle
+.uniques circle
+[data-dark-theme="dark_colorblind"] .uniques circle
+[data-dark-theme="dark_tritanopia"] .uniques circle
+[data-dark-theme="light_tritanopia"] .uniques circle
+[data-light-theme="light_colorblind"] .uniques circle
+ul.web-views li
+ul.clones li
+.typeahead-result
+.typeahead-result:first-child
+.typeahead-result.navigation-focus
+.typeahead-result:focus
+.typeahead-result:hover
+.typeahead-result[aria-selected="true"]
+.typeahead-result.navigation-focus
+.typeahead-result:hover
+.typeahead-result[aria-selected="true"]
+.typeahead-result.navigation-focus .octicon-plus
+.typeahead-result:hover .octicon-plus
+.typeahead-result[aria-selected="true"] .octicon-plus
+.typeahead-result.disabled
+.member-suggestion
+.member-suggestion .avatar
+.member-suggestion .member-suggestion-info
+.member-suggestion .member-name
+.member-suggestion .member-email
+.member-suggestion .octicon-check
+.member-suggestion .octicon-plus
+.member-suggestion .already-member-note
+.member-suggestion .non-member-action
+.member-suggestion .non-member-note
+.member-suggestion .non-member-action
+.member-suggestion.navigation-focus .already-member-note
+.member-suggestion.navigation-focus .member-email
+.member-suggestion.navigation-focus .member-name
+.member-suggestion.navigation-focus .non-member-action
+.member-suggestion.navigation-focus .non-member-note
+.member-suggestion:hover .already-member-note
+.member-suggestion:hover .member-email
+.member-suggestion:hover .member-name
+.member-suggestion:hover .non-member-action
+.member-suggestion:hover .non-member-note
+.member-suggestion[aria-selected="true"] .already-member-note
+.member-suggestion[aria-selected="true"] .member-email
+.member-suggestion[aria-selected="true"] .member-name
+.member-suggestion[aria-selected="true"] .non-member-action
+.member-suggestion[aria-selected="true"] .non-member-note
+.member-suggestion.navigation-focus .non-member-note
+.member-suggestion:hover .non-member-note
+.member-suggestion[aria-selected="true"] .non-member-note
+.member-suggestion.navigation-focus .non-member-action
+.member-suggestion:hover .non-member-action
+.member-suggestion[aria-selected="true"] .non-member-action
+.member-suggestion.navigation-focus .octicon
+.member-suggestion:hover .octicon
+.member-suggestion[aria-selected="true"] .octicon
+.member-suggestion.disabled .member-info
+.member-suggestion.not-a-member .member-info
+.non-member-result
+.email-suggestion
+.email-suggestion .octicon-mail
+.email-suggestion .member-suggestion-info
+#user-content-toc
+#user-content-toc tr
+#user-content-toc td
+#user-content-toc ul
+#user-content-toc ul li
+#user-content-toc ul ul
+#user-content-toc ul ul ul
+#user-content-toctitle h2
+.actions-workflow-table.sticky th
+.actions-workflow-table th
+.actions-workflow-table td
+.actions-workflow-table td.compact
+.actions-workflow-table td:first-child
+.actions-workflow-table th:first-child
+.actions-workflow-table td:first-child
+.actions-workflow-table th:first-child
+.actions-workflow-table td:last-child
+.actions-workflow-table th:last-child
+.annotation--contracted div:first-child
+.annotation--expanded div:first-child
