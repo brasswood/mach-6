@@ -241,4 +241,41 @@ pub mod ser {
             serializer.serialize_str(&format!("element_{}", self.0))
         }
     }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+    pub struct DebugSerDocumentMatches(pub BTreeMap<SerElementKey, DebugSerElementMatches>);
+
+    impl From<&SetDocumentMatches> for DebugSerDocumentMatches {
+        fn from(value: &SetDocumentMatches) -> Self {
+            let new_map: BTreeMap<_, _> = value.0
+                .iter()
+                .map(|(k, v)| {
+                    debug_assert_eq!(*k, v.element.id);
+                    (SerElementKey(*k), DebugSerElementMatches { html: v.element.html.clone(), selectors: (&v.selectors).into() })
+                }).collect();
+            DebugSerDocumentMatches(new_map)
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+    pub struct DebugSerElementMatches {
+        pub html: String,
+        pub selectors: DebugSerSelectorsOrSharedStyles,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+    pub enum DebugSerSelectorsOrSharedStyles {
+        Selectors(BTreeSet<String>),
+        SharedWithElement(u64),
+    }
+
+    impl From<&SetSelectorsOrSharedStyles> for DebugSerSelectorsOrSharedStyles {
+        fn from(value: &SetSelectorsOrSharedStyles) -> Self {
+            match value {
+                SetSelectorsOrSharedStyles::Selectors(selectors) =>
+                    DebugSerSelectorsOrSharedStyles::Selectors(selectors.iter().cloned().collect()),
+                SetSelectorsOrSharedStyles::SharedWithElement(id) => DebugSerSelectorsOrSharedStyles::SharedWithElement(*id),
+            }
+        }
+    }
 }

@@ -6,7 +6,7 @@
  */
 use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
 use html5ever::{LocalName, QualName, ns};
-use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{element_id, ser::SerDocumentMatches}};
+use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{element_id, ser::SerDocumentMatches, ser::DebugSerDocumentMatches}};
 use insta;
 use rayon::prelude::*;
 use scraper::{ElementRef, Html, Node};
@@ -84,7 +84,7 @@ fn compare_with_naive(input: &ParsedWebsite, algorithm: Algorithm, equality_fail
             let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
             let f_debug = std::fs::File::create(&debug_yaml_path).into_result(Some(debug_yaml_path))?;
             serde_yml::to_writer(f, &website.1).unwrap(); // TODO: make a mach_6::Result and propagate instead of unwrapping
-            serde_yml::to_writer(f_debug, &website.2).unwrap();
+            serde_yml::to_writer(f_debug, &DebugSerDocumentMatches::from(&website.2)).unwrap();
         }
         Ok(false)
     } else {
