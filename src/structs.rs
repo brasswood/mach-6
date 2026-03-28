@@ -88,9 +88,9 @@ pub mod owned {
     #[derive(Debug, Clone)]
     pub struct OwnedDocumentMatches(pub Vec<OwnedElementMatches>);
 
-    impl From<DocumentMatches<'_>> for OwnedDocumentMatches {
-        fn from(value: DocumentMatches<'_>) -> Self {
-            Self(value.0.into_iter().map(OwnedElementMatches::from).collect())
+    impl From<&DocumentMatches<'_>> for OwnedDocumentMatches {
+        fn from(value: &DocumentMatches<'_>) -> Self {
+            Self(value.0.iter().map(OwnedElementMatches::from).collect())
         }
     }
 
@@ -100,11 +100,11 @@ pub mod owned {
         pub selectors: OwnedSelectorsOrSharedStyles,
     }
 
-    impl From<ElementMatches<'_>> for OwnedElementMatches {
-        fn from(value: ElementMatches<'_>) -> Self {
+    impl From<&ElementMatches<'_>> for OwnedElementMatches {
+        fn from(value: &ElementMatches<'_>) -> Self {
             Self {
                 element: value.element.into(),
-                selectors: value.selectors.into(),
+                selectors: (&value.selectors).into(),
             }
         }
     }
@@ -115,14 +115,14 @@ pub mod owned {
         SharedWithElement(u64),
     }
 
-    impl From<SelectorsOrSharedStyles<'_>> for OwnedSelectorsOrSharedStyles {
-        fn from(value: SelectorsOrSharedStyles<'_>) -> Self {
+    impl From<&SelectorsOrSharedStyles<'_>> for OwnedSelectorsOrSharedStyles {
+        fn from(value: &SelectorsOrSharedStyles<'_>) -> Self {
             match value {
                 SelectorsOrSharedStyles::Selectors(selectors) => {
-                    let selectors_and_stats = selectors.into_iter().cloned().collect();
-                    Self::Selectors(selectors_and_stats)
+                    let selectors = selectors.iter().map(std::ops::Deref::deref).cloned().collect();
+                    Self::Selectors(selectors)
                 }
-                SelectorsOrSharedStyles::SharedWithElement(id) => Self::SharedWithElement(id),
+                SelectorsOrSharedStyles::SharedWithElement(id) => Self::SharedWithElement(*id),
             }
         }
     }
@@ -200,13 +200,15 @@ pub mod ser {
 
     use serde::Serialize;
 
+    use crate::structs::set::SetSelectorsOrSharedStyles;
+
     use super::set::SetDocumentMatches;
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
     pub struct SerDocumentMatches(pub BTreeMap<SerElementKey, SerElementMatches>);
 
-    impl From<SetDocumentMatches> for SerDocumentMatches {
-        fn from(value: SetDocumentMatches) -> Self {
+    impl From<&SetDocumentMatches> for SerDocumentMatches {
+        fn from(value: &SetDocumentMatches) -> Self {
             let new_map: BTreeMap<_, _> = value.0
                 .iter()
                 .map(|(k, v)| {

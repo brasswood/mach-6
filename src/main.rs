@@ -48,7 +48,7 @@ fn main() -> mach_6::result::Result<()> {
     };
     let result: HashMap<String, SerDocumentMatches> = result?
         .into_iter()
-        .map(|(name, matches, _stats)| (name, SerDocumentMatches::from(matches)))
+        .map(|(name, matches, _stats)| (name, SerDocumentMatches::from(&matches)))
         .collect();
     println!("{}", serde_yml::to_string(&result).unwrap());
     Ok(())

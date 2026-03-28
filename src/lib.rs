@@ -116,7 +116,7 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
 pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, SetDocumentMatches, Statistics){
     let (matches, stats) = match algorithm {
         Algorithm::Naive => (
-            OwnedDocumentMatches::from(match_selectors(&website.document, website.selectors())),
+            OwnedDocumentMatches::from(&match_selectors(&website.document, website.selectors())),
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
@@ -150,7 +150,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
         Algorithm::Mach7 => {
             let document_matches = match_selectors(&website.document, website.selectors());
             (
-                OwnedDocumentMatches::from(mach_7(&document_matches)),
+                OwnedDocumentMatches::from(&mach_7(&document_matches)),
                 Statistics::default()
             )
         },
