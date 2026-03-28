@@ -189,7 +189,8 @@ pub mod set {
                     let selectors = selectors.iter().map(Selector::to_css_string).collect();
                     SetSelectorsOrSharedStyles::Selectors(selectors)
                 },
-                OwnedSelectorsOrSharedStyles::SharedWithElement(id) => SetSelectorsOrSharedStyles::SharedWithElement(id),
+                OwnedSelectorsOrSharedStyles::SharedWithElement(id) =>
+                    SetSelectorsOrSharedStyles::SharedWithElement(id),
             }
         }
     }
