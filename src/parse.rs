@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use crate::Selector;
+use crate::{Selector, selectors_from_stylist};
 use ::cssparser::ToCss as _;
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
@@ -64,14 +64,7 @@ impl ParsedWebsite {
     }
 
     pub fn selectors(&self) -> &[Selector] {
-        self.selectors.get_or_init(|| {
-            let mut selectors = BTreeMap::new();
-            let cascade_data = self.stylist().cascade_data().borrow_for_origin(Origin::Author);
-            if let Some(map) = cascade_data.normal_rules(&[]) {
-                collect_selectors_from_map(map, &mut selectors);
-            }
-            selectors.into_values().collect()
-        })
+        self.selectors.get_or_init(|| selectors_from_stylist(self.stylist()))
     }
 }
 
@@ -231,51 +224,6 @@ pub(crate) fn parse_stylesheet(
         QuirksMode::NoQuirks,
         AllowImportRules::No,
     ))))
-}
-
-fn collect_selectors_from_map(
-    map: &SelectorMap<Rule>,
-    out: &mut BTreeMap<(u32, String), Selector>,
-) {
-    let mut push_rule = |rule: &Rule| {
-        out.entry((rule.source_order, rule.selector.to_css_string()))
-            .or_insert_with(|| rule.selector.clone());
-    };
-
-    for rule in &map.root {
-        push_rule(rule);
-    }
-    for rule in &map.rare_pseudo_classes {
-        push_rule(rule);
-    }
-    for rule in &map.other {
-        push_rule(rule);
-    }
-    for (_, bucket) in map.id_hash.iter() {
-        for rule in bucket {
-            push_rule(rule);
-        }
-    }
-    for (_, bucket) in map.class_hash.iter() {
-        for rule in bucket {
-            push_rule(rule);
-        }
-    }
-    for bucket in map.attribute_hash.values() {
-        for rule in bucket {
-            push_rule(rule);
-        }
-    }
-    for bucket in map.local_name_hash.values() {
-        for rule in bucket {
-            push_rule(rule);
-        }
-    }
-    for bucket in map.namespace_hash.values() {
-        for rule in bucket {
-            push_rule(rule);
-        }
-    }
 }
 
 #[cfg(test)]

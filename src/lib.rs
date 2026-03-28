@@ -25,9 +25,11 @@ use style::selector_parser::SnapshotMap;
 use style::shared_lock::{SharedRwLock, StylesheetGuards};
 use style::sharing::StyleSharingElement as _;
 use style::stylesheets::UrlExtraData;
+use style::stylist::Stylist;
 use style::traversal_flags::TraversalFlags;
 use style::values::AtomIdent;
 use style::values::AtomString;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -319,7 +321,7 @@ pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<S
     }).collect()
 }
 
-pub fn stylist_from_selectors(selectors: &[Selector]) -> (style::stylist::Stylist, SharedRwLock) {
+pub fn stylist_from_selectors(selectors: &[Selector]) -> (Stylist, SharedRwLock) {
     let stylesheet_lock = SharedRwLock::new();
     let css = selectors
         .iter()
@@ -344,6 +346,60 @@ pub fn stylist_from_selectors(selectors: &[Selector]) -> (style::stylist::Stylis
         });
     }
     (stylist, stylesheet_lock)
+}
+
+pub fn selectors_from_stylist(stylist: &Stylist) -> Vec<Selector> {
+    let mut selectors = BTreeMap::new();
+    let cascade_data = stylist.cascade_data().borrow_for_origin(Origin::Author);
+    if let Some(map) = cascade_data.normal_rules(&[]) {
+        collect_selectors_from_map(map, &mut selectors);
+    }
+    selectors.into_values().collect()
+}
+
+fn collect_selectors_from_map(
+    map: &SelectorMap<Rule>,
+    out: &mut BTreeMap<(u32, String), Selector>,
+) {
+    let mut push_rule = |rule: &Rule| {
+        out.entry((rule.source_order, rule.selector.to_css_string()))
+            .or_insert_with(|| rule.selector.clone());
+    };
+
+    for rule in &map.root {
+        push_rule(rule);
+    }
+    for rule in &map.rare_pseudo_classes {
+        push_rule(rule);
+    }
+    for rule in &map.other {
+        push_rule(rule);
+    }
+    for (_, bucket) in map.id_hash.iter() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for (_, bucket) in map.class_hash.iter() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for bucket in map.attribute_hash.values() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for bucket in map.local_name_hash.values() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
+    for bucket in map.namespace_hash.values() {
+        for rule in bucket {
+            push_rule(rule);
+        }
+    }
 }
 
 pub fn match_selectors_with_style_sharing(
