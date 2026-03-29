@@ -128,13 +128,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
         },
         Algorithm::WithPreprocessing => {
             let preprocessed_selectors = convert_to_is_selectors(&website.document, website.selectors());
-            let reverse = |preprocessed_selector: &Selector| -> &Selector {
-                let found_idx = preprocessed_selectors
-                    .iter()
-                    .position(|item| item == preprocessed_selector)
-                    .unwrap();
-                &website.selectors()[found_idx]
-            };
+            let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
+                .iter()
+                .zip(website.selectors().iter())
+                .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
+                .collect();
             let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
             let mut result = match_selectors_with_style_sharing(
                 &website.document,
@@ -145,7 +143,16 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
             for oem in result.0.0.iter_mut() {
                 if let OwnedSelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
                     for selector in selectors.iter_mut() {
-                        *selector = reverse(selector).clone();
+                        *selector = reverse_map
+                            .get(&selector.to_css_string())
+                            .copied()
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "failed to reverse preprocessed selector {}",
+                                    selector.to_css_string()
+                                )
+                            })
+                            .clone();
                     }
                 }
             }
