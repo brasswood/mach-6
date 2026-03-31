@@ -6,7 +6,7 @@
  */
 use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
 use html5ever::{LocalName, QualName, ns};
-use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{element_id, ser::SerDocumentMatches, ser::DebugSerDocumentMatches}};
+use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{element_id, ser::{DebugSerDocumentMatches, SerDocumentMatches}, set::SetDocumentMatches}};
 use insta;
 use rayon::prelude::*;
 use scraper::{ElementRef, Html, Node};
@@ -67,24 +67,21 @@ fn annotated_html(document: &Html) -> String {
     debug_document.html()
 }
 
-fn compare_with_naive(input: &ParsedWebsite, algorithm: Algorithm, equality_failures_alg_path: &Path) -> Result<bool> {
-    let (name1, matches1, _stats) = mach_6::do_website(input, Algorithm::Naive);
-    let (name2, matches2, _stats) = mach_6::do_website(input, algorithm);
-    let website1 = (name1, SerDocumentMatches::from(&matches1), matches1);
-    let website2 = (name2, SerDocumentMatches::from(&matches2), matches2);
-    if website1.1 != website2.1 {
-        let website_folder = equality_failures_alg_path.join(&website1.0);
+fn compare_with_naive(website_name: &str, input: &ParsedWebsite, naive_result: &SetDocumentMatches, algorithm: Algorithm, equality_failures_alg_path: &Path) -> Result<bool> {
+    let (_name, result, _stats) = mach_6::do_website(input, algorithm);
+    if result != *naive_result {
+        let website_folder = equality_failures_alg_path.join(website_name);
         std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
-        let annotated_html_path = website_folder.join(format!("{web}.debug.html", web=website1.0));
+        let annotated_html_path = website_folder.join(format!("{website_name}.debug.html"));
         std::fs::write(&annotated_html_path, annotated_html(&input.document))
             .into_result(Some(annotated_html_path))?;
-        for (algorithm, website) in [(Algorithm::Naive, website1), (algorithm, website2)] {
-            let yaml_path = website_folder.join(format!("{web}.{alg}.yaml", web=website.0, alg=algorithm));
-            let debug_yaml_path = website_folder.join(format!("{web}.{alg}.debug.yaml", web=website.0, alg=algorithm));
+        for (algorithm, result) in [(Algorithm::Naive, naive_result), (algorithm, &result)] {
+            let yaml_path = website_folder.join(format!("{website_name}.{algorithm}.yaml"));
+            let debug_yaml_path = website_folder.join(format!("{website_name}.{algorithm}.debug.yaml"));
             let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
             let f_debug = std::fs::File::create(&debug_yaml_path).into_result(Some(debug_yaml_path))?;
-            serde_yml::to_writer(f, &website.1).unwrap(); // TODO: make a mach_6::Result and propagate instead of unwrapping
-            serde_yml::to_writer(f_debug, &DebugSerDocumentMatches::from(&website.2)).unwrap();
+            serde_yml::to_writer(f, &SerDocumentMatches::from(result)).unwrap(); // TODO: make a mach_6::Result and propagate instead of unwrapping
+            serde_yml::to_writer(f_debug, &DebugSerDocumentMatches::from(result)).unwrap();
         }
         Ok(false)
     } else {
@@ -117,7 +114,14 @@ fn all_algorithms_correct() -> Result<()> {
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
             for (algorithm, flag) in &algorithms {
                 // Here's the bit that does the actual work
-                if !compare_with_naive(&website, *algorithm, &equality_failures_alg(*algorithm))? {
+                let (name, naive_result, _stats) = mach_6::do_website(&website, Algorithm::Naive);
+                if !compare_with_naive(
+                    &name,
+                    &website,
+                    &naive_result,
+                    *algorithm,
+                    &equality_failures_alg(*algorithm)
+                )? {
                     flag.store(true, Ordering::Relaxed);
                 }
             }
