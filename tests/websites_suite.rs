@@ -112,9 +112,9 @@ fn all_algorithms_correct() -> Result<()> {
         .into_par_iter()
         .map(|path| {
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
+            let (name, naive_result, _stats) = mach_6::do_website(&website, Algorithm::Naive);
             for (algorithm, flag) in &algorithms {
                 // Here's the bit that does the actual work
-                let (name, naive_result, _stats) = mach_6::do_website(&website, Algorithm::Naive);
                 if !compare_with_naive(
                     &name,
                     &website,
