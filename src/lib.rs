@@ -112,12 +112,12 @@ fn assert_childrens_parent_is_me(parent: &ElementRef) {
 pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
     Ok(get_all_documents_and_selectors(websites)?
         .map(move |r| {
-            r.map(|w| do_website(&w, algorithm))
+            r.map(|w| do_website(&w, algorithm, None))
         })
     )
 }
 
-pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, SetDocumentMatches, Statistics){
+pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: Option<&DocumentMatches>) -> (String, SetDocumentMatches, Statistics){
     let (matches, stats) = match algorithm {
         Algorithm::Naive => (
             OwnedDocumentMatches::from(&match_selectors(&website.document, website.selectors())),
@@ -159,11 +159,18 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm) -> (String, Set
             result
         }
         Algorithm::Mach7 => {
-            let document_matches = match_selectors(&website.document, website.selectors());
-            (
-                OwnedDocumentMatches::from(&mach_7(&document_matches)),
-                Statistics::default()
-            )
+            if let Some(document_matches) = mach7_oracle {
+                (
+                    OwnedDocumentMatches::from(&mach_7(document_matches)),
+                    Statistics::default()
+                )
+            } else {
+                let document_matches = match_selectors(&website.document, website.selectors());
+                (
+                    OwnedDocumentMatches::from(&mach_7(&document_matches)),
+                    Statistics::default()
+                )
+            }
         },
     };
     (website.name.clone(), matches.into(), stats)
@@ -534,7 +541,7 @@ pub fn match_selectors_with_style_sharing(
                 // 1.3.4: insert the element into the style sharing cache
                 let start = Instant::now();
                 context.thread_local.sharing_cache.insert_if_possible(
-                    &element,
+                    &element ,
                     &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
                     // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
                     None,
@@ -659,7 +666,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing);
+        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(stats.sharing_instances, 9);
         Ok(())
     }
@@ -670,7 +677,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing);
+        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(stats.sharing_instances, 5);
         Ok(())
     }

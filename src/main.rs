@@ -40,7 +40,7 @@ fn main() -> mach_6::result::Result<()> {
     } = Args::parse();
     let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = if let Some(website) = website {
         Ok(get_document_and_selectors(&website)?
-            .map(|website| vec![mach_6::do_website(&website, algorithm)])
+            .map(|website| vec![mach_6::do_website(&website, algorithm, None)])
             .unwrap_or_default())
     } else {
         let websites = websites.unwrap_or_else(|| PathBuf::from("websites"));

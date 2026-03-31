@@ -4,9 +4,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
+use std::{fmt::Write as _, path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
 use html5ever::{LocalName, QualName, ns};
-use mach_6::{Algorithm, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{element_id, ser::{DebugSerDocumentMatches, SerDocumentMatches}, set::SetDocumentMatches}};
+use mach_6::{Algorithm, match_selectors, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{borrowed::DocumentMatches, element_id, owned::OwnedDocumentMatches, ser::{DebugSerDocumentMatches, SerDocumentMatches}, set::SetDocumentMatches}};
 use insta;
 use rayon::prelude::*;
 use scraper::{ElementRef, Html, Node};
@@ -31,23 +31,6 @@ fn website_paths_for_tests() -> Result<Vec<Result<PathBuf>>> {
     }
 }
 
-#[test]
-fn does_all_websites() -> Result<()> {
-    let website_paths = website_paths_for_tests()?;
-    let _: Vec<_> = website_paths
-        .into_par_iter()
-        .map(|path| {
-            let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            let (name, match_result, _stats) = mach_6::do_website(&website, Algorithm::Naive);
-            insta::with_settings!({ snapshot_path => websites_path().join("snapshots")}, {
-                insta::assert_yaml_snapshot!(name, SerDocumentMatches::from(&match_result));
-            });
-            Ok(())
-        })
-        .collect::<Result<_>>()?;
-    Ok(())
-}
-
 fn annotated_html(document: &Html) -> String {
     let mut debug_document = Html::parse_document(&document.html());
     let attr_name = QualName::new(None, ns!(), LocalName::from("data-mach6-id"));
@@ -67,21 +50,30 @@ fn annotated_html(document: &Html) -> String {
     debug_document.html()
 }
 
-fn compare_with_naive(website_name: &str, input: &ParsedWebsite, naive_result: &SetDocumentMatches, algorithm: Algorithm, equality_failures_alg_path: &Path) -> Result<bool> {
-    let (_name, result, _stats) = mach_6::do_website(input, algorithm);
-    if result != *naive_result {
+fn compare_with_naive(
+    website_name: &str,
+    input: &ParsedWebsite,
+    naive_result: &DocumentMatches,
+    ser_naive_result: &SerDocumentMatches,
+    debug_naive_result: &DebugSerDocumentMatches,
+    algorithm: Algorithm,
+    equality_failures_alg_path: &Path
+) -> Result<bool> {
+    let (_name, result, _stats) = mach_6::do_website(input, algorithm, Some(naive_result));
+    let ser_result = SerDocumentMatches::from(&result);
+    if ser_result != *ser_naive_result {
         let website_folder = equality_failures_alg_path.join(website_name);
         std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
         let annotated_html_path = website_folder.join(format!("{website_name}.debug.html"));
         std::fs::write(&annotated_html_path, annotated_html(&input.document))
             .into_result(Some(annotated_html_path))?;
-        for (algorithm, result) in [(Algorithm::Naive, naive_result), (algorithm, &result)] {
+        for (algorithm, ser_result, debug_result) in [(Algorithm::Naive, ser_naive_result, debug_naive_result), (algorithm, &ser_result, &DebugSerDocumentMatches::from(&result))] {
             let yaml_path = website_folder.join(format!("{website_name}.{algorithm}.yaml"));
             let debug_yaml_path = website_folder.join(format!("{website_name}.{algorithm}.debug.yaml"));
             let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
             let f_debug = std::fs::File::create(&debug_yaml_path).into_result(Some(debug_yaml_path))?;
-            serde_yml::to_writer(f, &SerDocumentMatches::from(result)).unwrap(); // TODO: make a mach_6::Result and propagate instead of unwrapping
-            serde_yml::to_writer(f_debug, &DebugSerDocumentMatches::from(result)).unwrap();
+            serde_yml::to_writer(f, &ser_result).unwrap(); // TODO: make a mach_6::Result and propagate instead of unwrapping
+            serde_yml::to_writer(f_debug, debug_result).unwrap();
         }
         Ok(false)
     } else {
@@ -108,17 +100,34 @@ fn all_algorithms_correct() -> Result<()> {
         };
         std::fs::create_dir_all(&path).into_result(Some(path))?;
     }
+    let naive_flag = AtomicBool::new(false);
     let _: Vec<()> = website_paths
         .into_par_iter()
         .map(|path| {
+            // 1.1. Compute naive result
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            let (name, naive_result, _stats) = mach_6::do_website(&website, Algorithm::Naive);
+            let naive_result = match_selectors(&website.document, website.selectors());
+            let set_naive_result = SetDocumentMatches::from(OwnedDocumentMatches::from(&naive_result));
+            let ser_naive_result = SerDocumentMatches::from(&set_naive_result);
+            let debug_naive_result = DebugSerDocumentMatches::from(&set_naive_result);
+            // 1.2. Check naive result with insta
+            let naive_ok = std::panic::catch_unwind(|| {
+                insta::with_settings!({ snapshot_path => websites_path().join("snapshots")}, {
+                    insta::assert_yaml_snapshot!(website.name.as_str(), ser_naive_result);
+                });
+            }).is_ok();
+            if !naive_ok {
+                naive_flag.store(true, Ordering::Relaxed);
+            }
+            // 2. Check algorithms against naive result
             for (algorithm, flag) in &algorithms {
                 // Here's the bit that does the actual work
                 if !compare_with_naive(
-                    &name,
+                    &website.name,
                     &website,
                     &naive_result,
+                    &ser_naive_result,
+                    &debug_naive_result,
                     *algorithm,
                     &equality_failures_alg(*algorithm)
                 )? {
@@ -136,8 +145,18 @@ fn all_algorithms_correct() -> Result<()> {
             std::fs::remove_dir(&path).into_result(Some(path))?;
         }
     }
+    let mut msg = String::new();
+    let mut should_panic = false;
+    if naive_flag.into_inner() {
+        should_panic = true;
+        writeln!(&mut msg, "Some insta snapshots have changed. See {} for details.", websites_path().display()).unwrap();
+    }
     if algorithms.into_iter().any(|(_, flag)| flag) {
-        panic!("Some algorithms are incorrect. See {} for details.", equality_failures_rel.display());
+        should_panic = true;
+        writeln!(&mut msg, "Some algorithms are incorrect. See {} for details.", equality_failures_rel.display()).unwrap();
+    }
+    if should_panic {
+        panic!("{}", msg);
     }
     Ok(())
 }
@@ -149,9 +168,9 @@ fn statistics_dont_change() -> Result<()> {
         .into_par_iter()
         .map(|path| {
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            for algorithm in [Algorithm::WithStyleSharing, Algorithm::WithPreprocessing, Algorithm::Mach7] {
-                let (_, _, mut stats1) = mach_6::do_website(&website, algorithm);
-                let (_, _, mut stats2) = mach_6::do_website(&website, algorithm);
+            for algorithm in [Algorithm::WithStyleSharing, Algorithm::WithPreprocessing, /* Algorithm::Mach7 just produces default statistics*/] {
+                let (_, _, mut stats1) = mach_6::do_website(&website, algorithm, None);
+                let (_, _, mut stats2) = mach_6::do_website(&website, algorithm, None);
                 // Ignore timing info, which we expect to change between runs.
                 stats1.times = TimingStats::default();
                 stats2.times = TimingStats::default();
