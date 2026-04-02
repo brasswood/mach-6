@@ -1,5 +1,5 @@
 use log::error;
-use mach_6::{self, stylist_from_selectors, convert_to_is_selectors, get_all_documents_and_selectors};
+use mach_6::{self, build_substr_selector_index, convert_to_is_selectors, get_all_documents_and_selectors, stylist_from_selectors, substrings_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::structs::{Element, Selector};
 use num_format::{Locale, ToFormattedString};
@@ -115,7 +115,23 @@ fn main() {
     let websites = get_documents(website_filter.as_deref());
     let results: Vec<_> = websites.map(|w| {
         let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document, &w.stylist(), &w.stylesheet_lock);
-        let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&convert_to_is_selectors(&w.document, &w.selectors()));
+        let substrings: Vec<_> =
+          substrings_from_selectors(w.selectors().iter()).collect();
+        let TimedResult {
+          duration: indexing_duration,
+          result: _,
+        } = bench_function(
+          "indexing function",
+          || build_substr_selector_index(&w.document, substrings.iter().copied())
+        );
+        let TimedResult {
+          duration: preprocessing_duration,
+          result: preprocessed_selectors
+        } = bench_function(
+          "preprocessing function",
+          || convert_to_is_selectors(&w.document, &w.selectors())
+        );
+        let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
         let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), &w.document, &preprocessed_stylist, &preprocessed_lock);
         WebsiteResult {
             website: w.name,

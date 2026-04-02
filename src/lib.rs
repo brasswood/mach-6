@@ -127,7 +127,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             match_selectors_with_style_sharing(&website.document, website.stylist(), &website.stylesheet_lock, None)
         },
         Algorithm::WithPreprocessing => {
-            let preprocessed_selectors = convert_to_is_selectors(&website.document, website.selectors());
+            let preprocessed_selectors =
+                convert_to_is_selectors( &website.document, website.selectors());
             let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
                 .iter()
                 .zip(website.selectors().iter())
@@ -218,42 +219,81 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
     DocumentMatches(result)
 }
 
-pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<Selector> {
-    // iterate through each selector in the list
-    // any with a "[class*=]" or similar operator: look it up in the temp map.
-    // if not in the temp map, traverse the entire HTML tree, look for classes
-    // that will match the substring, and put them in the temp map
-
-    // Helper function which looks up the list of classes with a substring, or computes it
-    // if it is not available yet.
-    fn get_matching_classes<'map>(
-        map: &'map mut HashMap<AtomString, IndexSet<AtomIdent>>,
-        document: &Html,
-        substring: &AtomString,
-    ) -> &'map IndexSet<AtomIdent> {
-        map.entry(substring.clone()).or_insert_with(|| {
-            fn preorder_traversal(
-                matching_classes: &mut IndexSet<AtomIdent>,
-                substring: &AtomString,
-                element: ElementRef,
-            ) {
-                matching_classes.extend(
-                    element
-                        .value()
-                        .classes_atom()
-                        .filter(|class| class.contains(substring.0.as_ref()))
-                        .cloned()
-                );
-                for child in element.child_elements() {
-                    preorder_traversal(matching_classes, substring, child)
+pub fn build_substr_selector_index<'substr, 'class>(
+    document: &'class Html,
+    substrings: impl Iterator<Item = &'substr AtomString>,
+) -> HashMap<&'substr AtomString, IndexSet<&'class AtomIdent>> {
+    // instead of taking a &[&AtomString] from the getgo, we will
+    // memoize it here so that we can change within here to see if
+    // it actually speeds things up.
+    let substrings: Vec<&AtomString> = substrings.collect();
+    let mut ret: HashMap<&AtomString, IndexSet<&AtomIdent>> = HashMap::new();
+    fn preorder_traversal<'substr, 'class>(
+        map: &mut HashMap<&'substr AtomString, IndexSet<&'class AtomIdent>>,
+        substrings: &[&'substr AtomString],
+        element: ElementRef<'class>,
+    ) {
+        for class in element.value().classes_atom() {
+            for substring in substrings {
+                if class.contains(substring.0.as_ref()) {
+                    map.entry(substring).or_default().insert(class);
                 }
             }
-            let mut matching_classes = IndexSet::new();
-            preorder_traversal(&mut matching_classes, substring, document.root_element());
-            matching_classes
-        })
+        }
+        for child in element.child_elements() {
+            preorder_traversal(
+                map,
+                substrings,
+                child,
+            );
+        }
+    }
+    preorder_traversal(
+        &mut ret,
+        &substrings[..],
+        document.root_element(),
+    );
+    ret
+}
+
+pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selector>) -> impl Iterator<Item = &'a AtomString> {
+    selectors
+        .flat_map(|selector| 
+            selector.iter_raw_parse_order_from(0)
+        )
+        .filter_map(substring_from_component)
+}
+
+fn substring_from_component(
+    component: &Component<style::selector_parser::SelectorImpl>
+) -> Option<&AtomString> {
+    match component {
+        Component::AttributeInNoNamespace {
+            local_name,
+            operator: AttrSelectorOperator::Substring,
+            value: substring,
+            ..
+        } if local_name.as_ref() == "class" => Some(substring),
+        Component::AttributeOther(attr) 
+            if attr.local_name.as_ref() == "class"
+        => {
+            let ParsedAttrSelectorOperation::WithValue {
+                operator: AttrSelectorOperator::Substring,
+                value: ref substring,
+                ..
+            } = attr.operation else { return None };
+            Some(substring)
+        },
+        _ => None,
     }
 
+}
+
+
+pub fn convert_to_is_selectors(
+    document: &Html,
+    selectors: &[Selector],
+) -> Vec<Selector> {
     // Helper function to turn a list of class names into a `SelectorList`
     fn create_class_selector_list(classes: impl ExactSizeIterator<Item = AtomIdent>) -> SelectorList<style::selector_parser::SelectorImpl> {
         let selectors = classes.map(|class_str| {
@@ -264,58 +304,31 @@ pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<S
         SelectorList::from_iter(selectors)
     }
 
-    // Helper function which takes a Component; if it's an attribute selector with "class*=",
-    // do the work to convert it to an equivalent `is()` selector. Otherwise, just clone
-    // the component and return it.
+        
+    // Helper function which takes a Component; if it's an attribute selector
+    // with "class*=", look it up in the map and convert it to an equivalent
+    // `is()` selector. Otherwise, just clone the component and return it.
     fn convert_to_is_component(
-        map: &mut HashMap<AtomString, IndexSet<AtomIdent>>, // mapping from substrings to lists of classes which match
-        document: &Html,
+        map: &HashMap<&AtomString, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
         component: &Component<style::selector_parser::SelectorImpl>,
     ) -> Component<style::selector_parser::SelectorImpl>{
-        match component {
-            Component::AttributeInNoNamespace {
-                local_name,
-                operator: AttrSelectorOperator::Substring,
-                value,
-                ..
-            } if local_name.as_ref() == "class" => {
-                Component::Is(
-                    create_class_selector_list(
-                        get_matching_classes(
-                            map,
-                            document,
-                            value
-                        )
+        match substring_from_component(component) {
+            Some(substring) => Component::Is(
+                create_class_selector_list(
+                    map
+                        .get(substring)
+                        .unwrap_or_else(|| panic!("substring {} not found in substring to classes map", substring.0))
                         .iter()
+                        .copied()
                         .cloned()
-                    )
                 )
-            }
-            c@Component::AttributeOther(attr) 
-                if attr.local_name.as_ref() == "class"
-            => {
-                let ParsedAttrSelectorOperation::WithValue {
-                    operator: AttrSelectorOperator::Substring,
-                    ref value,
-                    ..
-                } = attr.operation else { return c.clone() };
-                Component::Is(
-                    create_class_selector_list(
-                        get_matching_classes(
-                            map,
-                            document,
-                            value
-                        )
-                        .iter()
-                        .cloned()
-                    )
-                )
-            },
-            other => other.clone()
+            ),
+            None => component.clone()
         }
     }
 
-    let mut substr_to_classes = HashMap::new();
+    let substr_to_classes  =
+        build_substr_selector_index(document, substrings_from_selectors(selectors.iter()));
     selectors.into_iter().map(|selector| {
         let mut builder = SelectorBuilder::default();
         for component in selector.iter_raw_parse_order_from(0) {
@@ -325,8 +338,7 @@ pub fn convert_to_is_selectors(document: &Html, selectors: &[Selector]) -> Vec<S
             } else {
                 builder.push_simple_selector(
                     convert_to_is_component(
-                        &mut substr_to_classes,
-                        document,
+                        &substr_to_classes,
                         component,
                     )
                 );
@@ -688,10 +700,11 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("is_conversion_test")
         )?.unwrap();
-        let converted: Vec<_> = convert_to_is_selectors(&website.document, website.selectors())
-            .iter()
-            .map(Selector::to_css_string)
-            .collect();
+        let converted: Vec<_> =
+            convert_to_is_selectors(&website.document, website.selectors())
+                .iter()
+                .map(Selector::to_css_string)
+                .collect();
         let expected: Vec<_> = [
             ":is(.bottom-red, .bottom-green, .bottom-blue)",
             "div:is(.bottom-blue, .top-blue)", // Note: .bottom-blue appears in preorder before .top-blue
