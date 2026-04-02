@@ -235,8 +235,9 @@ pub fn build_substr_selector_index<'substr, 'class>(
     ) {
         for class in element.value().classes_atom() {
             for substring in substrings {
+                let matching_classes = map.entry(substring).or_default(); // TODO: Should I make the value type an Option instead of having an empty map when no matching class is found?
                 if class.contains(substring.0.as_ref()) {
-                    map.entry(substring).or_default().insert(class);
+                    matching_classes.insert(class);
                 }
             }
         }
