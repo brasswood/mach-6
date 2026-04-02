@@ -136,14 +136,14 @@ fn main() {
           duration: indexing_duration,
           result: _,
         } = bench_function(
-          "indexing function",
+          &format!("{} indexing", w.name),
           || build_substr_selector_index(&w.document, substrings.iter().copied())
         );
         let TimedResult {
           duration: preprocessing_duration,
           result: preprocessed_selectors
         } = bench_function(
-          "preprocessing function",
+          &format!("{} preprocessing", w.name),
           || convert_to_is_selectors(&w.document, &w.selectors())
         );
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
