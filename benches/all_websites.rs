@@ -985,13 +985,26 @@ fn render_detail_variant(label: &str, result: &BenchmarkVariantResult, _variant_
     </tbody>
   </table>
   <details class="selector-breakdown">
-    <summary>Per (Element, Selector) Slow-Reject Timings (Top {max_selector_rows})</summary>
+    <summary>Slow-Reject Timings Aggregated by Selector (Top {max_selector_rows})</summary>
     <div class="selector-view-controls" role="group" aria-label="Selector timing view">
-      <button class="selector-view-btn active" type="button" data-view="pairs">Top Pairs</button>
-      <button class="selector-view-btn" type="button" data-view="selectors">Top Selectors</button>
+      <button class="selector-view-btn active" type="button" data-view="selectors">Top Selectors</button>
+      <button class="selector-view-btn" type="button" data-view="pairs">Top Pairs</button>
     </div>
     <div class="selector-breakdown-inner">
-      <div class="selector-view selector-view-pairs">
+      <div class="selector-view selector-view-selectors">
+        <table class="selector-breakdown-table selector-breakdown-table-selectors">
+          <thead>
+            <tr>
+              <th>Selector</th>
+              <th>Total Slow Reject Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {selector_totals_rows_html}
+          </tbody>
+        </table>
+      </div>
+      <div class="selector-view selector-view-pairs hidden">
         <table class="selector-breakdown-table">
           <thead>
             <tr>
@@ -1003,19 +1016,6 @@ fn render_detail_variant(label: &str, result: &BenchmarkVariantResult, _variant_
           </thead>
           <tbody>
             {selector_rows_html}
-          </tbody>
-        </table>
-      </div>
-      <div class="selector-view selector-view-selectors hidden">
-        <table class="selector-breakdown-table selector-breakdown-table-selectors">
-          <thead>
-            <tr>
-              <th>Selector</th>
-              <th>Total Slow Reject Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {selector_totals_rows_html}
           </tbody>
         </table>
       </div>
