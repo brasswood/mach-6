@@ -31,9 +31,15 @@ struct BenchmarkVariantResult {
     selector_total_slow_reject_rows: Vec<SelectorTotalSlowRejectRow>,
 }
 
+struct PreprocessingResult {
+    indexing_duration: Duration,
+    preprocessing_duration: Duration,
+}
+
 struct WebsiteResult {
     website: String,
     before_preprocessing: BenchmarkVariantResult,
+    preprocessing: PreprocessingResult,
     after_preprocessing: BenchmarkVariantResult,
 }
 
@@ -74,6 +80,7 @@ fn selector_slow_reject_row(
 struct WebsiteJson<'a> {
     website: &'a str,
     before_preprocessing: BenchmarkRunJson,
+    preprocessing: PreprocessingJson,
     after_preprocessing: BenchmarkRunJson,
 }
 
@@ -83,6 +90,14 @@ struct BenchmarkRunJson {
     total_duration_ns: u128,
     total_duration_display: String,
     stats: WebsiteStatsJson,
+}
+
+#[derive(Serialize)]
+struct PreprocessingJson {
+    indexing_duration_ns: u128,
+    indexing_duration_display: String,
+    preprocessing_duration_ns: u128,
+    preprocessing_duration_display: String,
 }
 
 #[derive(Serialize)]
@@ -136,6 +151,10 @@ fn main() {
         WebsiteResult {
             website: w.name,
             before_preprocessing,
+            preprocessing: PreprocessingResult {
+                indexing_duration,
+                preprocessing_duration,
+            },
             after_preprocessing,
         }
     }).collect();
@@ -296,6 +315,7 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
         let payload = WebsiteJson {
             website: &result.website,
             before_preprocessing: variant_json("before_preprocessing", &result.before_preprocessing),
+            preprocessing: preprocessing_json(&result.preprocessing),
             after_preprocessing: variant_json("after_preprocessing", &result.after_preprocessing),
         };
         let serialized = serde_json::to_string_pretty(&payload)
@@ -353,12 +373,22 @@ fn variant_json(label: &'static str, result: &BenchmarkVariantResult) -> Benchma
     }
 }
 
+fn preprocessing_json(result: &PreprocessingResult) -> PreprocessingJson {
+    PreprocessingJson {
+        indexing_duration_ns: result.indexing_duration.as_nanos(),
+        indexing_duration_display: format_duration(result.indexing_duration),
+        preprocessing_duration_ns: result.preprocessing_duration.as_nanos(),
+        preprocessing_duration_display: format_duration(result.preprocessing_duration),
+    }
+}
+
 fn render_index_html(results: &[WebsiteResult]) -> String {
     let max_duration_ns = results
         .iter()
         .flat_map(|result| {
             [
                 result.before_preprocessing.duration.as_nanos(),
+                result.preprocessing.preprocessing_duration.as_nanos(),
                 result.after_preprocessing.duration.as_nanos(),
             ]
         })
@@ -371,22 +401,31 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
         let website = escape_html(&result.website);
         let json_file = format!("json/{}.json", make_filename_safe(&result.website));
         let before_summary = render_summary_variant(
-            "Before preprocessing",
+            "Matching before preprocessing",
             &result.before_preprocessing,
             max_duration_ns,
         );
+        let preprocessing_summary = render_summary_preprocessing(
+            "Preprocessing",
+            &result.preprocessing,
+            max_duration_ns,
+        );
         let after_summary = render_summary_variant(
-            "After preprocessing",
+            "Matching after preprocessing",
             &result.after_preprocessing,
             max_duration_ns,
         );
         let before_details = render_detail_variant(
-            "Before preprocessing",
+            "Matching before preprocessing",
             &result.before_preprocessing,
             "before",
         );
+        let preprocessing_details = render_detail_preprocessing(
+            "Preprocessing",
+            &result.preprocessing,
+        );
         let after_details = render_detail_variant(
-            "After preprocessing",
+            "Matching after preprocessing",
             &result.after_preprocessing,
             "after",
         );
@@ -394,6 +433,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             .before_preprocessing
             .duration
             .as_nanos()
+            .max(result.preprocessing.preprocessing_duration.as_nanos())
             .max(result.after_preprocessing.duration.as_nanos());
         let summary_slow_reject_ns = result
             .before_preprocessing
@@ -411,6 +451,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
       <div class="name">{website}</div>
       <div class="summary-variants">
         {before_summary}
+        {preprocessing_summary}
         {after_summary}
       </div>
     </div>
@@ -421,6 +462,7 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
   <div class="details">
     <div class="details-variants">
       {before_details}
+      {preprocessing_details}
       {after_details}
     </div>
     <p><a href="{json_file}">JSON data</a></p>
@@ -431,9 +473,11 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
             total_ns = summary_total_ns,
             slow_reject_ns = summary_slow_reject_ns,
             before_summary = before_summary,
+            preprocessing_summary = preprocessing_summary,
             after_summary = after_summary,
             compact_legend = render_compact_legend(),
             before_details = before_details,
+            preprocessing_details = preprocessing_details,
             after_details = after_details,
             json_file = escape_html(&json_file),
         ));
@@ -597,6 +641,12 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     }}
     .seg-other {{
       background: var(--bar);
+    }}
+    .seg-index {{
+      background: #c2410c;
+    }}
+    .seg-preprocess-other {{
+      background: #fb7185;
     }}
     .bar-legend {{
       margin-top: 8px;
@@ -923,6 +973,32 @@ fn render_summary_variant(
     )
 }
 
+fn render_summary_preprocessing(
+    label: &str,
+    result: &PreprocessingResult,
+    max_duration_ns: u128,
+) -> String {
+    let total_width_pct =
+        (result.preprocessing_duration.as_nanos() as f64 / max_duration_ns as f64) * 100.0;
+    let summary_bar_segments = render_preprocessing_bar_segments(result, false);
+
+    format!(
+        r#"<div class="variant-summary">
+  <div class="variant-label">{label}</div>
+  <div class="bar-wrap">
+    <div class="bar-total" style="width: {total_width_pct:.2}%">
+      {summary_bar_segments}
+    </div>
+  </div>
+  <div class="time">{total_time}</div>
+</div>"#,
+        label = escape_html(label),
+        total_width_pct = total_width_pct,
+        summary_bar_segments = summary_bar_segments,
+        total_time = format_duration(result.preprocessing_duration),
+    )
+}
+
 fn render_detail_variant(label: &str, result: &BenchmarkVariantResult, _variant_key: &str) -> String {
     let (_, expanded_bar_segments, expanded_legend) = render_variant_chart_parts(result);
     let mut selector_rows_html = String::new();
@@ -1037,6 +1113,91 @@ fn render_detail_variant(label: &str, result: &BenchmarkVariantResult, _variant_
     )
 }
 
+fn render_detail_preprocessing(label: &str, result: &PreprocessingResult) -> String {
+    let expanded_bar_segments = render_preprocessing_bar_segments(result, true);
+    let expanded_legend = render_preprocessing_legend(result);
+
+    format!(
+        r#"<section class="variant-details">
+  <h4 class="variant-details-title">{label}</h4>
+  <section class="expanded-chart">
+    <h5>Timing Breakdown</h5>
+    <div class="expanded-bar-wrap">
+      <div class="expanded-bar-total">
+        {expanded_bar_segments}
+      </div>
+    </div>
+    <div class="expanded-legend">
+      {expanded_legend}
+      <span>Total: {total_time}</span>
+    </div>
+  </section>
+  <table>
+    <tbody>
+      <tr><th>Indexing Duration</th><td>{indexing_duration}</td></tr>
+      <tr><th>Total Preprocessing Duration</th><td>{preprocessing_duration}</td></tr>
+    </tbody>
+  </table>
+</section>"#,
+        label = escape_html(label),
+        expanded_bar_segments = expanded_bar_segments,
+        expanded_legend = expanded_legend,
+        total_time = format_duration(result.preprocessing_duration),
+        indexing_duration = format_duration(result.indexing_duration),
+        preprocessing_duration = format_duration(result.preprocessing_duration),
+    )
+}
+
+fn render_preprocessing_bar_segments(result: &PreprocessingResult, expanded: bool) -> String {
+    let preprocessing_other = result
+        .preprocessing_duration
+        .saturating_sub(result.indexing_duration);
+    let pct = |duration: Duration| -> f64 {
+        if result.preprocessing_duration.is_zero() {
+            0.0
+        } else {
+            (duration.as_nanos() as f64 / result.preprocessing_duration.as_nanos() as f64) * 100.0
+        }
+    };
+
+    let mut segments = String::new();
+    for (class_name, segment_pct) in [
+        ("seg-index", pct(result.indexing_duration)),
+        ("seg-preprocess-other", pct(preprocessing_other)),
+    ] {
+        if segment_pct <= 0.0 {
+            continue;
+        }
+        let class_prefix = if expanded { "expanded-bar-seg" } else { "bar-seg" };
+        segments.push_str(&format!(
+            r#"<div class="{class_prefix} {class_name}" style="width: {segment_pct:.2}%"></div>"#,
+            class_prefix = class_prefix,
+            class_name = class_name,
+            segment_pct = segment_pct,
+        ));
+    }
+    segments
+}
+
+fn render_preprocessing_legend(result: &PreprocessingResult) -> String {
+    let preprocessing_other = result
+        .preprocessing_duration
+        .saturating_sub(result.indexing_duration);
+    let mut legend = String::new();
+    for (class_name, name, duration) in [
+        ("seg-index", "Indexing", result.indexing_duration),
+        ("seg-preprocess-other", "Other Preprocessing", preprocessing_other),
+    ] {
+        legend.push_str(&format!(
+            r#"<span><i class="swatch {class_name}"></i>{name}: {duration}</span>"#,
+            class_name = class_name,
+            name = name,
+            duration = format_duration(duration),
+        ));
+    }
+    legend
+}
+
 fn render_variant_chart_parts(result: &BenchmarkVariantResult) -> (String, String, String) {
     let update_bloom = result.stats.times.updating_bloom_filter;
     let slow_reject = result.stats.times.slow_rejecting;
@@ -1123,6 +1284,8 @@ fn render_variant_chart_parts(result: &BenchmarkVariantResult) -> (String, Strin
 fn render_compact_legend() -> String {
     let mut compact_legend = String::new();
     for (class_name, name) in [
+        ("seg-index", "Indexing"),
+        ("seg-preprocess-other", "Other Preprocessing"),
         ("seg-bloom", "Updating Bloom Filter"),
         ("seg-share-check", "Checking Style Sharing"),
         ("seg-query", "Querying Selector Map"),
