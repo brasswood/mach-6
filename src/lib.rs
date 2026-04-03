@@ -262,19 +262,19 @@ pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selecto
         .flat_map(|selector| 
             selector.iter_raw_parse_order_from(0)
         )
-        .filter_map(substring_from_component)
+        .filter_map(optimizable_substring_from_component)
 }
 
-fn substring_from_component(
+fn optimizable_substring_from_component(
     component: &Component<style::selector_parser::SelectorImpl>
 ) -> Option<&AtomString> {
-    match component {
+    let substring = match component {
         Component::AttributeInNoNamespace {
             local_name,
             operator: AttrSelectorOperator::Substring,
             value: substring,
             ..
-        } if local_name.as_ref() == "class" => Some(substring),
+        } if local_name.as_ref() == "class" => substring,
         Component::AttributeOther(attr) 
             if attr.local_name.as_ref() == "class"
         => {
@@ -283,11 +283,12 @@ fn substring_from_component(
                 value: ref substring,
                 ..
             } = attr.operation else { return None };
-            Some(substring)
+            substring
         },
-        _ => None,
-    }
-
+        _ => return None,
+    };
+    // only return a substring if it doesn't contain whitespace
+    (!substring.0.contains(" ")).then_some(substring)
 }
 
 
@@ -313,7 +314,7 @@ pub fn convert_to_is_selectors(
         map: &HashMap<&AtomString, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
         component: &Component<style::selector_parser::SelectorImpl>,
     ) -> Component<style::selector_parser::SelectorImpl>{
-        match substring_from_component(component) {
+        match optimizable_substring_from_component(component) {
             Some(substring) => Component::Is(
                 create_class_selector_list(
                     map
