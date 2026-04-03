@@ -233,6 +233,9 @@ pub fn build_substr_selector_index<'substr, 'class>(
         substrings: &[&'substr AtomString],
         element: ElementRef<'class>,
     ) {
+        // substring not present in the map -> substring never encountered in the selector list
+        // substring present in the map but the value is an empty IndexSet -> substring encountered in the selector list, but no classes in DOM match
+        // substring present in map, value has classes -> classes with substring found.
         for class in element.value().classes_atom() {
             for substring in substrings {
                 let matching_classes = map.entry(substring).or_default(); // TODO: Should I make the value type an Option instead of having an empty map when no matching class is found?
