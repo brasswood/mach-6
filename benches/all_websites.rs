@@ -150,14 +150,14 @@ fn main() {
     let websites = get_documents(website_filter.as_deref());
     let results: Vec<_> = websites.map(|w| {
         let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document, &w.stylist(), &w.stylesheet_lock);
-        let substrings: Vec<_> =
-          substrings_from_selectors(w.selectors().iter()).collect();
+        let substrings =
+          substrings_from_selectors(w.selectors().iter());
         let TimedResult {
           duration: indexing_duration,
           result: _,
         } = bench_function(
           &format!("{} indexing", w.name),
-          || build_substr_selector_index(&w.document, substrings.iter().copied())
+          || build_substr_selector_index(&w.document, substrings.clone())
         );
         let TimedResult {
           duration: preprocessing_duration,
@@ -166,6 +166,7 @@ fn main() {
           &format!("{} preprocessing", w.name),
           || convert_to_is_selectors(&w.document, &w.selectors())
         );
+        drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
         let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), &w.document, &preprocessed_stylist, &preprocessed_lock);
         let result = WebsiteResult {

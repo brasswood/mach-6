@@ -260,7 +260,7 @@ pub fn build_substr_selector_index<'substr, 'class>(
     ret
 }
 
-pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selector>) -> impl Iterator<Item = &'a AtomString> {
+pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selector> + Clone) -> impl Iterator<Item = &'a AtomString> + Clone {
     selectors
         .flat_map(|selector| 
             selector.iter_raw_parse_order_from(0)
