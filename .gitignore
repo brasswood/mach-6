@@ -1,3 +1,4 @@
 /criterion_report
 /target
 /tests/equality_failures
+/nightly-credentials.ps1
