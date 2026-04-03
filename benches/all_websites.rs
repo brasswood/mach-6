@@ -929,11 +929,11 @@ impl<'a> WebsiteReportView<'a> {
         let bars = 
         [
             ReportBar::BeforePreprocessing {
-                label: "Matching before preprocessing",
+                label: "Before preprocessing",
                 matching: &result.before_preprocessing,
             },
             ReportBar::WithPreprocessing {
-                label: "Matching with preprocessing",
+                label: "With preprocessing",
                 matching: &result.after_preprocessing,
                 preprocessing: &result.preprocessing,
             },
