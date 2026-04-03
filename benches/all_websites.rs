@@ -4,7 +4,7 @@ use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::structs::{Element, Selector};
 use num_format::{Locale, ToFormattedString};
 use scraper::Html;
-use selectors::matching::{SelectorStats, Statistics};
+use selectors::matching::{SelectorStats, Statistics, TimingStats};
 use serde::Serialize;
 use smallvec::SmallVec;
 use style::shared_lock::SharedRwLock;
@@ -34,6 +34,26 @@ struct BenchmarkVariantResult {
 struct PreprocessingResult {
     indexing_duration: Duration,
     preprocessing_duration: Duration,
+}
+
+enum ReportBar<'a> {
+    BeforePreprocessing {
+        label: &'static str,
+        matching: &'a BenchmarkVariantResult,
+    },
+    WithPreprocessing {
+        label: &'static str,
+        matching: &'a BenchmarkVariantResult,
+        preprocessing: &'a PreprocessingResult,
+    },
+}
+
+struct WebsiteReportView<'a> {
+    website: &'a str,
+    json_file: String,
+    bars: [ReportBar<'a>; 2],
+    summary_total_ns: u128,
+    summary_slow_reject_ns: u128,
 }
 
 struct WebsiteResult {
@@ -383,62 +403,23 @@ fn preprocessing_json(result: &PreprocessingResult) -> PreprocessingJson {
 }
 
 fn render_index_html(results: &[WebsiteResult]) -> String {
-    let max_duration_ns = results
+    let report_views: Vec<_> = results.iter().map(WebsiteReportView::from_result).collect();
+
+    let max_duration_ns = report_views
         .iter()
-        .flat_map(|result| {
-            [
-                result.before_preprocessing.duration.as_nanos(),
-                result.preprocessing.preprocessing_duration.as_nanos(),
-                result.after_preprocessing.duration.as_nanos(),
-            ]
-        })
+        .flat_map(|view| view.bars.iter())
+        .map(|bar| bar.total_duration().as_nanos())
         .max()
         .unwrap_or(1)
         .max(1);
 
     let mut sections = String::new();
-    for result in results {
-        let website = escape_html(&result.website);
-        let json_file = format!("json/{}.json", make_filename_safe(&result.website));
-        let before_summary = render_summary_variant(
-            "Matching before preprocessing",
-            &result.before_preprocessing,
-            None,
-            max_duration_ns,
-        );
-        let after_summary = render_summary_variant(
-            "Matching with preprocessing",
-            &result.after_preprocessing,
-            Some(&result.preprocessing),
-            max_duration_ns,
-        );
-        let before_details = render_detail_variant(
-            "Matching before preprocessing",
-            &result.before_preprocessing,
-            None,
-            "before",
-        );
-        let after_details = render_detail_variant(
-            "Matching with preprocessing",
-            &result.after_preprocessing,
-            Some(&result.preprocessing),
-            "after",
-        );
-        let summary_total_ns = result
-            .before_preprocessing
-            .duration
-            .as_nanos()
-            .max(
-                result.preprocessing.preprocessing_duration.as_nanos()
-                    + result.after_preprocessing.duration.as_nanos(),
-            );
-        let summary_slow_reject_ns = result
-            .before_preprocessing
-            .stats
-            .times
-            .slow_rejecting
-            .as_nanos()
-            .max(result.after_preprocessing.stats.times.slow_rejecting.as_nanos());
+    for view in &report_views {
+        let website = escape_html(view.website);
+        let before_summary = render_summary_variant(&view.bars[0], max_duration_ns);
+        let after_summary = render_summary_variant(&view.bars[1], max_duration_ns);
+        let before_details = render_detail_variant(&view.bars[0]);
+        let after_details = render_detail_variant(&view.bars[1]);
         sections.push_str(&format!(
             r#"
 <details class="site" data-total-ns="{total_ns}" data-slow-reject-ns="{slow_reject_ns}">
@@ -465,14 +446,14 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
 </details>
 "#,
             website = website,
-            total_ns = summary_total_ns,
-            slow_reject_ns = summary_slow_reject_ns,
+            total_ns = view.summary_total_ns,
+            slow_reject_ns = view.summary_slow_reject_ns,
             before_summary = before_summary,
             after_summary = after_summary,
             compact_legend = render_compact_legend(),
             before_details = before_details,
             after_details = after_details,
-            json_file = escape_html(&json_file),
+            json_file = escape_html(&view.json_file),
         ));
     }
 
@@ -941,18 +922,133 @@ fn render_index_html(results: &[WebsiteResult]) -> String {
     )
 }
 
-fn render_summary_variant(
-    label: &str,
-    result: &BenchmarkVariantResult,
-    preprocessing: Option<&PreprocessingResult>,
-    max_duration_ns: u128,
-) -> String {
-    let total_duration = result.duration
-        + preprocessing
-            .map(|p| p.preprocessing_duration)
-            .unwrap_or(Duration::ZERO);
+impl<'a> WebsiteReportView<'a> {
+    fn from_result(result: &'a WebsiteResult) -> Self {
+        let bars = 
+        [
+            ReportBar::BeforePreprocessing {
+                label: "Matching before preprocessing",
+                matching: &result.before_preprocessing,
+            },
+            ReportBar::WithPreprocessing {
+                label: "Matching with preprocessing",
+                matching: &result.after_preprocessing,
+                preprocessing: &result.preprocessing,
+            },
+        ];
+        // assert that the sum of component times (without other) does not exceed the overall duration measured
+        for bar in &bars {
+            let measured_sum = bar.measured_sum();
+            let total_duration = bar.total_duration();
+            if measured_sum > total_duration {
+                panic!(
+                    "Measured timing sum exceeded total duration: measured_sum={}, total_duration={}, website={}, bar={}",
+                    format_duration(measured_sum),
+                    format_duration(total_duration),
+                    result.website,
+                    bar.label(),
+                );
+            }
+        }
+        let summary_total_ns = bars
+            .iter()
+            .map(|bar| bar.total_duration().as_nanos())
+            .max()
+            .unwrap_or(0);
+        let summary_slow_reject_ns = result
+            .before_preprocessing
+            .stats
+            .times
+            .slow_rejecting
+            .as_nanos()
+            .max(result.after_preprocessing.stats.times.slow_rejecting.as_nanos());
+
+        Self {
+            website: &result.website,
+            json_file: format!("json/{}.json", make_filename_safe(&result.website)),
+            bars,
+            summary_total_ns,
+            summary_slow_reject_ns,
+        }
+    }
+}
+
+impl ReportBar<'_> {
+    fn label(&self) -> &'static str {
+        match self {
+            ReportBar::BeforePreprocessing { label, .. } => label,
+            ReportBar::WithPreprocessing { label, .. } => label,
+        }
+    }
+
+    fn matching(&self) -> &BenchmarkVariantResult {
+        match self {
+            ReportBar::BeforePreprocessing { matching, .. } => matching,
+            ReportBar::WithPreprocessing { matching, .. } => matching,
+        }
+    }
+
+    fn preprocessing(&self) -> Option<&PreprocessingResult> {
+        match self {
+            ReportBar::BeforePreprocessing { .. } => None,
+            ReportBar::WithPreprocessing { preprocessing, .. } => Some(preprocessing),
+        }
+    }
+
+    fn total_duration(&self) -> Duration {
+        self.matching().duration
+            + self
+                .preprocessing()
+                .map(|p| p.preprocessing_duration)
+                .unwrap_or(Duration::ZERO)
+    }
+
+    fn preprocessing_breakdown(&self) -> (Duration, Duration) {
+        self
+            .preprocessing()
+            .map(|p| {
+                let other_duration = p.preprocessing_duration.saturating_sub(p.indexing_duration);
+                (p.indexing_duration, other_duration)
+            })
+            .unwrap_or((Duration::ZERO, Duration::ZERO))
+    }
+
+    fn matching_breakdown(&self) -> TimingStats {
+        self.matching().stats.times
+    }
+
+    fn measured_sum(&self) -> Duration {
+        let (indexing_duration, preprocessing_other) = self.preprocessing_breakdown();
+        let TimingStats {
+            updating_bloom_filter,
+            slow_rejecting,
+            slow_accepting,
+            fast_rejecting,
+            checking_style_sharing,
+            inserting_into_sharing_cache,
+            querying_selector_map,
+            ..
+        } = self.matching_breakdown();
+        updating_bloom_filter
+            + indexing_duration
+            + preprocessing_other
+            + slow_rejecting
+            + slow_accepting
+            + fast_rejecting
+            + checking_style_sharing
+            + inserting_into_sharing_cache
+            + querying_selector_map
+    }
+
+    fn other_duration(&self) -> Duration {
+        self.total_duration().saturating_sub(self.measured_sum())
+    }
+}
+
+fn render_summary_variant(bar: &ReportBar<'_>, max_duration_ns: u128) -> String {
+    let total_duration = bar.total_duration();
     let total_width_pct = (total_duration.as_nanos() as f64 / max_duration_ns as f64) * 100.0;
-    let (summary_bar_segments, _, _) = render_variant_chart_parts(result, preprocessing);
+    let (summary_bar_segments, _, _) = render_variant_chart_parts(bar);
 
     format!(
         r#"<div class="variant-summary">
@@ -964,25 +1060,17 @@ fn render_summary_variant(
   </div>
   <div class="time">{total_time}</div>
 </div>"#,
-        label = escape_html(label),
+        label = escape_html(bar.label()),
         total_width_pct = total_width_pct,
         summary_bar_segments = summary_bar_segments,
         total_time = format_duration(total_duration),
     )
 }
 
-fn render_detail_variant(
-    label: &str,
-    result: &BenchmarkVariantResult,
-    preprocessing: Option<&PreprocessingResult>,
-    _variant_key: &str,
-) -> String {
-    let (_, expanded_bar_segments, expanded_legend) =
-        render_variant_chart_parts(result, preprocessing);
-    let total_duration = result.duration
-        + preprocessing
-            .map(|p| p.preprocessing_duration)
-            .unwrap_or(Duration::ZERO);
+fn render_detail_variant(bar: &ReportBar<'_>) -> String {
+    let result = bar.matching();
+    let total_duration = bar.total_duration();
+    let (_, expanded_bar_segments, expanded_legend) = render_variant_chart_parts(bar);
     let mut selector_rows_html = String::new();
     for row in &result.selector_slow_reject_rows {
         selector_rows_html.push_str(&format!(
@@ -1080,7 +1168,7 @@ fn render_detail_variant(
     </div>
   </details>
 </section>"#,
-        label = escape_html(label),
+        label = escape_html(bar.label()),
         expanded_bar_segments = expanded_bar_segments,
         expanded_legend = expanded_legend,
         total_time = format_duration(total_duration),
@@ -1096,48 +1184,21 @@ fn render_detail_variant(
 }
 
 fn render_variant_chart_parts(
-    result: &BenchmarkVariantResult,
-    preprocessing: Option<&PreprocessingResult>,
+    bar: &ReportBar<'_>,
 ) -> (String, String, String) {
-    let update_bloom = result.stats.times.updating_bloom_filter;
-    let slow_reject = result.stats.times.slow_rejecting;
-    let slow_accept = result.stats.times.slow_accepting;
-    let fast_reject = result.stats.times.fast_rejecting;
-    let check_share = result.stats.times.checking_style_sharing;
-    let insert_share_cache = result.stats.times.inserting_into_sharing_cache;
-    let query_selector_map = result.stats.times.querying_selector_map;
-    let indexing_duration = preprocessing
-        .map(|p| p.indexing_duration)
-        .unwrap_or(Duration::ZERO);
-    let preprocessing_other = preprocessing
-        .map(|p| p.preprocessing_duration.saturating_sub(p.indexing_duration))
-        .unwrap_or(Duration::ZERO);
-    let measured_sum = update_bloom
-        + indexing_duration
-        + preprocessing_other
-        + slow_reject
-        + slow_accept
-        + fast_reject
-        + check_share
-        + insert_share_cache
-        + query_selector_map;
-    if measured_sum > result.duration {
-        panic!(
-            "Measured timing sum exceeded total duration: measured_sum={}, total_duration={}",
-            format_duration(measured_sum),
-            format_duration(
-                result.duration
-                    + preprocessing
-                        .map(|p| p.preprocessing_duration)
-                        .unwrap_or(Duration::ZERO),
-            ),
-        );
-    }
-    let total_duration = result.duration
-        + preprocessing
-            .map(|p| p.preprocessing_duration)
-            .unwrap_or(Duration::ZERO);
-    let other_duration = total_duration.saturating_sub(measured_sum);
+    let total_duration = bar.total_duration();
+    let (indexing_duration, preprocessing_other) = bar.preprocessing_breakdown();
+    let TimingStats {
+        updating_bloom_filter,
+        slow_rejecting,
+        slow_accepting,
+        fast_rejecting,
+        checking_style_sharing,
+        inserting_into_sharing_cache,
+        querying_selector_map,
+        ..
+    } = bar.matching_breakdown();
+    let other_duration = bar.other_duration();
     let pct = |duration: Duration| -> f64 {
         if total_duration.is_zero() {
             0.0
@@ -1148,18 +1209,22 @@ fn render_variant_chart_parts(
 
     let mut summary_bar_segments = String::new();
     let mut expanded_bar_segments = String::new();
-    for (class_name, segment_pct) in [
-        ("seg-index", pct(indexing_duration)),
-        ("seg-preprocess-other", pct(preprocessing_other)),
-        ("seg-bloom", pct(update_bloom)),
-        ("seg-share-check", pct(check_share)),
-        ("seg-query", pct(query_selector_map)),
-        ("seg-fast", pct(fast_reject)),
-        ("seg-slow", pct(slow_reject)),
-        ("seg-slow-accept", pct(slow_accept)),
-        ("seg-share-insert", pct(insert_share_cache)),
+    let mut segment_rows = Vec::new();
+    if matches!(bar, ReportBar::WithPreprocessing { .. }) {
+        segment_rows.push(("seg-index", pct(indexing_duration)));
+        segment_rows.push(("seg-preprocess-other", pct(preprocessing_other)));
+    }
+    segment_rows.extend([
+        ("seg-bloom", pct(updating_bloom_filter)),
+        ("seg-share-check", pct(checking_style_sharing)),
+        ("seg-query", pct(querying_selector_map)),
+        ("seg-fast", pct(fast_rejecting)),
+        ("seg-slow", pct(slow_rejecting)),
+        ("seg-slow-accept", pct(slow_accepting)),
+        ("seg-share-insert", pct(inserting_into_sharing_cache)),
         ("seg-other", pct(other_duration)),
-    ] {
+    ]);
+    for (class_name, segment_pct) in segment_rows {
         if segment_pct <= 0.0 {
             continue;
         }
@@ -1184,18 +1249,22 @@ fn render_variant_chart_parts(
         )
     };
     let mut expanded_legend = String::new();
-    for (class_name, name, duration) in [
-        ("seg-index", "Indexing", indexing_duration),
-        ("seg-preprocess-other", "Other Preprocessing", preprocessing_other),
-        ("seg-bloom", "Updating Bloom Filter", update_bloom),
-        ("seg-share-check", "Checking Style Sharing", check_share),
-        ("seg-query", "Querying Selector Map", query_selector_map),
-        ("seg-fast", "Fast Rejecting", fast_reject),
-        ("seg-slow", "Slow Rejecting", slow_reject),
-        ("seg-slow-accept", "Slow Accepting", slow_accept),
-        ("seg-share-insert", "Inserting Into Sharing Cache", insert_share_cache),
+    let mut legend_rows = Vec::new();
+    if matches!(bar, ReportBar::WithPreprocessing { .. }) {
+        legend_rows.push(("seg-index", "Indexing", indexing_duration));
+        legend_rows.push(("seg-preprocess-other", "Other Preprocessing", preprocessing_other));
+    }
+    legend_rows.extend([
+        ("seg-bloom", "Updating Bloom Filter", updating_bloom_filter),
+        ("seg-share-check", "Checking Style Sharing", checking_style_sharing),
+        ("seg-query", "Querying Selector Map", querying_selector_map),
+        ("seg-fast", "Fast Rejecting", fast_rejecting),
+        ("seg-slow", "Slow Rejecting", slow_rejecting),
+        ("seg-slow-accept", "Slow Accepting", slow_accepting),
+        ("seg-share-insert", "Inserting Into Sharing Cache", inserting_into_sharing_cache),
         ("seg-other", "Other", other_duration),
-    ] {
+    ]);
+    for (class_name, name, duration) in legend_rows {
         expanded_legend.push_str(&legend_item(class_name, name, duration));
     }
 
