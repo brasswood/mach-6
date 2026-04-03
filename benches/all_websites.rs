@@ -168,7 +168,7 @@ fn main() {
         );
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
         let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), &w.document, &preprocessed_stylist, &preprocessed_lock);
-        WebsiteResult {
+        let result = WebsiteResult {
             website: w.name,
             before_preprocessing,
             preprocessing: PreprocessingResult {
@@ -176,7 +176,9 @@ fn main() {
                 preprocessing_duration,
             },
             after_preprocessing,
-        }
+        };
+        let _ = WebsiteReportView::from_result(&result); // hack: panic early
+        result
     }).collect();
     match write_report(&results) {
         Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
