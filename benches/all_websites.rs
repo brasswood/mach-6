@@ -21,7 +21,7 @@ const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
 
 struct TimedResult<R> {
     duration: Duration,
-    result: R,
+    results: Vec<R>,
 }
 
 struct BenchmarkVariantResult {
@@ -154,18 +154,19 @@ fn main() {
           substrings_from_selectors(w.selectors().iter());
         let TimedResult {
           duration: indexing_duration,
-          result: _,
+          results: _,
         } = bench_function(
           &format!("{} indexing", w.name),
-          || build_substr_selector_index(&w.document, substrings.clone())
+          || { build_substr_selector_index(&w.document, substrings.clone()); }
         );
         let TimedResult {
           duration: preprocessing_duration,
-          result: preprocessed_selectors
+          results: _
         } = bench_function(
           &format!("{} preprocessing", w.name),
-          || convert_to_is_selectors(&w.document, &w.selectors())
+          || { convert_to_is_selectors(&w.document, &w.selectors()); }
         );
+        let preprocessed_selectors = convert_to_is_selectors(&w.document, &w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
         let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), &w.document, &preprocessed_stylist, &preprocessed_lock);
@@ -191,23 +192,26 @@ fn main() {
 }
 
 fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> BenchmarkVariantResult {
-    let mut selector_stats = SmallVec::new();
     let timed_results = bench_function(
         benchmark_name,
-        || mach_6::match_selectors_with_style_sharing(document, stylist, stylesheet_lock, None),
+        || {
+            let mut selector_stats = SmallVec::new();
+            let (_, stats) =
+                mach_6::match_selectors_with_style_sharing(
+                    document,
+                    stylist,
+                    stylesheet_lock,
+                    Some(&mut selector_stats)
+                );
+            (stats, selector_stats)
+        },
     );
-    let _ = mach_6::match_selectors_with_style_sharing(
-        document,
-        stylist,
-        stylesheet_lock,
-        Some(&mut selector_stats),
-    );
-    let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
-        build_selector_slow_reject_rows(selector_stats);
     let TimedResult {
         duration,
-        result: (_matches, stats),
+        results,
     } = timed_results;
+    let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
+        build_selector_slow_reject_rows(selector_stats);
     BenchmarkVariantResult {
         duration,
         stats,
@@ -290,17 +294,21 @@ fn bench_function<F, R>(name: &str, func: F) -> TimedResult<R>
 where
     F: Fn() -> R,
 {
-    let warm_up_time = Duration::from_secs(5);
-    eprint!("Benchmarking {name}...warming up for {} seconds...", warm_up_time.as_secs_f32());
-    warm_up(&warm_up_time, &func);
-    eprint!("measuring...");
+    const NUM_SAMPLES: u32 = 100;
+    const WARM_UP_TIME: Duration = Duration::from_secs(5);
+    let mut samples_vec = Vec::with_capacity(NUM_SAMPLES as usize);
+    eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
+    warm_up(&WARM_UP_TIME, &func);
+    eprint!("measuring {NUM_SAMPLES} samples...");
     let start = Instant::now();
-    let result = func();
+    for _ in 0..NUM_SAMPLES {
+      samples_vec.push(func());
+    }
     let duration = start.elapsed();
-    eprintln!("done. ({})", format_duration(duration));
+    eprintln!("done. ({}, {} total)", format_duration(duration / NUM_SAMPLES), format_duration(duration));
     TimedResult {
         duration,
-        result,
+        results: samples_vec,
     }
 }
 
