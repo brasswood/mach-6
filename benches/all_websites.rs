@@ -24,6 +24,22 @@ struct TimedResults<R> {
     per_sample_results: Vec<R>,
 }
 
+trait Mean {
+    type Output;
+
+    fn mean(samples: &[Self]) -> Self::Output
+    where
+        Self: Sized;
+}
+
+trait StdDev: Mean {
+    type Output;
+
+    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> Self::Output
+    where
+        Self: Sized;
+}
+
 impl<R> TimedResults<R> {
     fn map<T, F>(&self, mut f: F) -> TimedResults<T>
     where
@@ -33,6 +49,21 @@ impl<R> TimedResults<R> {
             total_duration: self.total_duration,
             per_sample_results: self.per_sample_results.iter().map(|value| f(value)).collect(),
         }
+    }
+
+    fn mean_result(&self) -> <R as Mean>::Output
+    where
+        R: Mean,
+    {
+        R::mean(&self.per_sample_results)
+    }
+
+    fn stddev_result(&self) -> <R as StdDev>::Output
+    where
+        R: Mean + StdDev,
+    {
+        let mean = self.mean_result();
+        R::stddev(&self.per_sample_results, &mean)
     }
 }
 
