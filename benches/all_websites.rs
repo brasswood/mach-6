@@ -160,11 +160,11 @@ struct MatchBenchResult {
     /// Counting stats of one sample (should be the same accross all samples)
     counting_stats: CountingStats,
     /// Per-sample timing stats
-    timing_stats: Vec<TimingStats>,
+    timing_stats: Samples<TimingStats>,
     /// The top MAX_SELECTOR_ROWS_PER_WEBSITE slow-rejecting selectors in
     /// descending order, their slow-reject durations for each sample, and their
     /// aggregate durations.
-    top_slow_reject_times: Vec<(SelectorString, Duration, Vec<SlowRejectDuration>)>,
+    top_slow_reject_times: Vec<(SelectorString, Duration, Samples<SlowRejectDuration>)>,
 }
 
 impl From<TimedResults<SampleResult>> for MatchBenchResult {
@@ -196,13 +196,13 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             }
             timing_stats.push(sample_result.overall_stats.times);
         }
-        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)| (selector, durations.iter().map(|srd| srd.duration).sum(), durations)).collect();
+        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)| (selector, durations.iter().map(|srd| srd.duration).sum(), Samples(durations))).collect();
         sorted.sort_unstable_by_key(|(_sel, aggregate_duration, _durs)| Reverse(*aggregate_duration));
         sorted.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
         MatchBenchResult {
             total_duration,
             counting_stats,
-            timing_stats,
+            timing_stats: Samples(timing_stats),
             top_slow_reject_times: sorted,
         }
     }
