@@ -51,6 +51,10 @@ impl<R> TimedResults<R> {
         }
     }
 
+    fn mean_duration(&self) -> Duration {
+        self.total_duration / self.per_sample_results.len() as u32
+    }
+
     fn mean_result(&self) -> <R as Mean>::Output
     where
         R: Mean,
