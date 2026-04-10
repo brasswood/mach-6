@@ -4,7 +4,7 @@ use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::structs::{Element, Selector};
 use num_format::{Locale, ToFormattedString};
 use scraper::Html;
-use selectors::matching::{SelectorStats, Statistics, TimingStats};
+use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
 use serde::Serialize;
 use smallvec::SmallVec;
 use style::shared_lock::SharedRwLock;
@@ -118,26 +118,80 @@ impl<R> TimedResults<R> {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+struct SelectorString(String);
+impl From<&Selector> for SelectorString {
+    fn from(value: &Selector) -> Self {
+        Self(value.to_css_string())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+enum SlowRejectKind {
+    Bloom,
+    ScopeProximity,
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+struct SlowRejectDuration {
+    kind: SlowRejectKind,
+    duration: Duration,
+}
+
 /// Aggregated data for one matching variant in the website report.
 ///
 /// A "variant" here means one of the two selector-matching configurations we
 /// compare for a website, such as before preprocessing vs. after preprocessing.
 /// This is the per-variant payload consumed by both the HTML report and the
 /// per-website JSON output.
-struct BenchmarkVariantResult {
+struct MatchBenchResult {
     /// The total duration of the benched website
     total_duration: Duration,
     /// Counting stats of one sample (should be the same accross all samples)
-    counting_stats: Statistics,
+    counting_stats: CountingStats,
     /// Per-sample timing stats
     timing_stats: Vec<TimingStats>,
-    /// Per-sample slow-reject times grouped by selector and then element.
-    ///
-    /// For a given selector/element pair, the `Vec<Duration>` is expected to
-    /// contain one entry for every benchmark sample. If that invariant is ever
-    /// violated, it indicates a bug or unexpected nondeterminism in the
-    /// benchmarked matching path.
-    slow_reject_times_by_match: HashMap<Selector, HashMap<Element, Vec<Duration>>>,
+    /// The top MAX_SELECTOR_ROWS_PER_WEBSITE slow-rejecting selectors in
+    /// descending order, their slow-reject durations for each sample, and their
+    /// aggregate durations.
+    top_slow_reject_times: Vec<(SelectorString, Duration, Vec<SlowRejectDuration>)>,
+}
+
+impl From<TimedResults<SampleResult>> for MatchBenchResult {
+    fn from(value: TimedResults<SampleResult>) -> Self {
+        let TimedResults {
+            total_duration,
+            per_sample_results,
+        } = value;
+        let counting_stats = per_sample_results[0].overall_stats.counts;
+        let mut map: HashMap<SelectorString, Vec<SlowRejectDuration>> = HashMap::new();
+        let mut timing_stats = Vec::new();
+        for sample_result in per_sample_results {
+            for ((_element, selector), selector_stats) in sample_result.per_match_stats {
+                let slow_reject_duration = match selector_stats {
+                    SelectorStats::Bloom(bq) => SlowRejectDuration {
+                        kind: SlowRejectKind::Bloom,
+                        duration: bq.time_slow_rejecting.unwrap_or_default(),
+                    },
+                    SelectorStats::ScopeProximity(sp) => SlowRejectDuration {
+                        kind: SlowRejectKind::ScopeProximity,
+                        duration: sp.time_slow_rejecting,
+                    },
+                };
+                map.entry(SelectorString::from(&selector)).or_default().push(slow_reject_duration);
+            }
+            timing_stats.push(sample_result.overall_stats.times);
+        }
+        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)| (selector, durations.iter().map(|srd| srd.duration).sum(), durations)).collect();
+        sorted.sort_unstable_by_key(|(_sel, aggregate_duration, _durs)| Reverse(*aggregate_duration));
+        sorted.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
+        MatchBenchResult {
+            total_duration,
+            counting_stats,
+            timing_stats,
+            top_slow_reject_times: sorted,
+        }
+    }
 }
 
 /// Timing data for the preprocessing stage that sits between the two matching
@@ -152,11 +206,11 @@ struct PreprocessingResult {
 enum ReportBar<'a> {
     BeforePreprocessing {
         label: &'static str,
-        matching: &'a BenchmarkVariantResult,
+        matching: &'a MatchBenchResult,
     },
     WithPreprocessing {
         label: &'static str,
-        matching: &'a BenchmarkVariantResult,
+        matching: &'a MatchBenchResult,
         preprocessing: &'a PreprocessingResult,
     },
 }
@@ -173,9 +227,9 @@ struct WebsiteReportView<'a> {
 /// preprocessing step, and the post-preprocessing matching variant.
 struct WebsiteResult {
     website: String,
-    before_preprocessing: BenchmarkVariantResult,
+    before_preprocessing: MatchBenchResult,
     preprocessing: PreprocessingResult,
-    after_preprocessing: BenchmarkVariantResult,
+    after_preprocessing: MatchBenchResult,
 }
 
 struct SelectorSlowRejectRow {
@@ -308,33 +362,30 @@ fn main() {
     }
 }
 
-fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> BenchmarkVariantResult {
+struct SampleResult {
+    overall_stats: Statistics,
+    per_match_stats: SmallVec<[((Element, Selector), SelectorStats); 16]>,
+}
+
+fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> MatchBenchResult {
     let timed_results = bench_function(
         benchmark_name,
         || {
-            let mut selector_stats = SmallVec::new();
-            let (_, stats) =
+            let mut per_match_stats = SmallVec::new();
+            let (_, overall_stats) =
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     stylist,
                     stylesheet_lock,
-                    Some(&mut selector_stats)
+                    Some(&mut per_match_stats)
                 );
-            (stats, selector_stats)
+            SampleResult {
+                overall_stats,
+                per_match_stats,
+            }
         },
     );
-    let TimedResults {
-        total_duration,
-        per_sample_results,
-    } = timed_results;
-    let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
-        build_selector_slow_reject_rows(selector_stats);
-    BenchmarkVariantResult {
-        duration,
-        stats,
-        selector_slow_reject_rows,
-        selector_total_slow_reject_rows,
-    }
+    timed_results.into()
 }
 
 fn build_selector_slow_reject_rows<I>(
@@ -476,7 +527,7 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     Ok(report_dir)
 }
 
-fn variant_json(label: &'static str, result: &BenchmarkVariantResult) -> BenchmarkRunJson {
+fn variant_json(label: &'static str, result: &MatchBenchResult) -> BenchmarkRunJson {
     BenchmarkRunJson {
         label,
         total_duration_ns: result.duration.as_nanos(),
@@ -1109,7 +1160,7 @@ impl ReportBar<'_> {
         }
     }
 
-    fn matching(&self) -> &BenchmarkVariantResult {
+    fn matching(&self) -> &MatchBenchResult {
         match self {
             ReportBar::BeforePreprocessing { matching, .. } => matching,
             ReportBar::WithPreprocessing { matching, .. } => matching,
