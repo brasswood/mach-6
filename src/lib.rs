@@ -512,7 +512,7 @@ pub fn match_selectors_with_style_sharing(
                 let element = Element::from(element);
                 let other_element = Element::from(other_element);
                 matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) });
-                stats.sharing_instances += 1;
+                stats.counts.sharing_instances += 1;
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
@@ -684,7 +684,7 @@ mod tests {
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
-        assert_eq!(stats.sharing_instances, 9);
+        assert_eq!(stats.counts.sharing_instances, 9);
         Ok(())
     }
 
@@ -695,7 +695,7 @@ mod tests {
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
-        assert_eq!(stats.sharing_instances, 5);
+        assert_eq!(stats.counts.sharing_instances, 5);
         Ok(())
     }
 
