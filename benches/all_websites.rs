@@ -27,6 +27,21 @@ impl<T> Samples<T> {
         self.0.len()
     }
 
+    fn mean(&self) -> <T as Mean>::Output
+    where
+        T: Mean,
+    {
+        T::mean(self.as_slice())
+    }
+
+    fn stddev(&self) -> <T as StdDev>::Output
+    where
+        T: Mean + StdDev,
+    {
+        let mean = self.mean();
+        T::stddev(self.as_slice(), &mean)
+    }
+
     fn iter(&self) -> std::slice::Iter<'_, T> {
         self.0.iter()
     }
@@ -110,27 +125,6 @@ impl StdDev for TimingStats {
             inserting_into_sharing_cache: stddev(|sample| sample.inserting_into_sharing_cache),
             _time_inside_buckets: stddev(|sample| sample._time_inside_buckets),
         }
-    }
-}
-
-impl<R> TimedResults<R> {
-    fn mean_duration(&self) -> Duration {
-        self.total_duration / self.per_sample_results.len() as u32
-    }
-
-    fn mean_result(&self) -> <R as Mean>::Output
-    where
-        R: Mean,
-    {
-        R::mean(self.per_sample_results.as_slice())
-    }
-
-    fn stddev_result(&self) -> <R as StdDev>::Output
-    where
-        R: Mean + StdDev,
-    {
-        let mean = self.mean_result();
-        R::stddev(self.per_sample_results.as_slice(), &mean)
     }
 }
 
