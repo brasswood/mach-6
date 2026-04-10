@@ -241,10 +241,21 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
 /// Timing data for the preprocessing stage that sits between the two matching
 /// variants in the report.
 struct PreprocessingResult {
-    /// The substring-indexing duration
-    indexing_duration: Duration,
-    /// The total preprocessing wall-clock time. This has `indexing_duration` included in it.
-    preprocessing_duration: Duration,
+    /// The substring-indexing results
+    indexing: TimedResults<()>,
+    /// The total preprocessing results. This has `indexing` included in it.
+    overall_preprocessing: TimedResults<()>,
+}
+impl PreprocessingResult {
+    fn mean_indexing(&self) -> Duration {
+        self.indexing.total_duration / self.indexing.per_sample_results.len() as u32
+    }
+    fn mean_overall(&self) -> Duration {
+        self.overall_preprocessing.total_duration / self.overall_preprocessing.per_sample_results.len() as u32
+    }
+    fn mean_non_indexing(&self) -> Duration {
+        self.mean_overall() - self.mean_indexing()
+    }
 }
 
 enum ReportBar<'a> {
