@@ -376,22 +376,14 @@ fn main() {
         let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document, &w.stylist(), &w.stylesheet_lock);
         let substrings =
           substrings_from_selectors(w.selectors().iter());
-        let TimedResults {
-          total_duration: indexing_duration,
-          per_sample_results,
-        } = bench_function(
+        let indexing_results = bench_function(
           &format!("{} indexing", w.name),
           || { build_substr_selector_index(&w.document, substrings.clone()); }
         );
-        let num_indexing_samples = per_sample_results.len();
-        let TimedResults {
-          total_duration: preprocessing_duration,
-          per_sample_results
-        } = bench_function(
+        let overall_preprocessing_results = bench_function(
           &format!("{} preprocessing", w.name),
           || { convert_to_is_selectors(&w.document, &w.selectors()); }
         );
-        let num_preprocessing_samples = per_sample_results.len();
         let preprocessed_selectors = convert_to_is_selectors(&w.document, &w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
@@ -400,8 +392,8 @@ fn main() {
             website: w.name,
             before_preprocessing,
             preprocessing: PreprocessingResult {
-                indexing_duration,
-                preprocessing_duration,
+                indexing: indexing_results,
+                overall_preprocessing: overall_preprocessing_results,
             },
             after_preprocessing,
         };
