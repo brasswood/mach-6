@@ -35,9 +35,56 @@ trait Mean {
 trait StdDev: Mean {
     type Output;
 
-    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> Self::Output
+    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> <Self as StdDev>::Output
     where
         Self: Sized;
+}
+
+impl Mean for TimingStats {
+    type Output = TimingStats;
+
+    fn mean(samples: &[Self]) -> Self::Output {
+        assert!(!samples.is_empty(), "tried to compute mean of empty sample set");
+        let iter = samples.iter().copied();
+        let sum = iter
+            .reduce(|l, r| l + r)
+            .expect("tried to compute mean of empty sample set");
+        sum / samples.len() as u32
+    }
+}
+
+impl StdDev for TimingStats {
+    type Output = TimingStats;
+
+    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> <Self as StdDev>::Output {
+        assert!(
+            !samples.is_empty(),
+            "tried to compute standard deviation of empty sample set"
+        );
+
+        let stddev = |project: fn(&TimingStats) -> Duration| {
+            let variance = samples
+                .iter()
+                .map(|sample| {
+                    let delta = project(sample).as_nanos() as f64 - project(mean).as_nanos() as f64;
+                    delta * delta
+                })
+                .sum::<f64>()
+                / samples.len() as f64;
+            Duration::from_nanos(variance.sqrt().round() as u64)
+        };
+
+        TimingStats {
+            updating_bloom_filter: stddev(|sample| sample.updating_bloom_filter),
+            checking_style_sharing: stddev(|sample| sample.checking_style_sharing),
+            querying_selector_map: stddev(|sample| sample.querying_selector_map),
+            fast_rejecting: stddev(|sample| sample.fast_rejecting),
+            slow_rejecting: stddev(|sample| sample.slow_rejecting),
+            slow_accepting: stddev(|sample| sample.slow_accepting),
+            inserting_into_sharing_cache: stddev(|sample| sample.inserting_into_sharing_cache),
+            _time_inside_buckets: stddev(|sample| sample._time_inside_buckets),
+        }
+    }
 }
 
 impl<R> TimedResults<R> {
