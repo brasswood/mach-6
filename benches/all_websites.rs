@@ -81,6 +81,36 @@ trait StdDev: Mean {
         Self: Sized;
 }
 
+impl Mean for Duration {
+    type Output = Duration;
+
+    fn mean(samples: &[Self]) -> Self::Output {
+        assert!(!samples.is_empty(), "tried to compute mean of empty sample set");
+        let total: Duration = samples.iter().copied().sum();
+        total / samples.len() as u32
+    }
+}
+
+impl StdDev for Duration {
+    type Output = Duration;
+
+    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> <Self as StdDev>::Output {
+        assert!(
+            !samples.is_empty(),
+            "tried to compute standard deviation of empty sample set"
+        );
+        let variance = samples
+            .iter()
+            .map(|sample| {
+                let delta = sample.as_nanos() as f64 - mean.as_nanos() as f64;
+                delta * delta
+            })
+            .sum::<f64>()
+            / samples.len() as f64;
+        Duration::from_nanos(variance.sqrt().round() as u64)
+    }
+}
+
 impl Mean for TimingStats {
     type Output = TimingStats;
 
