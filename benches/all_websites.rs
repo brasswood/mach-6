@@ -19,9 +19,9 @@ use cssparser::ToCss as _;
 
 const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
 
-struct TimedResult<R> {
-    duration: Duration,
-    results: Vec<R>,
+struct TimedResults<R> {
+    total_duration: Duration,
+    per_sample_results: Vec<R>,
 }
 
 struct BenchmarkVariantResult {
@@ -152,20 +152,22 @@ fn main() {
         let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document, &w.stylist(), &w.stylesheet_lock);
         let substrings =
           substrings_from_selectors(w.selectors().iter());
-        let TimedResult {
-          duration: indexing_duration,
-          results: _,
+        let TimedResults {
+          total_duration: indexing_duration,
+          per_sample_results,
         } = bench_function(
           &format!("{} indexing", w.name),
           || { build_substr_selector_index(&w.document, substrings.clone()); }
         );
-        let TimedResult {
-          duration: preprocessing_duration,
-          results: _
+        let num_indexing_samples = per_sample_results.len();
+        let TimedResults {
+          total_duration: preprocessing_duration,
+          per_sample_results
         } = bench_function(
           &format!("{} preprocessing", w.name),
           || { convert_to_is_selectors(&w.document, &w.selectors()); }
         );
+        let num_preprocessing_samples = per_sample_results.len();
         let preprocessed_selectors = convert_to_is_selectors(&w.document, &w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
@@ -206,9 +208,9 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
             (stats, selector_stats)
         },
     );
-    let TimedResult {
-        duration,
-        results,
+    let TimedResults {
+        total_duration,
+        per_sample_results,
     } = timed_results;
     let (selector_slow_reject_rows, selector_total_slow_reject_rows) =
         build_selector_slow_reject_rows(selector_stats);
@@ -290,7 +292,7 @@ fn get_documents(website_filter: Option<&str>) -> Box<dyn Iterator<Item = Parsed
     }
 }
 
-fn bench_function<F, R>(name: &str, func: F) -> TimedResult<R>
+fn bench_function<F, R>(name: &str, func: F) -> TimedResults<R>
 where
     F: Fn() -> R,
 {
@@ -304,11 +306,11 @@ where
     for _ in 0..NUM_SAMPLES {
       samples_vec.push(func());
     }
-    let duration = start.elapsed();
-    eprintln!("done. ({}, {} total)", format_duration(duration / NUM_SAMPLES), format_duration(duration));
-    TimedResult {
-        duration,
-        results: samples_vec,
+    let total_duration = start.elapsed();
+    eprintln!("done. ({}, {} total)", format_duration(total_duration / NUM_SAMPLES), format_duration(total_duration));
+    TimedResults {
+        total_duration,
+        per_sample_results: samples_vec,
     }
 }
 
@@ -318,7 +320,7 @@ where
 {
     let start = Instant::now();
     while start.elapsed() < *warm_up_time {
-        let _ = func();
+        func();
     }
 }
 
