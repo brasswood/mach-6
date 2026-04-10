@@ -19,9 +19,35 @@ use cssparser::ToCss as _;
 
 const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
 
+#[derive(Clone, Debug, Default)]
+struct Samples<T>(Vec<T>); 
+
+impl<T> Samples<T> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.0.iter()
+    }
+
+    fn into_iter(self) -> std::vec::IntoIter<T> {
+        self.0.into_iter()
+    }
+
+    fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    fn first(&self) -> Option<&T> {
+        self.0.first()
+    }
+}
+
+
 struct TimedResults<R> {
     total_duration: Duration,
-    per_sample_results: Vec<R>,
+    per_sample_results: Samples<R>,
 }
 
 trait Mean {
@@ -88,16 +114,6 @@ impl StdDev for TimingStats {
 }
 
 impl<R> TimedResults<R> {
-    fn map<T, F>(&self, mut f: F) -> TimedResults<T>
-    where
-        F: FnMut(&R) -> T,
-    {
-        TimedResults {
-            total_duration: self.total_duration,
-            per_sample_results: self.per_sample_results.iter().map(|value| f(value)).collect(),
-        }
-    }
-
     fn mean_duration(&self) -> Duration {
         self.total_duration / self.per_sample_results.len() as u32
     }
@@ -106,7 +122,7 @@ impl<R> TimedResults<R> {
     where
         R: Mean,
     {
-        R::mean(&self.per_sample_results)
+        R::mean(self.per_sample_results.as_slice())
     }
 
     fn stddev_result(&self) -> <R as StdDev>::Output
@@ -114,7 +130,7 @@ impl<R> TimedResults<R> {
         R: Mean + StdDev,
     {
         let mean = self.mean_result();
-        R::stddev(&self.per_sample_results, &mean)
+        R::stddev(self.per_sample_results.as_slice(), &mean)
     }
 }
 
@@ -163,10 +179,14 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             total_duration,
             per_sample_results,
         } = value;
-        let counting_stats = per_sample_results[0].overall_stats.counts;
+        let counting_stats = per_sample_results
+            .first()
+            .expect("expected at least one sample result")
+            .overall_stats
+            .counts;
         let mut map: HashMap<SelectorString, Vec<SlowRejectDuration>> = HashMap::new();
         let mut timing_stats = Vec::new();
-        for sample_result in per_sample_results {
+        for sample_result in per_sample_results.into_iter() {
             for ((_element, selector), selector_stats) in sample_result.per_match_stats {
                 let slow_reject_duration = match selector_stats {
                     SelectorStats::Bloom(bq) => SlowRejectDuration {
@@ -476,7 +496,7 @@ where
     eprintln!("done. ({}, {} total)", format_duration(total_duration / NUM_SAMPLES), format_duration(total_duration));
     TimedResults {
         total_duration,
-        per_sample_results: samples_vec,
+        per_sample_results: Samples(samples_vec),
     }
 }
 
