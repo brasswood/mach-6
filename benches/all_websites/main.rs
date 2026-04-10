@@ -2,7 +2,6 @@ use log::error;
 use mach_6::{self, build_substr_selector_index, convert_to_is_selectors, get_all_documents_and_selectors, stylist_from_selectors, substrings_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::structs::{Element, Selector};
-use num_format::{Locale, ToFormattedString};
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
@@ -168,12 +167,21 @@ impl From<&Selector> for SelectorString {
     }
 }
 
+/// A selector and its aggregate (i.e. for every element) slow-reject time in
+/// each sample
+#[derive(Clone, Debug)]
+struct SelectorSlowRejectSamples {
+    selector: SelectorString,
+    aggregate_durations: Samples<Duration>,
+}
+
 /// Aggregated data for one matching variant in the website report.
 ///
 /// A "variant" here means one of the two selector-matching configurations we
 /// compare for a website, such as before preprocessing vs. after preprocessing.
 /// This is the per-variant payload consumed by both the HTML report and the
 /// per-website JSON output.
+#[derive(Clone, Debug)]
 struct MatchBenchResult {
     /// The total duration of the benched website
     total_duration: Duration,
@@ -184,7 +192,7 @@ struct MatchBenchResult {
     /// The top MAX_SELECTOR_ROWS_PER_WEBSITE slow-rejecting selectors in
     /// descending order, and their aggregate slow-reject durations for each
     /// sample.
-    top_slow_reject_times: Vec<(SelectorString, Samples<Duration>)>,
+    top_slow_reject_times: Vec<SelectorSlowRejectSamples>,
 }
 
 impl MatchBenchResult {
@@ -228,8 +236,10 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             }
             timing_stats.push(sample_result.overall_stats.times);
         }
-        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)| (selector, Samples(durations))).collect();
-        sorted.sort_unstable_by_key(|(_sel, aggregate_durations)| Reverse(aggregate_durations.mean()));
+        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)|
+            SelectorSlowRejectSamples { selector, aggregate_durations: Samples(durations) }
+        ).collect();
+        sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
         sorted.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
         MatchBenchResult {
             total_duration,
