@@ -136,18 +136,6 @@ impl From<&Selector> for SelectorString {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-enum SlowRejectKind {
-    Bloom,
-    ScopeProximity,
-}
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-struct SlowRejectDuration {
-    kind: SlowRejectKind,
-    duration: Duration,
-}
-
 /// Aggregated data for one matching variant in the website report.
 ///
 /// A "variant" here means one of the two selector-matching configurations we
@@ -162,9 +150,9 @@ struct MatchBenchResult {
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
     /// The top MAX_SELECTOR_ROWS_PER_WEBSITE slow-rejecting selectors in
-    /// descending order, their slow-reject durations for each sample, and their
-    /// aggregate durations.
-    top_slow_reject_times: Vec<(SelectorString, Duration, Samples<SlowRejectDuration>)>,
+    /// descending order, and their aggregate slow-reject durations for each
+    /// sample.
+    top_slow_reject_times: Vec<(SelectorString, Duration, Samples<Duration>)>,
 }
 
 impl MatchBenchResult {
@@ -184,21 +172,27 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             .expect("expected at least one sample result")
             .overall_stats
             .counts;
-        let mut map: HashMap<SelectorString, Vec<SlowRejectDuration>> = HashMap::new();
-        let mut timing_stats = Vec::new();
-        for sample_result in per_sample_results.into_iter() {
+        let mut map: HashMap<SelectorString, Vec<Duration>> = HashMap::new();
+        let mut timing_stats = Vec::with_capacity(value.per_sample_results.len());
+        for (i, sample_result) in per_sample_results.into_iter().enumerate() {
             for ((_element, selector), selector_stats) in sample_result.per_match_stats {
                 let slow_reject_duration = match selector_stats {
-                    SelectorStats::Bloom(bq) => SlowRejectDuration {
-                        kind: SlowRejectKind::Bloom,
-                        duration: bq.time_slow_rejecting.unwrap_or_default(),
-                    },
-                    SelectorStats::ScopeProximity(sp) => SlowRejectDuration {
-                        kind: SlowRejectKind::ScopeProximity,
-                        duration: sp.time_slow_rejecting,
-                    },
+                    SelectorStats::Bloom(bq) =>
+                        bq.time_slow_rejecting.unwrap_or_default(),
+                    SelectorStats::ScopeProximity(sp) =>
+                        sp.time_slow_rejecting,
                 };
-                map.entry(SelectorString::from(&selector)).or_default().push(slow_reject_duration);
+                let samples = map.entry(SelectorString::from(&selector)).or_default();
+                // If this is the first time we have touched the vector at this
+                // selector for this sample (samples.len() == i), push a new
+                // Duration onto the end. Otherwise, samples.len() == i + 1,
+                // which means we have already started building up an aggregate
+                // duration for this sample, so just accumulate that. 
+                if samples.len() == i {
+                    samples.push(slow_reject_duration);
+                } else {
+                    samples[i] += slow_reject_duration;
+                }
             }
             timing_stats.push(sample_result.overall_stats.times);
         }
