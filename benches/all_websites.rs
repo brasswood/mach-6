@@ -24,6 +24,18 @@ struct TimedResults<R> {
     per_sample_results: Vec<R>,
 }
 
+impl<R> TimedResults<R> {
+    fn map<T, F>(&self, mut f: F) -> TimedResults<T>
+    where
+        F: FnMut(&R) -> T,
+    {
+        TimedResults {
+            total_duration: self.total_duration,
+            per_sample_results: self.per_sample_results.iter().map(|value| f(value)).collect(),
+        }
+    }
+}
+
 struct BenchmarkVariantResult {
     duration: Duration,
     stats: Statistics,
