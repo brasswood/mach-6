@@ -167,6 +167,12 @@ struct MatchBenchResult {
     top_slow_reject_times: Vec<(SelectorString, Duration, Samples<SlowRejectDuration>)>,
 }
 
+impl MatchBenchResult {
+    fn mean_duration(&self) -> Duration {
+        self.total_duration / self.timing_stats.len() as u32
+    }
+}
+
 impl From<TimedResults<SampleResult>> for MatchBenchResult {
     fn from(value: TimedResults<SampleResult>) -> Self {
         let TimedResults {
