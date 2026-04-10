@@ -118,15 +118,34 @@ impl<R> TimedResults<R> {
     }
 }
 
+/// Aggregated data for one matching variant in the website report.
+///
+/// A "variant" here means one of the two selector-matching configurations we
+/// compare for a website, such as before preprocessing vs. after preprocessing.
+/// This is the per-variant payload consumed by both the HTML report and the
+/// per-website JSON output.
 struct BenchmarkVariantResult {
-    duration: Duration,
-    stats: Statistics,
-    selector_slow_reject_rows: Vec<SelectorSlowRejectRow>,
-    selector_total_slow_reject_rows: Vec<SelectorTotalSlowRejectRow>,
+    /// The total duration of the benched website
+    total_duration: Duration,
+    /// Counting stats of one sample (should be the same accross all samples)
+    counting_stats: Statistics,
+    /// Per-sample timing stats
+    timing_stats: Vec<TimingStats>,
+    /// Per-sample slow-reject times grouped by selector and then element.
+    ///
+    /// For a given selector/element pair, the `Vec<Duration>` is expected to
+    /// contain one entry for every benchmark sample. If that invariant is ever
+    /// violated, it indicates a bug or unexpected nondeterminism in the
+    /// benchmarked matching path.
+    slow_reject_times_by_match: HashMap<Selector, HashMap<Element, Vec<Duration>>>,
 }
 
+/// Timing data for the preprocessing stage that sits between the two matching
+/// variants in the report.
 struct PreprocessingResult {
+    /// The substring-indexing duration
     indexing_duration: Duration,
+    /// The total preprocessing wall-clock time. This has `indexing_duration` included in it.
     preprocessing_duration: Duration,
 }
 
@@ -150,6 +169,8 @@ struct WebsiteReportView<'a> {
     summary_slow_reject_ns: u128,
 }
 
+/// All report data for one website: the baseline matching variant, the
+/// preprocessing step, and the post-preprocessing matching variant.
 struct WebsiteResult {
     website: String,
     before_preprocessing: BenchmarkVariantResult,
