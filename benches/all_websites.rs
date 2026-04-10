@@ -182,7 +182,7 @@ struct MatchBenchResult {
     /// The top MAX_SELECTOR_ROWS_PER_WEBSITE slow-rejecting selectors in
     /// descending order, and their aggregate slow-reject durations for each
     /// sample.
-    top_slow_reject_times: Vec<(SelectorString, Duration, Samples<Duration>)>,
+    top_slow_reject_times: Vec<(SelectorString, Samples<Duration>)>,
 }
 
 impl MatchBenchResult {
@@ -203,7 +203,7 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             .overall_stats
             .counts;
         let mut map: HashMap<SelectorString, Vec<Duration>> = HashMap::new();
-        let mut timing_stats = Vec::with_capacity(value.per_sample_results.len());
+        let mut timing_stats = Vec::with_capacity(per_sample_results.len());
         for (i, sample_result) in per_sample_results.into_iter().enumerate() {
             for ((_element, selector), selector_stats) in sample_result.per_match_stats {
                 let slow_reject_duration = match selector_stats {
@@ -226,8 +226,8 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             }
             timing_stats.push(sample_result.overall_stats.times);
         }
-        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)| (selector, durations.iter().map(|srd| srd.duration).sum(), Samples(durations))).collect();
-        sorted.sort_unstable_by_key(|(_sel, aggregate_duration, _durs)| Reverse(*aggregate_duration));
+        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)| (selector, Samples(durations))).collect();
+        sorted.sort_unstable_by_key(|(_sel, aggregate_durations)| Reverse(aggregate_durations.mean()));
         sorted.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
         MatchBenchResult {
             total_duration,
