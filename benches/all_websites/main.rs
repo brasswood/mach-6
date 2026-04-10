@@ -5,7 +5,6 @@ use mach_6::structs::{Element, Selector};
 use num_format::{Locale, ToFormattedString};
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
-use serde::Serialize;
 use smallvec::SmallVec;
 use style::shared_lock::SharedRwLock;
 use style::stylist::Stylist;
@@ -16,6 +15,8 @@ use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
+
+mod json;
 
 const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
 
@@ -320,53 +321,6 @@ fn selector_slow_reject_row(
     })
 }
 
-#[derive(Serialize)]
-struct WebsiteJson<'a> {
-    website: &'a str,
-    before_preprocessing: BenchmarkRunJson,
-    preprocessing: PreprocessingJson,
-    after_preprocessing: BenchmarkRunJson,
-}
-
-#[derive(Serialize)]
-struct BenchmarkRunJson {
-    label: &'static str,
-    total_duration_ns: u128,
-    total_duration_display: String,
-    stats: WebsiteStatsJson,
-}
-
-#[derive(Serialize)]
-struct PreprocessingJson {
-    indexing_duration_ns: u128,
-    indexing_duration_display: String,
-    preprocessing_duration_ns: u128,
-    preprocessing_duration_display: String,
-}
-
-#[derive(Serialize)]
-struct WebsiteStatsJson {
-    sharing_instances: usize,
-    selector_map_hits: usize,
-    fast_rejects: usize,
-    slow_rejects: usize,
-    slow_accepts: usize,
-    time_spent_updating_bloom_filter_ns: u128,
-    time_spent_updating_bloom_filter_display: String,
-    time_spent_slow_rejecting_ns: u128,
-    time_spent_slow_rejecting_display: String,
-    time_spent_slow_accepting_ns: u128,
-    time_spent_slow_accepting_display: String,
-    time_spent_fast_rejecting_ns: u128,
-    time_spent_fast_rejecting_display: String,
-    time_spent_checking_style_sharing_ns: u128,
-    time_spent_checking_style_sharing_display: String,
-    time_spent_inserting_into_sharing_cache_ns: u128,
-    time_spent_inserting_into_sharing_cache_display: String,
-    time_spent_querying_selector_map_ns: u128,
-    time_spent_querying_selector_map_display: String,
-}
-
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
@@ -558,12 +512,7 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     for result in results {
         let file_name = format!("{}.json", make_filename_safe(&result.website));
         let json_path = json_dir.join(file_name);
-        let payload = WebsiteJson {
-            website: &result.website,
-            before_preprocessing: variant_json("before_preprocessing", &result.before_preprocessing),
-            preprocessing: preprocessing_json(&result.preprocessing),
-            after_preprocessing: variant_json("after_preprocessing", &result.after_preprocessing),
-        };
+        let payload = all_websites_json::website_json(result);
         let serialized = serde_json::to_string_pretty(&payload)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         fs::write(json_path, serialized)?;
@@ -572,60 +521,6 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     let html = render_index_html(results);
     fs::write(report_dir.join("index.html"), html)?;
     Ok(report_dir)
-}
-
-fn variant_json(label: &'static str, result: &MatchBenchResult) -> BenchmarkRunJson {
-    BenchmarkRunJson {
-        label,
-        total_duration_ns: result.duration.as_nanos(),
-        total_duration_display: format_duration(result.duration),
-        stats: WebsiteStatsJson {
-            sharing_instances: result.stats.sharing_instances,
-            selector_map_hits: result.stats.selector_map_hits,
-            fast_rejects: result.stats.fast_rejects,
-            slow_rejects: result.stats.slow_rejects,
-            slow_accepts: result.stats.slow_accepts,
-            time_spent_updating_bloom_filter_ns: result.stats.times.updating_bloom_filter.as_nanos(),
-            time_spent_updating_bloom_filter_display: format_duration(
-                result.stats.times.updating_bloom_filter
-            ),
-            time_spent_slow_rejecting_ns: result.stats.times.slow_rejecting.as_nanos(),
-            time_spent_slow_rejecting_display: format_duration(result.stats.times.slow_rejecting),
-            time_spent_slow_accepting_ns: result.stats.times.slow_accepting.as_nanos(),
-            time_spent_slow_accepting_display: format_duration(result.stats.times.slow_accepting),
-            time_spent_fast_rejecting_ns: result.stats.times.fast_rejecting.as_nanos(),
-            time_spent_fast_rejecting_display: format_duration(result.stats.times.fast_rejecting),
-            time_spent_checking_style_sharing_ns: result
-                .stats
-                .times
-                .checking_style_sharing
-                .as_nanos(),
-            time_spent_checking_style_sharing_display: format_duration(
-                result.stats.times.checking_style_sharing
-            ),
-            time_spent_inserting_into_sharing_cache_ns: result
-                .stats
-                .times
-                .inserting_into_sharing_cache
-                .as_nanos(),
-            time_spent_inserting_into_sharing_cache_display: format_duration(
-                result.stats.times.inserting_into_sharing_cache
-            ),
-            time_spent_querying_selector_map_ns: result.stats.times.querying_selector_map.as_nanos(),
-            time_spent_querying_selector_map_display: format_duration(
-                result.stats.times.querying_selector_map
-            ),
-        },
-    }
-}
-
-fn preprocessing_json(result: &PreprocessingResult) -> PreprocessingJson {
-    PreprocessingJson {
-        indexing_duration_ns: result.indexing_duration.as_nanos(),
-        indexing_duration_display: format_duration(result.indexing_duration),
-        preprocessing_duration_ns: result.preprocessing_duration.as_nanos(),
-        preprocessing_duration_display: format_duration(result.preprocessing_duration),
-    }
 }
 
 fn render_index_html(results: &[WebsiteResult]) -> String {
