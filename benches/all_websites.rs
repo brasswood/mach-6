@@ -62,7 +62,7 @@ impl<T> Samples<T> {
 
 struct TimedResults<R> {
     total_duration: Duration,
-    per_sample_results: Samples<R>,
+    samples: Samples<R>,
 }
 
 trait Mean {
@@ -195,16 +195,16 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
     fn from(value: TimedResults<SampleResult>) -> Self {
         let TimedResults {
             total_duration,
-            per_sample_results,
+            samples,
         } = value;
-        let counting_stats = per_sample_results
+        let counting_stats = samples
             .first()
             .expect("expected at least one sample result")
             .overall_stats
             .counts;
         let mut map: HashMap<SelectorString, Vec<Duration>> = HashMap::new();
-        let mut timing_stats = Vec::with_capacity(per_sample_results.len());
-        for (i, sample_result) in per_sample_results.into_iter().enumerate() {
+        let mut timing_stats = Vec::with_capacity(samples.len());
+        for (i, sample_result) in samples.into_iter().enumerate() {
             for ((_element, selector), selector_stats) in sample_result.per_match_stats {
                 let slow_reject_duration = match selector_stats {
                     SelectorStats::Bloom(bq) =>
@@ -248,10 +248,10 @@ struct PreprocessingResult {
 }
 impl PreprocessingResult {
     fn mean_indexing(&self) -> Duration {
-        self.indexing.total_duration / self.indexing.per_sample_results.len() as u32
+        self.indexing.total_duration / self.indexing.samples.len() as u32
     }
     fn mean_overall(&self) -> Duration {
-        self.overall_preprocessing.total_duration / self.overall_preprocessing.per_sample_results.len() as u32
+        self.overall_preprocessing.total_duration / self.overall_preprocessing.samples.len() as u32
     }
     fn mean_non_indexing(&self) -> Duration {
         self.mean_overall() - self.mean_indexing()
@@ -523,7 +523,7 @@ where
     eprintln!("done. ({}, {} total)", format_duration(total_duration / NUM_SAMPLES), format_duration(total_duration));
     TimedResults {
         total_duration,
-        per_sample_results: Samples(samples_vec),
+        samples: Samples(samples_vec),
     }
 }
 
