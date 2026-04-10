@@ -279,39 +279,6 @@ struct WebsiteResult {
     after_preprocessing: MatchBenchResult,
 }
 
-struct SelectorSlowRejectRow {
-    element_html: String,
-    element_id: u64,
-    selector_css: String,
-    source: &'static str,
-    slow_reject_time: Duration,
-}
-
-struct SelectorTotalSlowRejectRow {
-    selector_css: String,
-    total_slow_reject_time: Duration,
-}
-
-fn selector_slow_reject_row(
-    value: ((Element, Selector), SelectorStats),
-) -> Option<SelectorSlowRejectRow> {
-    let ((element, selector), selector_stats) = value;
-    let (source, slow_reject_time) = match selector_stats {
-        SelectorStats::Bloom(stats) => ("Simple Bloom Query", stats.time_slow_rejecting),
-        SelectorStats::ScopeProximity(stats) => (
-            "Scope Proximity Lookup",
-            (stats.slow_rejects > 0).then_some(stats.time_slow_rejecting),
-        ),
-    };
-    slow_reject_time.map(|slow_reject_time| SelectorSlowRejectRow {
-        element_html: element.html,
-        element_id: element.id,
-        selector_css: selector.to_css_string(),
-        source,
-        slow_reject_time,
-    })
-}
-
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
@@ -378,39 +345,6 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
         },
     );
     timed_results.into()
-}
-
-fn build_selector_slow_reject_rows<I>(
-    selector_stats: I,
-) -> (Vec<SelectorSlowRejectRow>, Vec<SelectorTotalSlowRejectRow>)
-where
-    I: IntoIterator<Item = ((Element, Selector), SelectorStats)>,
-{
-    let mut pair_rows: Vec<_> = selector_stats
-        .into_iter()
-        .filter_map(selector_slow_reject_row)
-        .collect();
-    let mut selector_totals = HashMap::<String, Duration>::new();
-    for row in &pair_rows {
-        *selector_totals
-            .entry(row.selector_css.clone())
-            .or_insert(Duration::ZERO) += row.slow_reject_time;
-    }
-    let mut selector_rows: Vec<_> = selector_totals
-        .into_iter()
-        .map(|(selector_css, total_slow_reject_time)| SelectorTotalSlowRejectRow {
-            selector_css,
-            total_slow_reject_time,
-        })
-        .collect();
-
-    pair_rows.sort_by_key(|row| Reverse(row.slow_reject_time));
-    pair_rows.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
-
-    selector_rows.sort_by_key(|row| Reverse(row.total_slow_reject_time));
-    selector_rows.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
-
-    (pair_rows, selector_rows)
 }
 
 fn get_documents(website_filter: Option<&str>) -> Box<dyn Iterator<Item = ParsedWebsite>> {
