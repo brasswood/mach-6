@@ -12,7 +12,7 @@ mod overall_summary {
     use serde::{Serialize, Deserialize};
 
     #[derive(Serialize, Deserialize)]
-    pub struct SummaryJson {
+    pub(super) struct SummaryJson {
         before_preprocessing: BenchmarkRunSummaryJson,
         preprocessing: PreprocessingSummaryJson,
         after_preprocessing: BenchmarkRunSummaryJson,
@@ -66,7 +66,7 @@ mod selector_summary {
     use crate::SelectorString;
 
     #[derive(Serialize, Deserialize)]
-    pub struct SelectorsSummaryJson {
+    pub(super) struct SelectorsSummaryJson {
         before_preprocessing: SelectorStatsJson,
         after_preprocessing: SelectorStatsJson,
     }
@@ -86,7 +86,7 @@ mod samples {
     use crate::SelectorString;
 
     #[derive(Serialize, Deserialize)]
-    pub struct SamplesJson {
+    pub(super) struct SamplesJson {
         before_preprocessing: TimingsSamplesJson,
         after_preprocessing: TimingsSamplesJson,
     }
