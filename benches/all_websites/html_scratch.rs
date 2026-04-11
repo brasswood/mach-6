@@ -1,12 +1,29 @@
 use std::time::Duration;
 
+use askama::Template;
 use derive_more::Display;
 use selectors::matching::CountingStats;
 
 use super::{MatchBenchResult, PreprocessingResult, SelectorSlowRejectSamples, WebsiteResult};
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+const MAX_SLOW_REJECT_ROWS: usize = 100;
+
+#[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 struct Href(String);
+
+#[derive(Template)]
+#[template(path = "all_websites/report.html")]
+struct ReportTemplate<'a> {
+    websites: &'a [WebsiteView<'a>],
+}
+
+impl ReportTemplate<'_> {
+    const MAX_SLOW_REJECT_ROWS: usize = MAX_SLOW_REJECT_ROWS;
+
+    fn max_duration_ns(&self) -> u128 {
+        todo!()
+    }
+}
 
 struct WebsiteView<'result> {
     name: &'result str,
@@ -21,6 +38,10 @@ impl<'result> WebsiteView<'result> {
     }
 
     fn slow_reject_duration_sort_key(&self) -> u128 {
+        todo!()
+    }
+
+    fn compact_legend_segments(&self) -> Vec<SegmentKind> {
         todo!()
     }
 }
@@ -41,16 +62,13 @@ enum BarLabel {
 
 struct BarView<'result> {
     label: BarLabel,
+    page_max_duration_ns: u128,
     segments: Vec<SegmentView>,
-    stats: CountingStats,
-    top_slow_reject_selectors: &'result [SelectorSlowRejectSamples],
+    stats: CountingStatsView,
+    top_slow_reject_selectors: Vec<SelectorRowView<'result>>,
 }
 
 impl<'result> BarView<'result> {
-    fn total_duration(&self) -> Duration {
-        todo!()
-    }
-
     fn before_preprocessing(result: &'result MatchBenchResult) -> Self {
         todo!()
     }
@@ -62,6 +80,18 @@ impl<'result> BarView<'result> {
         todo!()
     }
 
+    fn total_duration(&self) -> Duration {
+        todo!()
+    }
+
+    fn formatted_total_duration(&self) -> String {
+        todo!()
+    }
+
+    fn summary_width_pct(&self) -> f64 {
+        todo!()
+    }
+
     fn slow_reject_duration(&self) -> Duration {
         todo!()
     }
@@ -69,12 +99,17 @@ impl<'result> BarView<'result> {
 
 struct SegmentView {
     kind: SegmentKind,
+    parent_total_duration: Duration,
     duration: Duration,
 }
 
 impl SegmentView {
-    fn new(kind: SegmentKind, duration: Duration) -> Self {
-        Self { kind, duration }
+    fn width_pct(&self) -> f64 {
+        todo!()
+    }
+
+    fn formatted_duration(&self) -> String {
+        todo!()
     }
 }
 
@@ -98,6 +133,62 @@ impl SegmentKind {
     }
 
     fn css_class(self) -> &'static str {
+        todo!()
+    }
+}
+
+struct SelectorRowView<'result> {
+    source: &'result SelectorSlowRejectSamples,
+}
+
+impl<'result> SelectorRowView<'result> {
+    fn selector(&self) -> &'result str {
+        todo!()
+    }
+
+    fn formatted_mean_duration(&self) -> String {
+        todo!()
+    }
+
+    fn formatted_stddev_duration(&self) -> String {
+        todo!()
+    }
+}
+
+impl<'result> From<&'result SelectorSlowRejectSamples> for SelectorRowView<'result> {
+    fn from(value: &'result SelectorSlowRejectSamples) -> Self {
+        todo!()
+    }
+}
+
+struct CountingStatsView {
+    source: CountingStats,
+}
+
+impl CountingStatsView {
+    fn formatted_sharing_instances(&self) -> String {
+        todo!()
+    }
+
+    fn formatted_selector_map_hits(&self) -> String {
+        todo!()
+    }
+
+    fn formatted_fast_rejects(&self) -> String {
+        todo!()
+    }
+
+    fn formatted_slow_rejects(&self) -> String {
+        todo!()
+    }
+
+    fn formatted_slow_accepts(&self) -> String {
+        todo!()
+    }
+}
+
+impl From<CountingStats> for CountingStatsView {
+    fn from(value: CountingStats) -> Self {
         todo!()
     }
 }

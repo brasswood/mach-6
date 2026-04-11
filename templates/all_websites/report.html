@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mach 6 Benchmark Report</title>
+  <style>
+    :root {
+      --bg: #f7f7f3;
+      --fg: #1d232b;
+      --muted: #5b6470;
+      --bar: #0f766e;
+      --bar-bg: #d9e5e3;
+      --card: #ffffff;
+      --line: #d8d8d0;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--fg);
+      background: linear-gradient(180deg, #f7f7f3 0%, #f2f5f8 100%);
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 4px 0;
+      font-size: 26px;
+    }
+    .subtitle {
+      margin: 0 0 20px 0;
+      color: var(--muted);
+    }
+    .sort-controls {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 14px 0;
+      flex-wrap: wrap;
+    }
+    .sort-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--fg);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .sort-btn.active {
+      background: #e7f2ef;
+      border-color: #8fb8af;
+    }
+    .site {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    summary {
+      list-style: none;
+      cursor: pointer;
+    }
+    summary::-webkit-details-marker {
+      display: none;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 12px minmax(150px, 220px) minmax(260px, 1fr);
+      align-items: start;
+      gap: 12px;
+    }
+    .chevron {
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 7px solid var(--muted);
+      transform: rotate(0deg);
+      transform-origin: 40% 50%;
+      transition: transform 120ms ease-out;
+    }
+    details[open] .chevron {
+      transform: rotate(90deg);
+    }
+    .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .summary-variants {
+      display: grid;
+      gap: 8px;
+    }
+    .variant-summary {
+      display: grid;
+      grid-template-columns: minmax(130px, 170px) minmax(120px, 1fr) 120px;
+      align-items: center;
+      gap: 10px;
+    }
+    .variant-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .bar-wrap {
+      width: 100%;
+      height: 28px;
+      background: var(--bar-bg);
+      overflow: hidden;
+    }
+    .bar-total {
+      display: flex;
+      height: 100%;
+      min-width: 0;
+    }
+    .bar-seg {
+      height: 100%;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: 11px;
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .seg-slow {
+      background: #f59e0b;
+    }
+    .seg-bloom {
+      background: #06b6d4;
+    }
+    .seg-fast {
+      background: #ef4444;
+    }
+    .seg-slow-accept {
+      background: #14b8a6;
+    }
+    .seg-share-check {
+      background: #3b82f6;
+    }
+    .seg-share-insert {
+      background: #8b5cf6;
+    }
+    .seg-query {
+      background: #22c55e;
+    }
+    .seg-other {
+      background: var(--bar);
+    }
+    .seg-index {
+      background: #c2410c;
+    }
+    .seg-preprocess-other {
+      background: #fb7185;
+    }
+    .bar-legend {
+      margin-top: 8px;
+      margin-left: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .expanded-chart {
+      margin-bottom: 14px;
+    }
+    .expanded-chart h5 {
+      margin: 0 0 8px 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .expanded-bar-wrap {
+      width: 100%;
+      height: 32px;
+      background: var(--bar-bg);
+      overflow: hidden;
+    }
+    .expanded-bar-total {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+    }
+    .expanded-bar-seg {
+      height: 100%;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: 12px;
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .expanded-legend {
+      margin-top: 7px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+    .time {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .details {
+      padding-top: 12px;
+      margin-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .details-variants {
+      display: grid;
+      gap: 18px;
+    }
+    .variant-details {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fcfdfb;
+    }
+    .variant-details-title {
+      margin: 0 0 12px 0;
+      color: var(--fg);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .selector-breakdown {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fafcfb;
+    }
+    .selector-breakdown > summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .selector-breakdown > summary::before {
+      content: "";
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 7px solid var(--muted);
+      transform: rotate(0deg);
+      transform-origin: 40% 50%;
+      transition: transform 120ms ease-out;
+      flex: 0 0 auto;
+    }
+    .selector-breakdown[open] > summary::before {
+      transform: rotate(90deg);
+    }
+    .selector-breakdown-inner {
+      margin-top: 8px;
+    }
+    .selector-breakdown-table {
+      table-layout: fixed;
+      width: 100%;
+      max-width: 100%;
+    }
+    .selector-breakdown-table code {
+      white-space: nowrap;
+    }
+    .selector-breakdown-table th,
+    .selector-breakdown-table td {
+      width: auto;
+      max-width: none;
+    }
+    .selector-breakdown-table .col-selector {
+      width: 80%;
+    }
+    .selector-breakdown-table .col-time {
+      width: 20%;
+      white-space: nowrap;
+    }
+    .cell-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 600px;
+    }
+    th, td {
+      text-align: left;
+      padding: 4px 8px 4px 0;
+      vertical-align: top;
+    }
+    th {
+      width: 260px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    p {
+      margin: 10px 0 0 0;
+    }
+    @media (max-width: 700px) {
+      .row {
+        grid-template-columns: 12px 1fr;
+        gap: 6px;
+      }
+      .summary-variants {
+        grid-column: 2 / 3;
+      }
+      .bar-legend {
+        margin-left: 18px;
+      }
+      .variant-summary {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .expanded-bar-wrap {
+        height: 28px;
+      }
+      .time {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Mach 6 Benchmark Report</h1>
+    <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics and raw JSON.</p>
+    <div class="sort-controls" role="group" aria-label="Sort websites">
+      <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
+      <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
+    </div>
+    <section id="websites-list">
+      {% for website in websites %}
+      <details class="site" data-total-ns="{{ website.total_duration_sort_key() }}" data-slow-reject-ns="{{ website.slow_reject_duration_sort_key() }}">
+        <summary>
+          <div class="row">
+            <div class="chevron" aria-hidden="true"></div>
+            <div class="name">{{ website.name }}</div>
+            <div class="summary-variants">
+              {% for bar in [website.before_preprocessing, website.with_preprocessing] %}
+              <div class="variant-summary">
+                <div class="variant-label">{{ bar.label }}</div>
+                <div class="bar-wrap">
+                  <div class="bar-total" style="width: {{ "{:.2}"|format(bar.summary_width_pct()) }}%">
+                    {% for segment in bar.segments %}
+                    <div class="bar-seg {{ segment.kind.css_class() }}" style="width: {{ "{:.2}"|format(segment.width_pct()) }}%"></div>
+                    {% endfor %}
+                  </div>
+                </div>
+                <div class="time">{{ bar.formatted_total_duration() }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="bar-legend">
+            {% for segment in website.compact_legend_segments() %}
+            <span><i class="swatch {{ segment.css_class() }}"></i>{{ segment.label() }}</span>
+            {% endfor %}
+          </div>
+        </summary>
+        <div class="details">
+          <div class="details-variants">
+            {% for bar in [website.before_preprocessing, website.with_preprocessing] %}
+            <section class="variant-details">
+              <h4 class="variant-details-title">{{ bar.label }}</h4>
+              <section class="expanded-chart">
+                <h5>Timing Breakdown</h5>
+                <div class="expanded-bar-wrap">
+                  <div class="expanded-bar-total">
+                    {% for segment in bar.segments %}
+                    <div class="expanded-bar-seg {{ segment.kind.css_class() }}" style="width: {{ "{:.2}"|format(segment.width_pct()) }}%"></div>
+                    {% endfor %}
+                  </div>
+                </div>
+                <div class="expanded-legend">
+                  {% for segment in bar.segments %}
+                  <span><i class="swatch {{ segment.kind.css_class() }}"></i>{{ segment.kind.label() }}: {{ segment.formatted_duration() }}</span>
+                  {% endfor %}
+                  <span>Total: {{ bar.formatted_total_duration() }}</span>
+                </div>
+              </section>
+              <table>
+                <tbody>
+                  <tr><th>Sharing Instances</th><td>{{ bar.stats.formatted_sharing_instances() }}</td></tr>
+                  <tr><th>Selector Map Hits</th><td>{{ bar.stats.formatted_selector_map_hits() }}</td></tr>
+                  <tr><th>Fast Rejects</th><td>{{ bar.stats.formatted_fast_rejects() }}</td></tr>
+                  <tr><th>Slow Rejects</th><td>{{ bar.stats.formatted_slow_rejects() }}</td></tr>
+                  <tr><th>Slow Accepts</th><td>{{ bar.stats.formatted_slow_accepts() }}</td></tr>
+                </tbody>
+              </table>
+              <details class="selector-breakdown">
+                <summary>Slow-Reject Timings Aggregated by Selector (Top {{ Self::MAX_SLOW_REJECT_ROWS }})</summary>
+                <div class="selector-breakdown-inner">
+                  <table class="selector-breakdown-table">
+                    <thead>
+                      <tr>
+                        <th class="col-selector">Selector</th>
+                        <th class="col-time">Total Slow Reject Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% if bar.top_slow_reject_selectors.is_empty() %}
+                      <tr><td colspan="2">No selector stats captured.</td></tr>
+                      {% else %}
+                      {% for row in bar.top_slow_reject_selectors %}
+                      <tr>
+                        <td class="col-selector"><div class="cell-scroll"><code>{{ row.selector() }}</code></div></td>
+                        <td class="col-time"><div class="cell-scroll">{{ row.formatted_mean_duration() }}</div></td>
+                      </tr>
+                      {% endfor %}
+                      {% endif %}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </section>
+            {% endfor %}
+          </div>
+          <p><a href="{{ website.json_file }}">JSON data</a></p>
+        </div>
+      </details>
+      {% endfor %}
+    </section>
+  </main>
+  <script>
+    (function () {
+      const list = document.getElementById("websites-list");
+      const byTotal = document.getElementById("sort-total");
+      const bySlow = document.getElementById("sort-slow");
+      if (!list || !byTotal || !bySlow) return;
+
+      function setActive(activeBtn) {
+        byTotal.classList.toggle("active", activeBtn === byTotal);
+        bySlow.classList.toggle("active", activeBtn === bySlow);
+      }
+
+      function sortBy(datasetKey, activeBtn) {
+        const sites = Array.from(list.querySelectorAll(":scope > details.site"));
+        sites.sort((a, b) => {
+          const av = BigInt(a.dataset[datasetKey] || "0");
+          const bv = BigInt(b.dataset[datasetKey] || "0");
+          if (av === bv) return 0;
+          return av > bv ? -1 : 1;
+        });
+        for (const site of sites) {
+          list.appendChild(site);
+        }
+        setActive(activeBtn);
+      }
+
+      byTotal.addEventListener("click", function () {
+        sortBy("totalNs", byTotal);
+      });
+      bySlow.addEventListener("click", function () {
+        sortBy("slowRejectNs", bySlow);
+      });
+
+      sortBy("totalNs", byTotal);
+    })();
+  </script>
+</body>
+</html>
