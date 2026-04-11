@@ -1,41 +1,63 @@
 use super::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub(super) struct WebsiteJson<'a> {
     website: &'a str,
-    before_preprocessing: BenchmarkRunJson,
-    preprocessing: PreprocessingJson,
-    after_preprocessing: BenchmarkRunJson,
+    summary: SummaryJson,
+    samples: SamplesJson,
 }
 
-#[derive(Serialize)]
-struct BenchmarkRunJson {
-    label: &'static str,
+#[derive(Serialize, Deserialize)]
+struct SummaryJson {
+    before_preprocessing: BenchmarkRunSummaryJson,
+    preprocessing: PreprocessingSummaryJson,
+    after_preprocessing: BenchmarkRunSummaryJson,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SamplesJson {
+    before_preprocessing: TimingsJsonBody<Vec<u128>>,
+    after_preprocessing: TimingsJsonBody<Vec<u128>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct BenchmarkRunSummaryJson {
     mean_duration_ns: u128,
-    stats: WebsiteStatsJson,
+    counts: CountingStatsJson,
+    times: TimingStatsJson,
 }
 
-#[derive(Serialize)]
-struct PreprocessingJson {
-    indexing_duration_ns: u128,
-    preprocessing_duration_ns: u128,
+#[derive(Serialize, Deserialize)]
+struct PreprocessingSummaryJson {
+    mean_indexing_duration_ns: u128,
+    mean_preprocessing_duration_ns: u128,
 }
 
-#[derive(Serialize)]
-struct WebsiteStatsJson {
+#[derive(Serialize, Deserialize)]
+struct CountingStatsJson {
     sharing_instances: usize,
     selector_map_hits: usize,
     fast_rejects: usize,
     slow_rejects: usize,
     slow_accepts: usize,
-    time_spent_updating_bloom_filter_ns: u128,
-    time_spent_slow_rejecting_ns: u128,
-    time_spent_slow_accepting_ns: u128,
-    time_spent_fast_rejecting_ns: u128,
-    time_spent_checking_style_sharing_ns: u128,
-    time_spent_inserting_into_sharing_cache_ns: u128,
-    time_spent_querying_selector_map_ns: u128,
+}
+
+#[derive(Serialize, Deserialize)]
+struct TimingStatsJson {
+    means: TimingsJsonBody<u128>,
+    stddevs: TimingsJsonBody<u128>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct TimingsJsonBody<T> {
+    updating_bloom_filter_ns: T,
+    slow_rejecting_ns: T,
+    slow_accepting_ns: T,
+    fast_rejecting_ns: T,
+    checking_style_sharing_ns: T,
+    inserting_into_sharing_cache_ns: T,
+    querying_selector_map_ns: T,
 }
 
 pub(super) fn website_json(result: &WebsiteResult) -> WebsiteJson<'_> {
