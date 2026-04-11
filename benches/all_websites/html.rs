@@ -52,6 +52,10 @@ impl<'result> WebsiteView<'result> {
     fn compact_legend_segments(&self) -> Vec<SegmentKind> {
         todo!()
     }
+
+    fn bars(&self) -> [&BarView<'result>; 2] {
+        todo!()
+    }
 }
 
 impl<'result> From<&'result WebsiteResult> for WebsiteView<'result> {

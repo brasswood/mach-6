@@ -361,7 +361,7 @@
             <div class="chevron" aria-hidden="true"></div>
             <div class="name">{{ website.name }}</div>
             <div class="summary-variants">
-              {% for bar in [website.before_preprocessing, website.with_preprocessing] %}
+              {% for bar in website.bars() %}
               <div class="variant-summary">
                 <div class="variant-label">{{ bar.label }}</div>
                 <div class="bar-wrap">
@@ -384,7 +384,7 @@
         </summary>
         <div class="details">
           <div class="details-variants">
-            {% for bar in [website.before_preprocessing, website.with_preprocessing] %}
+            {% for bar in website.bars() %}
             <section class="variant-details">
               <h4 class="variant-details-title">{{ bar.label }}</h4>
               <section class="expanded-chart">
