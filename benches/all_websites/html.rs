@@ -13,8 +13,8 @@ struct Href(String);
 
 #[derive(Template)]
 #[template(path = "all_websites/report.html")]
-struct ReportTemplate<'a> {
-    websites: &'a [WebsiteView<'a>],
+pub struct ReportTemplate<'result> {
+    websites: Vec<WebsiteView<'result>>,
 }
 
 impl ReportTemplate<'_> {
@@ -22,6 +22,14 @@ impl ReportTemplate<'_> {
 
     fn max_duration_ns(&self) -> u128 {
         todo!()
+    }
+}
+
+impl<'result> From<&'result [WebsiteResult]> for ReportTemplate<'result> {
+    fn from(value: &'result [WebsiteResult]) -> Self {
+        Self {
+            websites: value.iter().map(WebsiteView::from).collect(),
+        }
     }
 }
 

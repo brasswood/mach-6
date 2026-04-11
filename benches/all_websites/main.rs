@@ -16,7 +16,6 @@ use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
 
 mod html;
-mod html_scratch;
 mod json;
 
 const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
@@ -310,7 +309,6 @@ fn main() {
             },
             after_preprocessing,
         };
-        let _ = WebsiteReportView::from_result(&result); // hack: panic early
         result
     }).collect();
     match write_report(&results) {
@@ -438,13 +436,28 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     for result in results {
         let file_name = format!("{}.json", make_filename_safe(&result.website));
         let json_path = json_dir.join(file_name);
-        let payload = all_websites_json::website_json(result);
+        let payload = json::website_json(result);
         let serialized = serde_json::to_string_pretty(&payload)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         fs::write(json_path, serialized)?;
     }
-
-    let html = render_index_html(results);
+    let report = html::ReportTemplate::from(results);
+    let html = report.to_string();
     fs::write(report_dir.join("index.html"), html)?;
     Ok(report_dir)
+}
+
+fn make_filename_safe(string: &str) -> String {
+    let mut string = string.replace(
+        &['?', '"', '/', '\\', '*', '<', '>', ':', '|', '^'][..],
+        "_",
+    );
+    if string.len() > 240 {
+        let mut boundary = 240;
+        while boundary > 0 && !string.is_char_boundary(boundary) {
+            boundary -= 1;
+        }
+        string.truncate(boundary);
+    }
+    string
 }
