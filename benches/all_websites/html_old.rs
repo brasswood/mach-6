@@ -1,3 +1,5 @@
+use crate::{MatchBenchResult, PreprocessingResult, WebsiteResult};
+
 enum ReportBar<'a> {
     BeforePreprocessing {
         label: &'static str,
@@ -559,8 +561,8 @@ impl<'a> WebsiteReportView<'a> {
             if measured_sum > total_duration {
                 panic!(
                     "Measured timing sum exceeded total duration: measured_sum={}, total_duration={}, website={}, bar={}",
-                    format_duration(measured_sum),
-                    format_duration(total_duration),
+                    crate::format_duration(measured_sum),
+                    crate::format_duration(total_duration),
                     result.website,
                     bar.label(),
                 );
@@ -573,8 +575,7 @@ impl<'a> WebsiteReportView<'a> {
             .unwrap_or(0);
         let summary_slow_reject_ns = result
             .before_preprocessing
-            .stats
-            .times
+            .timing_stats
             .slow_rejecting
             .as_nanos()
             .max(result.after_preprocessing.stats.times.slow_rejecting.as_nanos());
