@@ -159,7 +159,8 @@ impl StdDev for TimingStats {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
 struct SelectorString(String);
 impl From<&Selector> for SelectorString {
     fn from(value: &Selector) -> Self {
