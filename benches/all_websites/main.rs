@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
 
 mod html;
+mod html_scratch;
 mod json;
 
 const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
