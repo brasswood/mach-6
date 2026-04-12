@@ -15,6 +15,8 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
 
+use crate::json::WebsiteJson;
+
 mod html;
 mod json;
 
@@ -431,15 +433,15 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     fs::create_dir_all(&report_dir)?;
     fs::create_dir_all(&json_dir)?;
 
-    for result in results {
-        let file_name = format!("{}.json", make_filename_safe(&result.website));
+    let json_results: Vec<WebsiteJson> = results.iter().map(WebsiteJson::from).collect();
+    for json in &json_results {
+        let file_name = format!("{}.json", make_filename_safe(&json.website));
         let json_path = json_dir.join(file_name);
-        let payload = json::WebsiteJson::from(result);
-        let serialized = serde_json::to_string_pretty(&payload)
+        let serialized = serde_json::to_string_pretty(&json)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         fs::write(json_path, serialized)?;
     }
-    let report = html::ReportTemplate::from(results);
+    let report = html::ReportTemplate::from(json_results.as_slice());
     let html = report.to_string();
     fs::write(report_dir.join("index.html"), html)?;
     Ok(report_dir)

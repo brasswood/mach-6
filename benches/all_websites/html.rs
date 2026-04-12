@@ -4,15 +4,15 @@ use askama::Template;
 use derive_more::Display;
 use selectors::matching::CountingStats;
 
-use super::{MatchBenchResult, PreprocessingResult, SelectorSlowRejectSamples, WebsiteResult};
+use super::{MatchBenchResult, PreprocessingResult, SelectorSlowRejectSamples, json::WebsiteJson};
 
 #[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 struct Href(String);
 
 #[derive(Template)]
 #[template(path = "all_websites/report.html")]
-pub struct ReportTemplate<'result> {
-    websites: Vec<WebsiteView<'result>>,
+pub struct ReportTemplate<'json> {
+    websites: Vec<WebsiteView<'json>>,
 }
 
 impl ReportTemplate<'_> {
@@ -23,22 +23,22 @@ impl ReportTemplate<'_> {
     }
 }
 
-impl<'result> From<&'result [WebsiteResult]> for ReportTemplate<'result> {
-    fn from(value: &'result [WebsiteResult]) -> Self {
+impl<'json> From<&'json [WebsiteJson]> for ReportTemplate<'json> {
+    fn from(value: &'json [WebsiteJson]) -> Self {
         Self {
             websites: value.iter().map(WebsiteView::from).collect(),
         }
     }
 }
 
-struct WebsiteView<'result> {
-    name: &'result str,
+struct WebsiteView<'json> {
+    name: &'json str,
     json_file: Href,
-    before_preprocessing: BarView<'result>,
-    with_preprocessing: BarView<'result>,
+    before_preprocessing: BarView<'json>,
+    with_preprocessing: BarView<'json>,
 }
 
-impl<'result> WebsiteView<'result> {
+impl<'json> WebsiteView<'json> {
     fn total_duration_sort_key(&self) -> u128 {
         todo!()
     }
@@ -51,13 +51,13 @@ impl<'result> WebsiteView<'result> {
         todo!()
     }
 
-    fn bars(&self) -> [&BarView<'result>; 2] {
+    fn bars(&self) -> [&BarView<'json>; 2] {
         todo!()
     }
 }
 
-impl<'result> From<&'result WebsiteResult> for WebsiteView<'result> {
-    fn from(value: &'result WebsiteResult) -> Self {
+impl<'json> From<&'json WebsiteJson> for WebsiteView<'json> {
+    fn from(value: &'json WebsiteJson) -> Self {
         todo!()
     }
 }
@@ -70,21 +70,21 @@ enum BarLabel {
     WithPreprocessing
 }
 
-struct BarView<'result> {
+struct BarView<'json> {
     label: BarLabel,
     page_max_duration_ns: u128,
     segments: Vec<SegmentView>,
     stats: CountingStatsView,
-    top_slow_reject_selectors: Vec<SelectorRowView<'result>>,
+    top_slow_reject_selectors: Vec<SelectorRowView<'json>>,
 }
 
-impl<'result> BarView<'result> {
-    fn before_preprocessing(result: &'result MatchBenchResult) -> Self {
+impl<'json> BarView<'json> {
+    fn before_preprocessing(result: &'json MatchBenchResult) -> Self {
         todo!()
     }
 
     fn with_preprocessing(
-        result: &'result MatchBenchResult,
+        result: &'json MatchBenchResult,
         preprocessing: &PreprocessingResult,
     ) -> Self {
         todo!()
@@ -147,12 +147,12 @@ impl SegmentKind {
     }
 }
 
-struct SelectorRowView<'result> {
-    source: &'result SelectorSlowRejectSamples,
+struct SelectorRowView<'json> {
+    source: &'json SelectorSlowRejectSamples,
 }
 
-impl<'result> SelectorRowView<'result> {
-    fn selector(&self) -> &'result str {
+impl<'json> SelectorRowView<'json> {
+    fn selector(&self) -> &'json str {
         todo!()
     }
 
@@ -165,8 +165,8 @@ impl<'result> SelectorRowView<'result> {
     }
 }
 
-impl<'result> From<&'result SelectorSlowRejectSamples> for SelectorRowView<'result> {
-    fn from(value: &'result SelectorSlowRejectSamples) -> Self {
+impl<'json> From<&'json SelectorSlowRejectSamples> for SelectorRowView<'json> {
+    fn from(value: &'json SelectorSlowRejectSamples) -> Self {
         todo!()
     }
 }
