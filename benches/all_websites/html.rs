@@ -145,12 +145,11 @@ impl SegmentKind {
     }
 }
 
-// owning the `Samples` so that I don't have to
-// create a new version of `Samples` that contains
-// a slice :/
-struct SelectorRowView<'json> {
-    selector: &'json SelectorString,
-    aggregate_durations_ns: Samples<Duration>,
+/// Get one by calling `SelectorStatsJson::get_selector_row_view`.
+pub(crate) struct SelectorRowView<'json> {
+    pub(crate) selector: &'json SelectorString,
+    pub(crate) mean_aggregate_slow_reject_time: Duration,
+    pub(crate) stddev_aggregate_slow_reject_time: Duration,
 }
 
 impl<'json> SelectorRowView<'json> {
@@ -167,22 +166,6 @@ impl<'json> SelectorRowView<'json> {
     }
 }
 
-impl<'json> SelectorRowView<'json> {
-    fn new(
-        selector: &'json SelectorString,
-        slow_reject_samples_ns: &Vec<u128>,
-    ) -> Self {
-        Self {
-            selector,
-            aggregate_durations_ns: Samples(
-                slow_reject_samples_ns
-                    .into_iter()
-                    .map(|s| Duration::from_nanos(*s as u64)) // SAFETY: a selector will not have 585 years of slow rejecting time.
-                    .collect()
-            ),
-        }
-    }
-}
 struct CountingStatsView(CountingStatsJson);
 
 impl CountingStatsView {

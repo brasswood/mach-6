@@ -142,7 +142,7 @@ mod overall_summary {
 }
 
 mod selector_summary {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, time::Duration};
 
     use serde::{Deserialize, Serialize};
 
@@ -183,6 +183,23 @@ mod selector_summary {
                     .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().as_nanos()))
                     .collect(),
             }
+        }
+    }
+
+    impl SelectorStatsJson {
+        fn get_selector_row_view<'me>(&'me self, selector: &SelectorString) -> Option<crate::html::SelectorRowView<'me>> {
+            let Some((my_selector, mean_ns)) = self.means_ns.get_key_value(selector) else {
+                return None;
+            };
+            let stddev_ns = self.stddevs_ns.get(selector).unwrap_or_else(|| {
+                panic!("mean slow reject time found, but not stddev, for selector \"{}\"", selector.0);
+            });
+            Some(crate::html::SelectorRowView {
+                selector: my_selector,
+                // SAFETY: a selector will not have 585 years of slow rejecting time.
+                mean_aggregate_slow_reject_time: Duration::from_nanos(*mean_ns as u64),
+                stddev_aggregate_slow_reject_time: Duration::from_nanos(*stddev_ns as u64),
+            })
         }
     }
 }
