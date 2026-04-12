@@ -437,7 +437,7 @@ fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
     for result in results {
         let file_name = format!("{}.json", make_filename_safe(&result.website));
         let json_path = json_dir.join(file_name);
-        let payload = json::website_json(result);
+        let payload = json::WebsiteJson::from(result);
         let serialized = serde_json::to_string_pretty(&payload)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         fs::write(json_path, serialized)?;
