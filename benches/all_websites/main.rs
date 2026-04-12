@@ -66,6 +66,12 @@ struct TimedResults<R> {
     samples: Samples<R>,
 }
 
+impl<R> TimedResults<R> {
+    fn overall_mean(&self) -> Duration {
+        self.total_duration / self.samples.len().try_into().unwrap()
+    }
+}
+
 trait Mean {
     type Output;
 
@@ -259,6 +265,13 @@ struct PreprocessingResult {
     overall_preprocessing: TimedResults<()>,
 }
 impl PreprocessingResult {
+    fn new(indexing: TimedResults<()>, overall_preprocessing: TimedResults<()>) -> Self {
+        assert!(indexing.overall_mean() <= overall_preprocessing.overall_mean());
+        Self {
+            indexing,
+            overall_preprocessing,
+        }
+    }
     fn mean_indexing(&self) -> Duration {
         self.indexing.total_duration / self.indexing.samples.len() as u32
     }
@@ -303,10 +316,10 @@ fn main() {
         let result = WebsiteResult {
             website: w.name,
             before_preprocessing,
-            preprocessing: PreprocessingResult {
-                indexing: indexing_results,
-                overall_preprocessing: overall_preprocessing_results,
-            },
+            preprocessing: PreprocessingResult::new(
+                indexing_results,
+                overall_preprocessing_results,
+            ),
             after_preprocessing,
         };
         result
