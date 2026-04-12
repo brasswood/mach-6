@@ -6,7 +6,7 @@ use super::*;
 pub(super) struct WebsiteJson {
     website: String,
     summary: overall_summary::SummaryJson,
-    slow_reject_selectors_summary: selector_summary::SelectorsSummaryJson,
+    selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson,
     samples: samples::SamplesJson,
 }
 
@@ -15,7 +15,7 @@ impl From<&WebsiteResult> for WebsiteJson {
         Self {
             website: value.website.clone(),
             summary: overall_summary::SummaryJson::from(value),
-            slow_reject_selectors_summary: selector_summary::SelectorsSummaryJson::from(value),
+            selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson::from(value),
             samples: samples::SamplesJson::from(value),
         }
     }
@@ -157,26 +157,26 @@ mod selector_summary {
     impl From<&WebsiteResult> for SelectorsSummaryJson {
         fn from(value: &WebsiteResult) -> Self {
             Self {
-                before_preprocessing: SelectorStatsJson::from(value.before_preprocessing.top_slow_reject_times.as_slice()),
-                after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.top_slow_reject_times.as_slice())
+                before_preprocessing: SelectorStatsJson::from(value.before_preprocessing.selector_slow_reject_times.as_slice()),
+                after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.selector_slow_reject_times.as_slice())
             }
         }
     }
 
     #[derive(Serialize, Deserialize)]
     struct SelectorStatsJson {
-        means: HashMap<SelectorString, u128>,
-        stddevs: HashMap<SelectorString, u128>,
+        means_ns: HashMap<SelectorString, u128>,
+        stddevs_ns: HashMap<SelectorString, u128>,
     }
 
     impl From<&[SelectorSlowRejectSamples]> for SelectorStatsJson {
         fn from(value: &[SelectorSlowRejectSamples]) -> Self {
             Self {
-                means: value
+                means_ns: value
                     .iter()
                     .map(|row| (row.selector.clone(), row.aggregate_durations.mean().as_nanos()))
                     .collect(),
-                stddevs: value
+                stddevs_ns: value
                     .iter()
                     .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().as_nanos()))
                     .collect(),
@@ -219,7 +219,7 @@ mod samples {
         checking_style_sharing_ns: Vec<u128>,
         inserting_into_sharing_cache_ns: Vec<u128>,
         querying_selector_map_ns: Vec<u128>,
-        selectors: HashMap<SelectorString, Vec<u128>>,
+        selector_slow_rejects_ns: HashMap<SelectorString, Vec<u128>>,
     }
 
     impl From<&MatchBenchResult> for TimingsSamplesJson {
@@ -240,8 +240,8 @@ mod samples {
                 checking_style_sharing_ns: get_ns_samples(|timing_stats| timing_stats.checking_style_sharing),
                 inserting_into_sharing_cache_ns: get_ns_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
                 querying_selector_map_ns: get_ns_samples(|timing_stats| timing_stats.querying_selector_map),
-                selectors: value
-                    .top_slow_reject_times
+                selector_slow_rejects_ns: value
+                    .selector_slow_reject_times
                     .iter()
                     .map(|row| {
                         (

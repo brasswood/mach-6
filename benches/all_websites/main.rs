@@ -193,7 +193,7 @@ struct MatchBenchResult {
     /// The top MAX_SELECTOR_ROWS_PER_WEBSITE slow-rejecting selectors in
     /// descending order, and their aggregate slow-reject durations for each
     /// sample.
-    top_slow_reject_times: Vec<SelectorSlowRejectSamples>,
+    selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
 }
 
 impl MatchBenchResult {
@@ -246,7 +246,7 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             total_duration,
             counting_stats,
             timing_stats: Samples(timing_stats),
-            top_slow_reject_times: sorted,
+            selector_slow_reject_times: sorted,
         }
     }
 }
