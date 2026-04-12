@@ -21,7 +21,7 @@ mod overall_summary {
     #[derive(Serialize, Deserialize)]
     struct PreprocessingSummaryJson {
         mean_indexing_duration_ns: u128,
-        mean_preprocessing_duration_ns: u128,
+        mean_overall_duration_ns: u128,
     }
 
     #[derive(Serialize, Deserialize)]
