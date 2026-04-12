@@ -2,9 +2,11 @@ use serde::{Deserialize, Serialize};
 
 use super::*;
 
+pub(crate) use overall_summary::*;
+
 #[derive(Serialize, Deserialize)]
-pub(super) struct WebsiteJson {
-    website: String,
+pub(crate) struct WebsiteJson {
+    pub website: String,
     summary: overall_summary::SummaryJson,
     selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson,
     samples: samples::SamplesJson,
@@ -29,7 +31,7 @@ mod overall_summary {
     use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
 
     #[derive(Serialize, Deserialize)]
-    pub(super) struct SummaryJson {
+    pub(crate) struct SummaryJson {
         before_preprocessing: BenchmarkRunSummaryJson,
         preprocessing: PreprocessingSummaryJson,
         after_preprocessing: BenchmarkRunSummaryJson,
@@ -78,7 +80,7 @@ mod overall_summary {
     }
 
     #[derive(Serialize, Deserialize)]
-    struct CountingStatsJson {
+    pub(crate) struct CountingStatsJson {
         sharing_instances: usize,
         selector_map_hits: usize,
         fast_rejects: usize,

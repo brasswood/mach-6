@@ -2,9 +2,10 @@ use std::time::Duration;
 
 use askama::Template;
 use derive_more::Display;
-use selectors::matching::CountingStats;
 
-use super::{MatchBenchResult, PreprocessingResult, SelectorSlowRejectSamples, json::WebsiteJson};
+use crate::{Samples, SelectorString, json::CountingStatsJson};
+
+use super::json::{WebsiteJson, SummaryJson};
 
 #[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 struct Href(String);
@@ -79,14 +80,11 @@ struct BarView<'json> {
 }
 
 impl<'json> BarView<'json> {
-    fn before_preprocessing(result: &'json MatchBenchResult) -> Self {
+    fn before_preprocessing(summary_json: &'json SummaryJson) -> Self {
         todo!()
     }
 
-    fn with_preprocessing(
-        result: &'json MatchBenchResult,
-        preprocessing: &PreprocessingResult,
-    ) -> Self {
+    fn with_preprocessing(summary_json: &'json SummaryJson) -> Self {
         todo!()
     }
 
@@ -147,8 +145,12 @@ impl SegmentKind {
     }
 }
 
+// owning the `Samples` so that I don't have to
+// create a new version of `Samples` that contains
+// a slice :/
 struct SelectorRowView<'json> {
-    source: &'json SelectorSlowRejectSamples,
+    selector: &'json SelectorString,
+    aggregate_durations_ns: Samples<Duration>,
 }
 
 impl<'json> SelectorRowView<'json> {
@@ -165,15 +167,23 @@ impl<'json> SelectorRowView<'json> {
     }
 }
 
-impl<'json> From<&'json SelectorSlowRejectSamples> for SelectorRowView<'json> {
-    fn from(value: &'json SelectorSlowRejectSamples) -> Self {
-        todo!()
+impl<'json> SelectorRowView<'json> {
+    fn new(
+        selector: &'json SelectorString,
+        slow_reject_samples_ns: &Vec<u128>,
+    ) -> Self {
+        Self {
+            selector,
+            aggregate_durations_ns: Samples(
+                slow_reject_samples_ns
+                    .into_iter()
+                    .map(|s| Duration::from_nanos(*s as u64)) // SAFETY: a selector will not have 585 years of slow rejecting time.
+                    .collect()
+            ),
+        }
     }
 }
-
-struct CountingStatsView {
-    source: CountingStats,
-}
+struct CountingStatsView(CountingStatsJson);
 
 impl CountingStatsView {
     fn formatted_sharing_instances(&self) -> String {
@@ -197,8 +207,8 @@ impl CountingStatsView {
     }
 }
 
-impl From<CountingStats> for CountingStatsView {
-    fn from(value: CountingStats) -> Self {
-        todo!()
+impl From<CountingStatsJson> for CountingStatsView {
+    fn from(value: CountingStatsJson) -> Self {
+        Self(value)
     }
 }
