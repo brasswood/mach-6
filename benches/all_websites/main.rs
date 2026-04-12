@@ -18,8 +18,6 @@ use cssparser::ToCss as _;
 mod html;
 mod json;
 
-const MAX_SELECTOR_ROWS_PER_WEBSITE: usize = 100;
-
 #[derive(Clone, Debug, Default)]
 struct Samples<T>(Vec<T>); 
 
@@ -241,7 +239,6 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
             SelectorSlowRejectSamples { selector, aggregate_durations: Samples(durations) }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
-        sorted.truncate(MAX_SELECTOR_ROWS_PER_WEBSITE);
         MatchBenchResult {
             total_duration,
             counting_stats,

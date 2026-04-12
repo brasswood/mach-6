@@ -6,8 +6,6 @@ use selectors::matching::CountingStats;
 
 use super::{MatchBenchResult, PreprocessingResult, SelectorSlowRejectSamples, WebsiteResult};
 
-const MAX_SLOW_REJECT_ROWS: usize = 100;
-
 #[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 struct Href(String);
 
@@ -18,7 +16,7 @@ pub struct ReportTemplate<'result> {
 }
 
 impl ReportTemplate<'_> {
-    const MAX_SLOW_REJECT_ROWS: usize = MAX_SLOW_REJECT_ROWS;
+    const MAX_SLOW_REJECT_ROWS: usize = 100;
 
     fn max_duration_ns(&self) -> u128 {
         todo!()
