@@ -79,10 +79,12 @@ impl OnlineDurationStats {
     }
 
     fn mean(&self) -> Duration {
+        assert!(self.num_samples != 0, "tried to compute online mean with no samples");
         Duration::from_nanos(self.mean_ns.round() as u64)
     }
 
     fn stddev(&self) -> Duration {
+        assert!(self.num_samples != 0, "tried to compute online stddev with no samples");
         let variance = self.m2_ns / self.num_samples as f64;
         Duration::from_nanos(variance.sqrt().round() as u64)
     }
@@ -95,6 +97,7 @@ struct TimedResults<R> {
 
 impl<R> TimedResults<R> {
     fn overall_mean(&self) -> Duration {
+        assert!(self.samples.len() != 0, "tried to compute overall mean on result with no samples");
         self.total_duration / self.samples.len().try_into().unwrap()
     }
 }
