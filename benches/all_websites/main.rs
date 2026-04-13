@@ -232,26 +232,27 @@ struct MatchBenchResult {
 }
 
 impl MatchBenchResult {
-    fn mean_duration(&self) -> Duration {
-        self.total_duration / self.timing_stats.len() as u32
-    }
-}
-
-impl From<TimedResults<SampleResult>> for MatchBenchResult {
-    fn from(value: TimedResults<SampleResult>) -> Self {
-        let TimedResults {
-            total_duration,
-            samples,
-        } = value;
-        let counting_stats = samples
+    fn new(
+        stats: TimedResults<Statistics>,
+        per_match_stats: TimedResults<SmallVec<[((Element, Selector), SelectorStats); 16]>>,
+    ) -> Self {
+        assert_eq!(stats.samples.len(), per_match_stats.samples.len());
+        let counting_stats = stats
+            .samples
             .first()
             .expect("expected at least one sample result")
-            .overall_stats
             .counts;
+
+        let timing_stats = stats
+            .samples
+            .0
+            .iter()
+            .map(|stats| stats.times)
+            .collect();
+
         let mut map: HashMap<SelectorString, Vec<Duration>> = HashMap::new();
-        let mut timing_stats = Vec::with_capacity(samples.len());
-        for (i, sample_result) in samples.into_iter().enumerate() {
-            for ((_element, selector), selector_stats) in sample_result.per_match_stats {
+        for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
+            for ((_element, selector), selector_stats) in per_match_stats {
                 let slow_reject_duration = match selector_stats {
                     SelectorStats::Bloom(bq) =>
                         bq.time_slow_rejecting.unwrap_or_default(),
@@ -270,18 +271,22 @@ impl From<TimedResults<SampleResult>> for MatchBenchResult {
                     samples[i] += slow_reject_duration;
                 }
             }
-            timing_stats.push(sample_result.overall_stats.times);
         }
+
         let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)|
             SelectorSlowRejectSamples { selector, aggregate_durations: Samples(durations) }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
         MatchBenchResult {
-            total_duration,
+            total_duration: stats.total_duration,
             counting_stats,
             timing_stats: Samples(timing_stats),
             selector_slow_reject_times: sorted,
         }
+    }
+
+    fn mean_duration(&self) -> Duration {
+        self.total_duration / self.timing_stats.len() as u32
     }
 }
 
@@ -369,30 +374,34 @@ fn main() {
     }
 }
 
-struct SampleResult {
-    overall_stats: Statistics,
-    per_match_stats: SmallVec<[((Element, Selector), SelectorStats); 16]>,
-}
-
 fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> MatchBenchResult {
-    let timed_results = bench_function(
-        benchmark_name,
+    let overall_stats = bench_function(
+        &format!("{benchmark_name} (without selector stats)"),
         || {
-            let mut per_match_stats = SmallVec::new();
             let (_, overall_stats) =
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     stylist,
                     stylesheet_lock,
-                    Some(&mut per_match_stats)
+                    None,
                 );
-            SampleResult {
-                overall_stats,
-                per_match_stats,
-            }
+            overall_stats
         },
     );
-    timed_results.into()
+    let per_match_stats = bench_function(
+        &format!("{benchmark_name} (with selector stats)"),
+        || {
+            let mut per_match_stats = SmallVec::new();
+            mach_6::match_selectors_with_style_sharing(
+                document,
+                stylist,
+                stylesheet_lock,
+                Some(&mut per_match_stats),
+            );
+            per_match_stats
+        },
+    );
+    MatchBenchResult::new(overall_stats, per_match_stats)
 }
 
 fn get_documents(website_filter: Option<&str>) -> Box<dyn Iterator<Item = ParsedWebsite>> {
