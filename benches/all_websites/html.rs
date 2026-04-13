@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use askama::Template;
 use derive_more::Display;
+use indexmap::IndexSet;
 
 use crate::SelectorString;
 
@@ -48,8 +49,7 @@ impl<'json> WebsiteView<'json> {
         todo!()
     }
 
-    fn compact_legend_segments(&self) -> Vec<SegmentKind> {
-        todo!()
+    fn compact_legend_segments(&self) -> IndexSet<SegmentKind> {
     }
 
     fn bars(&self) -> [&BarView<'json>; 2] {
@@ -113,7 +113,7 @@ impl SegmentView {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum SegmentKind {
     Indexing,
     OtherPreprocessing,
