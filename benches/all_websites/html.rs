@@ -3,9 +3,9 @@ use std::time::Duration;
 use askama::Template;
 use derive_more::Display;
 
-use crate::{Samples, SelectorString, json::CountingStatsJson};
+use crate::SelectorString;
 
-use super::json::{WebsiteJson, SummaryJson};
+use super::json::{WebsiteJson, CountingStatsJson};
 
 #[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 struct Href(String);
@@ -80,14 +80,6 @@ struct BarView<'json> {
 }
 
 impl<'json> BarView<'json> {
-    fn before_preprocessing(summary_json: &'json SummaryJson) -> Self {
-        todo!()
-    }
-
-    fn with_preprocessing(summary_json: &'json SummaryJson) -> Self {
-        todo!()
-    }
-
     fn total_duration(&self) -> Duration {
         todo!()
     }
