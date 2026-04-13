@@ -92,13 +92,27 @@ impl<'json> WebsiteView<'json> {
     }
 
     fn compact_legend_segments(&self) -> IndexSet<SegmentKind> {
-        let mut out = IndexSet::new();
-        for bar in self.bars() {
-            for segment in &bar.segments {
-                out.insert(segment.kind);
-            }
-        }
-        out
+        const ORDER: [SegmentKind; 10] = [
+            SegmentKind::Indexing,
+            SegmentKind::OtherPreprocessing,
+            SegmentKind::UpdatingBloomFilter,
+            SegmentKind::CheckingStyleSharing,
+            SegmentKind::QueryingSelectorMap,
+            SegmentKind::FastRejecting,
+            SegmentKind::SlowRejecting,
+            SegmentKind::SlowAccepting,
+            SegmentKind::InsertingIntoSharingCache,
+            SegmentKind::Other,
+        ];
+
+        ORDER
+            .into_iter()
+            .filter(|kind| {
+                self.bars()
+                    .into_iter()
+                    .any(|bar| bar.segments.iter().any(|segment| segment.kind == *kind))
+            })
+            .collect()
     }
 
     fn bars(&self) -> [&BarView<'json>; 2] {
