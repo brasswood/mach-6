@@ -189,14 +189,20 @@ mod selector_summary {
 }
 
 mod samples {
-    use std::{collections::HashMap, time::Duration};
+    use std::time::Duration;
 
     use selectors::matching::TimingStats;
     use serde::{Deserialize, Serialize};
 
     use crate::WebsiteResult;
 
-    use super::{MatchBenchResult, SelectorString};
+    use super::MatchBenchResult;
+
+    #[cfg(feature = "serialize_selector_samples")]
+    use {
+        std::collections::HashMap,
+        super::SelectorString,
+    };
 
     #[derive(Serialize, Deserialize)]
     pub(crate) struct SamplesJson {
@@ -222,6 +228,7 @@ mod samples {
         pub(crate) checking_style_sharing_ns: Vec<u128>,
         pub(crate) inserting_into_sharing_cache_ns: Vec<u128>,
         pub(crate) querying_selector_map_ns: Vec<u128>,
+        #[cfg(feature = "serialize_selector_samples")]
         pub(crate) selector_slow_rejects_ns: HashMap<SelectorString, Vec<u128>>,
     }
 
@@ -243,6 +250,7 @@ mod samples {
                 checking_style_sharing_ns: get_ns_samples(|timing_stats| timing_stats.checking_style_sharing),
                 inserting_into_sharing_cache_ns: get_ns_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
                 querying_selector_map_ns: get_ns_samples(|timing_stats| timing_stats.querying_selector_map),
+                #[cfg(feature = "serialize_selector_samples")]
                 selector_slow_rejects_ns: value
                     .selector_slow_reject_times
                     .iter()

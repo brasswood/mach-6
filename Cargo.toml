@@ -48,3 +48,4 @@ exclude = ["stylo"]
 
 [features]
 debug_element = ["style/debug_element", "selectors/debug_element"]
+serialize_selector_samples = []
