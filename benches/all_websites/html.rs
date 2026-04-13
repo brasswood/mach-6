@@ -5,9 +5,9 @@ use derive_more::Display;
 use indexmap::IndexSet;
 use num_format::{Locale, ToFormattedString};
 
-use crate::SelectorString;
+use crate::{SelectorString, json::{SelectorsSummaryJson, SummaryJson}};
 
-use super::json::{WebsiteJson, CountingStatsJson};
+use super::json::{CountingStatsJson, SelectorStatsJson, WebsiteJson};
 
 #[derive(Clone, Debug, Display, Hash, PartialEq, Eq)]
 struct Href(String);
@@ -24,8 +24,23 @@ impl ReportTemplate<'_> {
 
 impl<'json> From<&'json [WebsiteJson]> for ReportTemplate<'json> {
     fn from(value: &'json [WebsiteJson]) -> Self {
+        let page_max_duration_ns = value
+            .iter()
+            .flat_map(|website| {
+                [
+                    website.summary.before_preprocessing.mean_duration_ns,
+                    website.summary.after_preprocessing.mean_duration_ns
+                        + website.summary.preprocessing.mean_overall_duration_ns,
+                ]
+            })
+            .max()
+            .unwrap_or(0);
+
         Self {
-            websites: value.iter().map(WebsiteView::from).collect(),
+            websites: value
+                .iter()
+                .map(|website| WebsiteView::new(website, page_max_duration_ns))
+                .collect(),
         }
     }
 }
@@ -38,6 +53,28 @@ struct WebsiteView<'json> {
 }
 
 impl<'json> WebsiteView<'json> {
+    fn new(value: &'json WebsiteJson, page_max_duration_ns: u128) -> Self {
+        let [before_preprocessing, with_preprocessing] = 
+            [BarLabel::BeforePreprocessing, BarLabel::WithPreprocessing].map(|label| 
+                BarView::new(
+                    label,
+                    &value.summary,
+                    &value.selector_slow_rejects_summary,
+                    page_max_duration_ns,
+                )
+            );
+
+        Self {
+            name: &value.website,
+            json_file: Href(format!(
+                "json/{}.json",
+                crate::make_filename_safe(&value.website)
+            )),
+            before_preprocessing,
+            with_preprocessing,
+        }
+    }
+
     fn total_duration_sort_key(&self) -> u128 {
         self.bars()
             .into_iter()
@@ -69,12 +106,6 @@ impl<'json> WebsiteView<'json> {
     }
 }
 
-impl<'json> From<&'json WebsiteJson> for WebsiteView<'json> {
-    fn from(value: &'json WebsiteJson) -> Self {
-        todo!()
-    }
-}
-
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq)]
 enum BarLabel {
     #[display("Before Preprocessing")]
@@ -92,6 +123,125 @@ struct BarView<'json> {
 }
 
 impl<'json> BarView<'json> {
+    fn new(
+        label: BarLabel,
+        summary: &'json SummaryJson,
+        selectors_summary: &'json SelectorsSummaryJson,
+        page_max_duration_ns: u128,
+    ) -> Self {
+        let match_summary;
+        let preprocessing_summary;
+        let selector_stats;
+        match label {
+            BarLabel::BeforePreprocessing => {
+                match_summary = &summary.before_preprocessing;
+                preprocessing_summary = None;
+                selector_stats = &selectors_summary.before_preprocessing;
+            },
+            BarLabel::WithPreprocessing => {
+                match_summary = &summary.after_preprocessing;
+                preprocessing_summary = Some(&summary.preprocessing);
+                selector_stats = &selectors_summary.after_preprocessing;
+            },
+        };
+
+        let times = &match_summary.times.means;
+        let total_duration = duration_from_ns(
+            match_summary.mean_duration_ns
+                + if let Some(preprocessing) = preprocessing_summary {
+                    preprocessing.mean_overall_duration_ns
+                } else {
+                    0
+                },
+        );
+
+        let mut measured_durations = Vec::with_capacity(10);
+        if let Some(preprocessing) = preprocessing_summary {
+            let indexing_duration = duration_from_ns(preprocessing.mean_indexing_duration_ns);
+            let preprocessing_other_duration = duration_from_ns(
+                preprocessing
+                    .mean_overall_duration_ns
+                    .checked_sub(preprocessing.mean_indexing_duration_ns)
+                    .expect("preprocessing overall duration should be >= indexing duration"),
+            );
+            measured_durations.append(&mut vec![
+                (
+                    SegmentKind::Indexing,
+                    indexing_duration
+                ),
+                (
+                    SegmentKind::OtherPreprocessing,
+                    preprocessing_other_duration,
+                ),
+            ]);
+        }
+
+        measured_durations.append(&mut vec![
+            (
+                SegmentKind::UpdatingBloomFilter,
+                duration_from_ns(times.updating_bloom_filter_ns),
+            ),
+            (
+                SegmentKind::CheckingStyleSharing,
+                duration_from_ns(times.checking_style_sharing_ns),
+            ),
+            (
+                SegmentKind::QueryingSelectorMap,
+                duration_from_ns(times.querying_selector_map_ns),
+            ),
+            (
+                SegmentKind::FastRejecting,
+                duration_from_ns(times.fast_rejecting_ns),
+            ),
+            (
+                SegmentKind::SlowRejecting,
+                duration_from_ns(times.slow_rejecting_ns),
+            ),
+            (
+                SegmentKind::SlowAccepting,
+                duration_from_ns(times.slow_accepting_ns),
+            ),
+            (
+                SegmentKind::InsertingIntoSharingCache,
+                duration_from_ns(times.inserting_into_sharing_cache_ns),
+            ),
+        ]);
+
+        let measured_sum = measured_durations
+                .iter()
+                .map(|(_, duration)| *duration)
+                .sum::<Duration>();
+        let other_duration = total_duration.checked_sub(measured_sum).unwrap_or_else(|| {
+            panic!(
+                "Measured timing sum exceeded total duration: measured_sum={}, total_duration={}",
+                format_duration(measured_sum),
+                format_duration(total_duration),
+            )
+        });
+        measured_durations.push((
+            SegmentKind::Other,
+            other_duration,
+        ));
+
+        let segments: Vec<SegmentView> = measured_durations.into_iter().filter_map(|(kind, duration)| {
+            (!duration.is_zero()).then(|| SegmentView {
+                kind,
+                parent_total_duration: total_duration,
+                duration
+            })
+        })
+        .collect();
+
+        BarView {
+            label,
+            page_max_duration_ns,
+            segments,
+            stats: CountingStatsView::from(match_summary.counts),
+            top_slow_reject_selectors: build_selector_rows(selector_stats),
+        }
+
+    }
+
     fn total_duration(&self) -> Duration {
         self.segments.iter().map(|segment| segment.duration).sum()
     }
@@ -232,6 +382,37 @@ impl From<CountingStatsJson> for CountingStatsView {
         Self(value)
     }
 }
+
+fn build_selector_rows<'json>(stats: &'json SelectorStatsJson) -> Vec<SelectorRowView<'json>> {
+    let mut rows: Vec<_> = stats
+        .means_ns
+        .iter()
+        .map(|(selector, mean_ns)| {
+            let Some(&stddev_ns) = stats.stddevs_ns.get(selector) else {
+                panic!(
+                    "mean slow reject time found, but not stddev, for selector {:?}",
+                    selector
+                )
+            };
+            SelectorRowView {
+                selector,
+                mean_aggregate_slow_reject_time: duration_from_ns(*mean_ns),
+                stddev_aggregate_slow_reject_time: duration_from_ns(stddev_ns),
+            }
+        })
+        .collect();
+
+    // Sort by mean slow reject time (descending), then if equal, by name (ascending).
+    rows.sort_by(|left, right| {
+        right
+            .mean_aggregate_slow_reject_time
+            .cmp(&left.mean_aggregate_slow_reject_time)
+            .then_with(|| left.selector.0.cmp(&right.selector.0))
+    });
+    rows.truncate(ReportTemplate::MAX_SLOW_REJECT_ROWS);
+    rows
+}
+
 
 fn duration_from_ns(ns: u128) -> Duration {
     Duration::from_nanos(u64::try_from(ns).expect("nanoseconds value should fit in u64"))
