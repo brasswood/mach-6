@@ -145,11 +145,10 @@ impl SegmentKind {
     }
 }
 
-/// Get one by calling `SelectorStatsJson::get_selector_row_view`.
-pub(crate) struct SelectorRowView<'json> {
-    pub(crate) selector: &'json SelectorString,
-    pub(crate) mean_aggregate_slow_reject_time: Duration,
-    pub(crate) stddev_aggregate_slow_reject_time: Duration,
+struct SelectorRowView<'json> {
+    selector: &'json SelectorString,
+    mean_aggregate_slow_reject_time: Duration,
+    stddev_aggregate_slow_reject_time: Duration,
 }
 
 impl<'json> SelectorRowView<'json> {
