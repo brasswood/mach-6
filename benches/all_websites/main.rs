@@ -60,6 +60,33 @@ impl<T> Samples<T> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct OnlineDurationStats {
+    num_samples: usize,
+    mean_ns: f64,
+    /// The running sum of squared deviations from the mean
+    m2_ns: f64,
+}
+
+impl OnlineDurationStats {
+    fn push(&mut self, sample: Duration) {
+        let x = sample.as_nanos() as f64;
+        self.num_samples += 1;
+        let delta = x - self.mean_ns;
+        self.mean_ns += delta / self.num_samples as f64;
+        let delta2 = x - self.mean_ns;
+        self.m2_ns += delta * delta2;
+    }
+
+    fn mean(&self) -> Duration {
+        Duration::from_nanos(self.mean_ns.round() as u64)
+    }
+
+    fn stddev(&self) -> Duration {
+        let variance = self.m2_ns / self.num_samples as f64;
+        Duration::from_nanos(variance.sqrt().round() as u64)
+    }
+}
 
 struct TimedResults<R> {
     total_duration: Duration,
