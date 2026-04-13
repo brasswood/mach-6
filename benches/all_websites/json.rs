@@ -81,11 +81,11 @@ mod overall_summary {
 
     #[derive(Serialize, Deserialize)]
     pub(crate) struct CountingStatsJson {
-        sharing_instances: usize,
-        selector_map_hits: usize,
-        fast_rejects: usize,
-        slow_rejects: usize,
-        slow_accepts: usize,
+        pub(crate) sharing_instances: usize,
+        pub(crate) selector_map_hits: usize,
+        pub(crate) fast_rejects: usize,
+        pub(crate) slow_rejects: usize,
+        pub(crate) slow_accepts: usize,
     }
 
     impl From<CountingStats> for CountingStatsJson {
