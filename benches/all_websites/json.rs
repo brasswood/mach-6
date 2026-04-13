@@ -3,13 +3,14 @@ use serde::{Deserialize, Serialize};
 use super::*;
 
 pub(crate) use overall_summary::*;
+pub(crate) use selector_summary::*;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct WebsiteJson {
-    pub website: String,
-    summary: overall_summary::SummaryJson,
-    selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson,
-    samples: samples::SamplesJson,
+    pub(crate) website: String,
+    pub(crate) summary: overall_summary::SummaryJson,
+    pub(crate) selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson,
+    pub(crate) samples: samples::SamplesJson,
 }
 
 impl From<&WebsiteResult> for WebsiteJson {
@@ -32,9 +33,9 @@ mod overall_summary {
 
     #[derive(Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
-        before_preprocessing: BenchmarkRunSummaryJson,
-        preprocessing: PreprocessingSummaryJson,
-        after_preprocessing: BenchmarkRunSummaryJson,
+        pub(crate) before_preprocessing: BenchmarkRunSummaryJson,
+        pub(crate) preprocessing: PreprocessingSummaryJson,
+        pub(crate) after_preprocessing: BenchmarkRunSummaryJson,
     }
 
     impl From<&WebsiteResult> for SummaryJson {
@@ -48,9 +49,9 @@ mod overall_summary {
     }
 
     #[derive(Serialize, Deserialize)]
-    struct PreprocessingSummaryJson {
-        mean_indexing_duration_ns: u128,
-        mean_overall_duration_ns: u128,
+    pub(crate) struct PreprocessingSummaryJson {
+        pub(crate) mean_indexing_duration_ns: u128,
+        pub(crate) mean_overall_duration_ns: u128,
     }
 
     impl From<&PreprocessingResult> for PreprocessingSummaryJson {
@@ -63,10 +64,10 @@ mod overall_summary {
     }
 
     #[derive(Serialize, Deserialize)]
-    struct BenchmarkRunSummaryJson {
-        mean_duration_ns: u128,
-        counts: CountingStatsJson,
-        times: TimingStatsJson,
+    pub(crate) struct BenchmarkRunSummaryJson {
+        pub(crate) mean_duration_ns: u128,
+        pub(crate) counts: CountingStatsJson,
+        pub(crate) times: TimingStatsJson,
     }
 
     impl From<&MatchBenchResult> for BenchmarkRunSummaryJson {
@@ -79,7 +80,7 @@ mod overall_summary {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub(crate) struct CountingStatsJson {
         pub(crate) sharing_instances: usize,
         pub(crate) selector_map_hits: usize,
@@ -101,9 +102,9 @@ mod overall_summary {
     }
 
     #[derive(Serialize, Deserialize)]
-    struct TimingStatsJson {
-        means: TimingsJsonBody,
-        stddevs: TimingsJsonBody,
+    pub(crate) struct TimingStatsJson {
+        pub(crate) means: TimingsJsonBody,
+        pub(crate) stddevs: TimingsJsonBody,
     }
 
     impl From<&Samples<TimingStats>> for TimingStatsJson {
@@ -116,14 +117,14 @@ mod overall_summary {
     }
 
     #[derive(Serialize, Deserialize)]
-    struct TimingsJsonBody {
-        updating_bloom_filter_ns: u128,
-        slow_rejecting_ns: u128,
-        slow_accepting_ns: u128,
-        fast_rejecting_ns: u128,
-        checking_style_sharing_ns: u128,
-        inserting_into_sharing_cache_ns: u128,
-        querying_selector_map_ns: u128,
+    pub(crate) struct TimingsJsonBody {
+        pub(crate) updating_bloom_filter_ns: u128,
+        pub(crate) slow_rejecting_ns: u128,
+        pub(crate) slow_accepting_ns: u128,
+        pub(crate) fast_rejecting_ns: u128,
+        pub(crate) checking_style_sharing_ns: u128,
+        pub(crate) inserting_into_sharing_cache_ns: u128,
+        pub(crate) querying_selector_map_ns: u128,
     }
 
     impl From<TimingStats> for TimingsJsonBody {
@@ -151,9 +152,9 @@ mod selector_summary {
     use super::{SelectorSlowRejectSamples, SelectorString};
 
     #[derive(Serialize, Deserialize)]
-    pub(super) struct SelectorsSummaryJson {
-        before_preprocessing: SelectorStatsJson,
-        after_preprocessing: SelectorStatsJson,
+    pub(crate) struct SelectorsSummaryJson {
+        pub(crate) before_preprocessing: SelectorStatsJson,
+        pub(crate) after_preprocessing: SelectorStatsJson,
     }
 
     impl From<&WebsiteResult> for SelectorsSummaryJson {
@@ -166,9 +167,9 @@ mod selector_summary {
     }
 
     #[derive(Serialize, Deserialize)]
-    struct SelectorStatsJson {
-        means_ns: HashMap<SelectorString, u128>,
-        stddevs_ns: HashMap<SelectorString, u128>,
+    pub(crate) struct SelectorStatsJson {
+        pub(crate) means_ns: HashMap<SelectorString, u128>,
+        pub(crate) stddevs_ns: HashMap<SelectorString, u128>,
     }
 
     impl From<&[SelectorSlowRejectSamples]> for SelectorStatsJson {
@@ -198,9 +199,9 @@ mod samples {
     use super::{MatchBenchResult, SelectorString};
 
     #[derive(Serialize, Deserialize)]
-    pub(super) struct SamplesJson {
-        before_preprocessing: TimingsSamplesJson,
-        after_preprocessing: TimingsSamplesJson,
+    pub(crate) struct SamplesJson {
+        pub(crate) before_preprocessing: TimingsSamplesJson,
+        pub(crate) after_preprocessing: TimingsSamplesJson,
     }
 
     impl From<&WebsiteResult> for SamplesJson {
@@ -213,15 +214,15 @@ mod samples {
     }
 
     #[derive(Serialize, Deserialize)]
-    struct TimingsSamplesJson {
-        updating_bloom_filter_ns: Vec<u128>,
-        slow_rejecting_ns: Vec<u128>,
-        slow_accepting_ns: Vec<u128>,
-        fast_rejecting_ns: Vec<u128>,
-        checking_style_sharing_ns: Vec<u128>,
-        inserting_into_sharing_cache_ns: Vec<u128>,
-        querying_selector_map_ns: Vec<u128>,
-        selector_slow_rejects_ns: HashMap<SelectorString, Vec<u128>>,
+    pub(crate) struct TimingsSamplesJson {
+        pub(crate) updating_bloom_filter_ns: Vec<u128>,
+        pub(crate) slow_rejecting_ns: Vec<u128>,
+        pub(crate) slow_accepting_ns: Vec<u128>,
+        pub(crate) fast_rejecting_ns: Vec<u128>,
+        pub(crate) checking_style_sharing_ns: Vec<u128>,
+        pub(crate) inserting_into_sharing_cache_ns: Vec<u128>,
+        pub(crate) querying_selector_map_ns: Vec<u128>,
+        pub(crate) selector_slow_rejects_ns: HashMap<SelectorString, Vec<u128>>,
     }
 
     impl From<&MatchBenchResult> for TimingsSamplesJson {
