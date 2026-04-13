@@ -398,7 +398,7 @@
                 </div>
                 <div class="expanded-legend">
                   {% for segment in bar.segments %}
-                  <span><i class="swatch {{ segment.kind.css_class() }}"></i>{{ segment.kind.label() }}: {{ segment.formatted_duration() }}</span>
+                  <span><i class="swatch {{ segment.kind.css_class() }}"></i>{{ segment.kind.label() }}: {{ segment.formatted_duration_with_stddev() }}</span>
                   {% endfor %}
                   <span>Total: {{ bar.formatted_total_duration() }}</span>
                 </div>
@@ -429,7 +429,7 @@
                       {% for row in bar.top_slow_reject_selectors %}
                       <tr>
                         <td class="col-selector"><div class="cell-scroll"><code>{{ row.selector() }}</code></div></td>
-                        <td class="col-time"><div class="cell-scroll">{{ row.formatted_mean_duration() }}</div></td>
+                        <td class="col-time"><div class="cell-scroll">{{ row.formatted_mean_with_stddev() }}</div></td>
                       </tr>
                       {% endfor %}
                       {% endif %}

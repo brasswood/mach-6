@@ -156,10 +156,11 @@ impl<'json> BarView<'json> {
                 match_summary = &summary.after_preprocessing;
                 preprocessing_summary = Some(&summary.preprocessing);
                 selector_stats = &selectors_summary.after_preprocessing;
-            },
+            }
         };
 
-        let times = &match_summary.times.means;
+        let times_means = &match_summary.times.means;
+        let times_stddevs = &match_summary.times.stddevs;
         let total_duration = Duration::from_nanos_u128(
             match_summary.mean_duration_ns
                 + if let Some(preprocessing) = preprocessing_summary {
@@ -171,8 +172,8 @@ impl<'json> BarView<'json> {
 
         let mut measured_durations = Vec::with_capacity(10);
         if let Some(preprocessing) = preprocessing_summary {
-            let indexing_duration = Duration::from_nanos_u128(preprocessing.mean_indexing_duration_ns);
-            let preprocessing_other_duration = Duration::from_nanos_u128(
+            let mean_indexing_duration = Duration::from_nanos_u128(preprocessing.mean_indexing_duration_ns);
+            let mean_preprocessing_other_duration = Duration::from_nanos_u128(
                 preprocessing
                     .mean_overall_duration_ns
                     .checked_sub(preprocessing.mean_indexing_duration_ns)
@@ -180,12 +181,13 @@ impl<'json> BarView<'json> {
             );
             measured_durations.append(&mut vec![
                 (
-                    SegmentKind::Indexing,
-                    indexing_duration
+                    SegmentKind::Indexing, mean_indexing_duration,
+                    None
                 ),
                 (
                     SegmentKind::OtherPreprocessing,
-                    preprocessing_other_duration,
+                    mean_preprocessing_other_duration,
+                    None,
                 ),
             ]);
         }
@@ -193,37 +195,44 @@ impl<'json> BarView<'json> {
         measured_durations.append(&mut vec![
             (
                 SegmentKind::UpdatingBloomFilter,
-                Duration::from_nanos_u128(times.updating_bloom_filter_ns),
+                Duration::from_nanos_u128(times_means.updating_bloom_filter_ns),
+                Some(Duration::from_nanos_u128(times_stddevs.updating_bloom_filter_ns)),
             ),
             (
                 SegmentKind::CheckingStyleSharing,
-                Duration::from_nanos_u128(times.checking_style_sharing_ns),
+                Duration::from_nanos_u128(times_means.checking_style_sharing_ns),
+                Some(Duration::from_nanos_u128(times_stddevs.checking_style_sharing_ns)),
             ),
             (
                 SegmentKind::QueryingSelectorMap,
-                Duration::from_nanos_u128(times.querying_selector_map_ns),
+                Duration::from_nanos_u128(times_means.querying_selector_map_ns),
+                Some(Duration::from_nanos_u128(times_stddevs.querying_selector_map_ns)),
             ),
             (
                 SegmentKind::FastRejecting,
-                Duration::from_nanos_u128(times.fast_rejecting_ns),
+                Duration::from_nanos_u128(times_means.fast_rejecting_ns),
+                Some(Duration::from_nanos_u128(times_stddevs.fast_rejecting_ns)),
             ),
             (
                 SegmentKind::SlowRejecting,
-                Duration::from_nanos_u128(times.slow_rejecting_ns),
+                Duration::from_nanos_u128(times_means.slow_rejecting_ns),
+                Some(Duration::from_nanos_u128(times_stddevs.slow_rejecting_ns)),
             ),
             (
                 SegmentKind::SlowAccepting,
-                Duration::from_nanos_u128(times.slow_accepting_ns),
+                Duration::from_nanos_u128(times_means.slow_accepting_ns),
+                Some(Duration::from_nanos_u128(times_stddevs.slow_accepting_ns)),
             ),
             (
                 SegmentKind::InsertingIntoSharingCache,
-                Duration::from_nanos_u128(times.inserting_into_sharing_cache_ns),
+                Duration::from_nanos_u128(times_means.inserting_into_sharing_cache_ns),
+                Some(Duration::from_nanos_u128(times_stddevs.inserting_into_sharing_cache_ns)),
             ),
         ]);
 
         let measured_sum = measured_durations
                 .iter()
-                .map(|(_, duration)| *duration)
+                .map(|(_, duration, _)| *duration)
                 .sum::<Duration>();
         let other_duration = total_duration.checked_sub(measured_sum).unwrap_or_else(|| {
             panic!(
@@ -235,16 +244,20 @@ impl<'json> BarView<'json> {
         measured_durations.push((
             SegmentKind::Other,
             other_duration,
+            None
         ));
 
-        let segments: Vec<SegmentView> = measured_durations.into_iter().filter_map(|(kind, duration)| {
-            (!duration.is_zero()).then(|| SegmentView {
-                kind,
-                parent_total_duration: total_duration,
-                duration
+        let segments: Vec<SegmentView> = measured_durations
+            .into_iter()
+            .filter_map(|(kind, mean, stddev)| {
+                (!mean.is_zero()).then(|| SegmentView {
+                    kind,
+                    parent_total_duration: total_duration,
+                    mean,
+                    stddev,
+                })
             })
-        })
-        .collect();
+            .collect();
 
         BarView {
             label,
@@ -253,11 +266,10 @@ impl<'json> BarView<'json> {
             stats: CountingStatsView::from(match_summary.counts),
             top_slow_reject_selectors: build_selector_rows(selector_stats),
         }
-
     }
 
     fn total_duration(&self) -> Duration {
-        self.segments.iter().map(|segment| segment.duration).sum()
+        self.segments.iter().map(|segment| segment.mean).sum()
     }
 
     fn formatted_total_duration(&self) -> String {
@@ -276,7 +288,7 @@ impl<'json> BarView<'json> {
         self.segments
             .iter()
             .find(|segment| segment.kind == SegmentKind::SlowRejecting)
-            .map(|segment| segment.duration)
+            .map(|segment| segment.mean)
             .unwrap_or(Duration::ZERO)
     }
 }
@@ -284,7 +296,8 @@ impl<'json> BarView<'json> {
 struct SegmentView {
     kind: SegmentKind,
     parent_total_duration: Duration,
-    duration: Duration,
+    mean: Duration,
+    stddev: Option<Duration>,
 }
 
 impl SegmentView {
@@ -292,12 +305,24 @@ impl SegmentView {
         if self.parent_total_duration.is_zero() {
             0.0
         } else {
-            (self.duration.as_nanos() as f64 / self.parent_total_duration.as_nanos() as f64) * 100.0
+            (self.mean.as_nanos() as f64 / self.parent_total_duration.as_nanos() as f64) * 100.0
         }
     }
 
     fn formatted_duration(&self) -> String {
-        format_duration(self.duration)
+        format_duration(self.mean)
+    }
+
+    fn formatted_duration_with_stddev(&self) -> String {
+        if let Some(stddev) = self.stddev {
+            format!(
+                "{} \u{00B1} {}",
+                format_duration(self.mean),
+                format_duration(stddev)
+            )
+        } else {
+            format_duration(self.mean)
+        }
     }
 }
 
@@ -365,6 +390,14 @@ impl<'json> SelectorRowView<'json> {
     fn formatted_stddev_duration(&self) -> String {
         format_duration(self.stddev_aggregate_slow_reject_time)
     }
+
+    fn formatted_mean_with_stddev(&self) -> String {
+        format!(
+            "{} \u{00B1} {}",
+            self.formatted_mean_duration(),
+            self.formatted_stddev_duration()
+        )
+    }
 }
 
 struct CountingStatsView(CountingStatsJson);
@@ -426,7 +459,6 @@ fn build_selector_rows<'json>(stats: &'json SelectorStatsJson) -> Vec<SelectorRo
     rows.truncate(ReportTemplate::MAX_SLOW_REJECT_ROWS);
     rows
 }
-
 
 fn format_duration(duration: Duration) -> String {
     if duration >= Duration::from_millis(1) {
