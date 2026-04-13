@@ -196,9 +196,8 @@ struct MatchBenchResult {
     counting_stats: CountingStats,
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
-    /// The top MAX_SELECTOR_ROWS_PER_WEBSITE slow-rejecting selectors in
-    /// descending order, and their aggregate slow-reject durations for each
-    /// sample.
+    /// All slow-rejecting selectors and their aggregate slow-reject durations
+    /// for each sample. Sorted in descending order by mean.
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
 }
 
