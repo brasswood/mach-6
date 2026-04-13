@@ -296,7 +296,7 @@ fn main() {
     let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
     let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
     let websites = get_documents(website_filter.as_deref());
-    let results: Vec<_> = websites.map(|w| {
+    let results = websites.map(|w| {
         let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document, &w.stylist(), &w.stylesheet_lock);
         let substrings =
           substrings_from_selectors(w.selectors().iter());
@@ -322,8 +322,15 @@ fn main() {
             after_preprocessing,
         };
         result
-    }).collect();
-    match write_report(&results) {
+    });
+    let json_results = match results.map(|res| write_json(&res)).collect::<io::Result<Vec<_>>>() {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to write JSON: {}", e);
+            std::process::exit(1);
+        },
+    };
+    match write_report(&json_results) {
         Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
         Err(e) => {
             error!("Failed to write report: {}", e);
@@ -437,23 +444,29 @@ fn format_duration(duration: Duration) -> String {
     }
 }
 
-fn write_report(results: &[WebsiteResult]) -> io::Result<PathBuf> {
-    let report_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+fn report_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("target")
-        .join("all_websites_report");
+        .join("all_websites_report")
+}
+
+fn write_json(result: &WebsiteResult) -> io::Result<WebsiteJson>{
+    let report_dir = report_dir();
     let json_dir = report_dir.join("json");
     fs::create_dir_all(&report_dir)?;
     fs::create_dir_all(&json_dir)?;
+    let json = WebsiteJson::from(result);
+    let file_name = format!("{}.json", make_filename_safe(&json.website));
+    let json_path = json_dir.join(file_name);
+    let serialized = serde_json::to_string_pretty(&json)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+    fs::write(json_path, serialized)?;
+    Ok(json)
+}
 
-    let json_results: Vec<WebsiteJson> = results.iter().map(WebsiteJson::from).collect();
-    for json in &json_results {
-        let file_name = format!("{}.json", make_filename_safe(&json.website));
-        let json_path = json_dir.join(file_name);
-        let serialized = serde_json::to_string_pretty(&json)
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-        fs::write(json_path, serialized)?;
-    }
-    let report = html::ReportTemplate::from(json_results.as_slice());
+fn write_report(json_results: &[WebsiteJson]) -> io::Result<PathBuf> {
+    let report_dir = report_dir();
+    let report = html::ReportTemplate::from(json_results);
     let html = report.to_string();
     fs::write(report_dir.join("index.html"), html)?;
     Ok(report_dir)
