@@ -146,7 +146,7 @@ impl<'json> BarView<'json> {
         };
 
         let times = &match_summary.times.means;
-        let total_duration = duration_from_ns(
+        let total_duration = Duration::from_nanos_u128(
             match_summary.mean_duration_ns
                 + if let Some(preprocessing) = preprocessing_summary {
                     preprocessing.mean_overall_duration_ns
@@ -157,8 +157,8 @@ impl<'json> BarView<'json> {
 
         let mut measured_durations = Vec::with_capacity(10);
         if let Some(preprocessing) = preprocessing_summary {
-            let indexing_duration = duration_from_ns(preprocessing.mean_indexing_duration_ns);
-            let preprocessing_other_duration = duration_from_ns(
+            let indexing_duration = Duration::from_nanos_u128(preprocessing.mean_indexing_duration_ns);
+            let preprocessing_other_duration = Duration::from_nanos_u128(
                 preprocessing
                     .mean_overall_duration_ns
                     .checked_sub(preprocessing.mean_indexing_duration_ns)
@@ -179,31 +179,31 @@ impl<'json> BarView<'json> {
         measured_durations.append(&mut vec![
             (
                 SegmentKind::UpdatingBloomFilter,
-                duration_from_ns(times.updating_bloom_filter_ns),
+                Duration::from_nanos_u128(times.updating_bloom_filter_ns),
             ),
             (
                 SegmentKind::CheckingStyleSharing,
-                duration_from_ns(times.checking_style_sharing_ns),
+                Duration::from_nanos_u128(times.checking_style_sharing_ns),
             ),
             (
                 SegmentKind::QueryingSelectorMap,
-                duration_from_ns(times.querying_selector_map_ns),
+                Duration::from_nanos_u128(times.querying_selector_map_ns),
             ),
             (
                 SegmentKind::FastRejecting,
-                duration_from_ns(times.fast_rejecting_ns),
+                Duration::from_nanos_u128(times.fast_rejecting_ns),
             ),
             (
                 SegmentKind::SlowRejecting,
-                duration_from_ns(times.slow_rejecting_ns),
+                Duration::from_nanos_u128(times.slow_rejecting_ns),
             ),
             (
                 SegmentKind::SlowAccepting,
-                duration_from_ns(times.slow_accepting_ns),
+                Duration::from_nanos_u128(times.slow_accepting_ns),
             ),
             (
                 SegmentKind::InsertingIntoSharingCache,
-                duration_from_ns(times.inserting_into_sharing_cache_ns),
+                Duration::from_nanos_u128(times.inserting_into_sharing_cache_ns),
             ),
         ]);
 
@@ -396,8 +396,8 @@ fn build_selector_rows<'json>(stats: &'json SelectorStatsJson) -> Vec<SelectorRo
             };
             SelectorRowView {
                 selector,
-                mean_aggregate_slow_reject_time: duration_from_ns(*mean_ns),
-                stddev_aggregate_slow_reject_time: duration_from_ns(stddev_ns),
+                mean_aggregate_slow_reject_time: Duration::from_nanos_u128(*mean_ns),
+                stddev_aggregate_slow_reject_time: Duration::from_nanos_u128(stddev_ns),
             }
         })
         .collect();
@@ -413,10 +413,6 @@ fn build_selector_rows<'json>(stats: &'json SelectorStatsJson) -> Vec<SelectorRo
     rows
 }
 
-
-fn duration_from_ns(ns: u128) -> Duration {
-    Duration::from_nanos(u64::try_from(ns).expect("nanoseconds value should fit in u64"))
-}
 
 fn format_duration(duration: Duration) -> String {
     if duration >= Duration::from_millis(1) {
