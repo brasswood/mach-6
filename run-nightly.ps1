@@ -20,6 +20,8 @@ try {
     Invoke-WebRequest @params
 }
 catch {
-    $_.Exception.Response
-    throw
+    if ($_.Exception.Response.StatusCode.value__ -ne 302) {
+        $_.Exception.Response
+        throw
+    }
 }
