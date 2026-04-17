@@ -727,7 +727,7 @@ mod tests {
                 &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
             ).unwrap().slice()[0].clone().to_css_string() // god damn insane api
         }).collect();
-        assert_eq!(expected, converted, "expected: {:?}, actual: {:?}", expected, converted);
+        assert_eq!(expected, converted, "\nexpected: {:?}\nactual: {:?}", expected, converted);
         Ok(())
     }
 }
