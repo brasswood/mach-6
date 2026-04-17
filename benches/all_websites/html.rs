@@ -57,6 +57,7 @@ impl<'json> WebsiteView<'json> {
         let [before_preprocessing, with_preprocessing] = 
             [BarLabel::BeforePreprocessing, BarLabel::WithPreprocessing].map(|label| 
                 BarView::new(
+                    &value.website,
                     label,
                     &value.summary,
                     &value.selector_slow_rejects_summary,
@@ -138,6 +139,7 @@ struct BarView<'json> {
 
 impl<'json> BarView<'json> {
     fn new(
+        website_for_diagnostics: &str, // for error diagnostics
         label: BarLabel,
         summary: &'json SummaryJson,
         selectors_summary: &'json SelectorsSummaryJson,
@@ -177,7 +179,12 @@ impl<'json> BarView<'json> {
                 preprocessing
                     .mean_overall_duration_ns
                     .checked_sub(preprocessing.mean_indexing_duration_ns)
-                    .expect("indexing duration >= preprocessing overall duration"),
+                    .unwrap_or_else(|| panic!(
+                        "Indexing duration exceeded preprocessing overall duration for {}: indexing={}, overall={}",
+                        website_for_diagnostics,
+                        preprocessing.mean_overall_duration_ns,
+                        preprocessing.mean_indexing_duration_ns,
+                    )),
             );
             measured_durations.append(&mut vec![
                 (
@@ -236,7 +243,8 @@ impl<'json> BarView<'json> {
                 .sum::<Duration>();
         let other_duration = total_duration.checked_sub(measured_sum).unwrap_or_else(|| {
             panic!(
-                "Measured timing sum exceeded total duration: measured_sum={}, total_duration={}",
+                "Measured timing sum exceeded total duration for {}: measured_sum={}, total_duration={}",
+                website_for_diagnostics,
                 format_duration(measured_sum),
                 format_duration(total_duration),
             )
