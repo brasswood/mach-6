@@ -23,6 +23,7 @@ rustc-hash = "2.1.1"
 url = "2.5.8"
 indexmap = "2.13.0"
 askama = "0.15.6"
+aho-corasick = "1.1.4"
 
 [dev-dependencies]
 insta = { version = "1.43.2", features = ["yaml"] }

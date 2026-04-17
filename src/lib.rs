@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+use aho_corasick::AhoCorasick;
 use clap::ValueEnum;
 use ::cssparser::ToCss as _;
 use derive_more::Display;
@@ -227,27 +228,32 @@ pub fn build_substr_selector_index<'substr, 'class>(
     // memoize it here so that we can change within here to see if
     // it actually speeds things up.
     let substrings: Vec<&AtomString> = substrings.collect();
+    // build the aho-corasick automaton
+    let ac = AhoCorasick::new(substrings.iter().map(AsRef::as_ref)).unwrap();
     let mut ret: HashMap<&AtomString, IndexSet<&AtomIdent>> = HashMap::new();
+
     fn preorder_traversal<'substr, 'class>(
         map: &mut HashMap<&'substr AtomString, IndexSet<&'class AtomIdent>>,
         substrings: &[&'substr AtomString],
+        ac: &AhoCorasick,
         element: ElementRef<'class>,
     ) {
         // substring not present in the map -> substring never encountered in the selector list
         // substring present in the map but the value is an empty IndexSet -> substring encountered in the selector list, but no classes in DOM match
         // substring present in map, value has classes -> classes with substring found.
         for class in element.value().classes_atom() {
-            for substring in substrings {
-                let matching_classes = map.entry(substring).or_default(); // TODO: Should I make the value type an Option instead of having an empty map when no matching class is found?
-                if class.contains(substring.0.as_ref()) {
-                    matching_classes.insert(class);
-                }
+            for ac_match in ac.find_iter(class.as_ref()) {
+                let pat = ac_match.pattern();
+                let matching_substr = substrings[pat.as_usize()];
+                let matching_classes = map.entry(matching_substr).or_default(); // TODO: Should I make the value type an Option instead of having an empty map when no matching class is found?
+                matching_classes.insert(class);
             }
         }
         for child in element.child_elements() {
             preorder_traversal(
                 map,
                 substrings,
+                ac,
                 child,
             );
         }
@@ -255,6 +261,7 @@ pub fn build_substr_selector_index<'substr, 'class>(
     preorder_traversal(
         &mut ret,
         &substrings[..],
+        &ac,
         document.root_element(),
     );
     ret
