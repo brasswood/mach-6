@@ -239,7 +239,7 @@ pub fn build_substr_selector_index<'substr, 'class>(
         element: ElementRef<'class>,
     ) {
         // substring not present in the map -> substring never encountered in the selector list
-        // substring present in the map but the value is an empty IndexSet -> substring encountered in the selector list, but no classes in DOM match
+        // or substring encountered but no classes in DOM match
         // substring present in map, value has classes -> classes with substring found.
         for class in element.value().classes_atom() {
             for ac_match in ac.find_overlapping_iter(class.as_ref()) {
@@ -326,14 +326,11 @@ pub fn convert_to_is_selectors(
     ) -> Component<style::selector_parser::SelectorImpl>{
         match optimizable_substring_from_component(component) {
             Some(substring) => Component::Is(
-                create_class_selector_list(
-                    map
-                        .get(substring)
-                        .unwrap_or_else(|| panic!("substring {} not found in substring to classes map", substring.0))
-                        .iter()
-                        .copied()
-                        .cloned()
-                )
+                match map.get(substring) {
+                    Some(set) =>
+                        create_class_selector_list(set.iter().copied().cloned()),
+                    None => create_class_selector_list(std::iter::empty()),
+                }
             ),
             None => component.clone()
         }
