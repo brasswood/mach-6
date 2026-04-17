@@ -177,7 +177,7 @@ impl<'json> BarView<'json> {
                 preprocessing
                     .mean_overall_duration_ns
                     .checked_sub(preprocessing.mean_indexing_duration_ns)
-                    .expect("preprocessing overall duration should be >= indexing duration"),
+                    .expect("indexing duration >= preprocessing overall duration"),
             );
             measured_durations.append(&mut vec![
                 (

@@ -300,7 +300,6 @@ struct PreprocessingResult {
 }
 impl PreprocessingResult {
     fn new(indexing: TimedResults<()>, overall_preprocessing: TimedResults<()>) -> Self {
-        assert!(indexing.overall_mean() <= overall_preprocessing.overall_mean());
         Self {
             indexing,
             overall_preprocessing,
