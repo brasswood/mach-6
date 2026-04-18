@@ -190,19 +190,12 @@ mod selector_summary {
 
 mod samples {
     use std::time::Duration;
+    use std::collections::HashMap;
 
     use selectors::matching::TimingStats;
     use serde::{Deserialize, Serialize};
 
-    use crate::WebsiteResult;
-
-    use super::MatchBenchResult;
-
-    #[cfg(feature = "serialize_selector_samples")]
-    use {
-        std::collections::HashMap,
-        super::SelectorString,
-    };
+    use crate::{MatchBenchResult, SelectorString, WebsiteResult};
 
     #[derive(Serialize, Deserialize)]
     pub(crate) struct SamplesJson {
@@ -228,8 +221,7 @@ mod samples {
         pub(crate) checking_style_sharing_ns: Vec<u128>,
         pub(crate) inserting_into_sharing_cache_ns: Vec<u128>,
         pub(crate) querying_selector_map_ns: Vec<u128>,
-        #[cfg(feature = "serialize_selector_samples")]
-        pub(crate) selector_slow_rejects_ns: HashMap<SelectorString, Vec<u128>>,
+        pub(crate) selector_slow_rejects_ns: Option<HashMap<SelectorString, Vec<u128>>>,
     }
 
     impl From<&MatchBenchResult> for TimingsSamplesJson {
@@ -250,8 +242,10 @@ mod samples {
                 checking_style_sharing_ns: get_ns_samples(|timing_stats| timing_stats.checking_style_sharing),
                 inserting_into_sharing_cache_ns: get_ns_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
                 querying_selector_map_ns: get_ns_samples(|timing_stats| timing_stats.querying_selector_map),
+                #[cfg(not(feature = "serialize_selector_samples"))]
+                selector_slow_rejects_ns: None,
                 #[cfg(feature = "serialize_selector_samples")]
-                selector_slow_rejects_ns: value
+                selector_slow_rejects_ns: Some(value
                     .selector_slow_reject_times
                     .iter()
                     .map(|row| {
@@ -263,7 +257,8 @@ mod samples {
                                 .collect(),
                         )
                     })
-                    .collect(),
+                    .collect()
+                ),
             }
         }
     }
