@@ -182,8 +182,8 @@ impl<'json> BarView<'json> {
                     .unwrap_or_else(|| panic!(
                         "Indexing duration exceeded preprocessing overall duration for {}: indexing={}ns, overall={}ns",
                         website_for_diagnostics,
-                        preprocessing.mean_overall_duration_ns,
                         preprocessing.mean_indexing_duration_ns,
+                        preprocessing.mean_overall_duration_ns,
                     )),
             );
             measured_durations.append(&mut vec![
