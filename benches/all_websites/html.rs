@@ -180,7 +180,7 @@ impl<'json> BarView<'json> {
                     .mean_overall_duration_ns
                     .checked_sub(preprocessing.mean_indexing_duration_ns)
                     .unwrap_or_else(|| panic!(
-                        "Indexing duration exceeded preprocessing overall duration for {}: indexing={}, overall={}",
+                        "Indexing duration exceeded preprocessing overall duration for {}: indexing={}ns, overall={}ns",
                         website_for_diagnostics,
                         preprocessing.mean_overall_duration_ns,
                         preprocessing.mean_indexing_duration_ns,
