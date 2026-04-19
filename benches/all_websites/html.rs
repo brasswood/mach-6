@@ -135,11 +135,12 @@ struct BarView<'json> {
     segments: Vec<SegmentView>,
     stats: CountingStatsView,
     top_slow_reject_selectors: Vec<SelectorRowView<'json>>,
+    website_for_diagnostics: &'json str,
 }
 
 impl<'json> BarView<'json> {
     fn new(
-        website_for_diagnostics: &str, // for error diagnostics
+        website_for_diagnostics: &'json str, // for error diagnostics
         label: BarLabel,
         summary: &'json SummaryJson,
         selectors_summary: &'json SelectorsSummaryJson,
@@ -163,107 +164,91 @@ impl<'json> BarView<'json> {
 
         let times_means = &match_summary.times.means;
         let times_stddevs = &match_summary.times.stddevs;
-        let total_duration = Duration::from_nanos_u128(
-            match_summary.mean_duration_ns
-                + if let Some(preprocessing) = preprocessing_summary {
-                    preprocessing.mean_overall_duration_ns
-                } else {
-                    0
-                },
-        );
 
+        // First the match durations
+        let mut measured_match_durations = vec![
+            (
+                SegmentKind::UpdatingBloomFilter,
+                times_means.updating_bloom_filter_ns as i128,
+                Some(times_stddevs.updating_bloom_filter_ns),
+            ),
+            (
+                SegmentKind::CheckingStyleSharing,
+                times_means.checking_style_sharing_ns as i128,
+                Some(times_stddevs.checking_style_sharing_ns),
+            ),
+            (
+                SegmentKind::QueryingSelectorMap,
+                times_means.querying_selector_map_ns as i128,
+                Some(times_stddevs.querying_selector_map_ns),
+            ),
+            (
+                SegmentKind::FastRejecting,
+                times_means.fast_rejecting_ns as i128,
+                Some(times_stddevs.fast_rejecting_ns),
+            ),
+            (
+                SegmentKind::SlowRejecting,
+                times_means.slow_rejecting_ns as i128,
+                Some(times_stddevs.slow_rejecting_ns),
+            ),
+            (
+                SegmentKind::SlowAccepting,
+                times_means.slow_accepting_ns as i128,
+                Some(times_stddevs.slow_accepting_ns),
+            ),
+            (
+                SegmentKind::InsertingIntoSharingCache,
+                times_means.inserting_into_sharing_cache_ns as i128,
+                Some(times_stddevs.inserting_into_sharing_cache_ns),
+            ),
+        ];
+        // Compute "Other" from match durations only
+        let measured_match_sum = measured_match_durations
+                .iter()
+                .map(|(_, nanos, _)| *nanos)
+                .sum::<i128>();
+        let other_duration_ns = match_summary.mean_duration_ns as i128 - measured_match_sum;
+        measured_match_durations.push((
+            SegmentKind::Other,
+            other_duration_ns,
+            None,
+        ));
+
+        // Now create a vector with preprocessing at the beginning and
+        // matching afterward
         let mut measured_durations = Vec::with_capacity(10);
         if let Some(preprocessing) = preprocessing_summary {
-            let mean_indexing_duration = Duration::from_nanos_u128(preprocessing.mean_indexing_duration_ns);
-            let mean_preprocessing_other_duration = Duration::from_nanos_u128(
-                preprocessing
-                    .mean_overall_duration_ns
-                    .checked_sub(preprocessing.mean_indexing_duration_ns)
-                    .unwrap_or_else(|| panic!(
-                        "Indexing duration exceeded preprocessing overall duration for {}: indexing={}ns, overall={}ns",
-                        website_for_diagnostics,
-                        preprocessing.mean_indexing_duration_ns,
-                        preprocessing.mean_overall_duration_ns,
-                    )),
-            );
+            let mean_preprocessing_other_duration_ns = preprocessing.mean_overall_duration_ns as i128 - preprocessing.mean_indexing_duration_ns as i128;
             measured_durations.append(&mut vec![
                 (
-                    SegmentKind::Indexing, mean_indexing_duration,
-                    None
+                    SegmentKind::Indexing,
+                    preprocessing.mean_indexing_duration_ns as i128,
+                    None,
                 ),
                 (
                     SegmentKind::OtherPreprocessing,
-                    mean_preprocessing_other_duration,
+                    mean_preprocessing_other_duration_ns,
                     None,
                 ),
             ]);
         }
+        measured_durations.append(&mut measured_match_durations);
 
-        measured_durations.append(&mut vec![
-            (
-                SegmentKind::UpdatingBloomFilter,
-                Duration::from_nanos_u128(times_means.updating_bloom_filter_ns),
-                Some(Duration::from_nanos_u128(times_stddevs.updating_bloom_filter_ns)),
-            ),
-            (
-                SegmentKind::CheckingStyleSharing,
-                Duration::from_nanos_u128(times_means.checking_style_sharing_ns),
-                Some(Duration::from_nanos_u128(times_stddevs.checking_style_sharing_ns)),
-            ),
-            (
-                SegmentKind::QueryingSelectorMap,
-                Duration::from_nanos_u128(times_means.querying_selector_map_ns),
-                Some(Duration::from_nanos_u128(times_stddevs.querying_selector_map_ns)),
-            ),
-            (
-                SegmentKind::FastRejecting,
-                Duration::from_nanos_u128(times_means.fast_rejecting_ns),
-                Some(Duration::from_nanos_u128(times_stddevs.fast_rejecting_ns)),
-            ),
-            (
-                SegmentKind::SlowRejecting,
-                Duration::from_nanos_u128(times_means.slow_rejecting_ns),
-                Some(Duration::from_nanos_u128(times_stddevs.slow_rejecting_ns)),
-            ),
-            (
-                SegmentKind::SlowAccepting,
-                Duration::from_nanos_u128(times_means.slow_accepting_ns),
-                Some(Duration::from_nanos_u128(times_stddevs.slow_accepting_ns)),
-            ),
-            (
-                SegmentKind::InsertingIntoSharingCache,
-                Duration::from_nanos_u128(times_means.inserting_into_sharing_cache_ns),
-                Some(Duration::from_nanos_u128(times_stddevs.inserting_into_sharing_cache_ns)),
-            ),
-        ]);
-
-        let measured_sum = measured_durations
-                .iter()
-                .map(|(_, duration, _)| *duration)
-                .sum::<Duration>();
-        let other_duration = total_duration.checked_sub(measured_sum).unwrap_or_else(|| {
-            panic!(
-                "Measured timing sum exceeded total duration for {}: measured_sum={}, total_duration={}",
-                website_for_diagnostics,
-                format_duration(measured_sum),
-                format_duration(total_duration),
-            )
-        });
-        measured_durations.push((
-            SegmentKind::Other,
-            other_duration,
-            None
-        ));
+        let total_bar_length = measured_durations
+            .iter()
+            .map(|&(_, nanos, _)| nanos.max(0))
+            .sum::<i128>();
 
         let segments: Vec<SegmentView> = measured_durations
             .into_iter()
-            .filter_map(|(kind, mean, stddev)| {
-                (!mean.is_zero()).then(|| SegmentView {
+            .map(|(kind, mean_ns, stddev)| {
+                SegmentView {
                     kind,
-                    parent_total_duration: total_duration,
-                    mean,
-                    stddev,
-                })
+                    parent_total_bar_length: Duration::from_nanos_u128(total_bar_length as u128),
+                    mean_ns,
+                    stddev: stddev.map(Duration::from_nanos_u128),
+                }
             })
             .collect();
 
@@ -273,64 +258,100 @@ impl<'json> BarView<'json> {
             segments,
             stats: CountingStatsView::from(match_summary.counts),
             top_slow_reject_selectors: build_selector_rows(selector_stats),
+            website_for_diagnostics,
         }
     }
 
     fn total_duration(&self) -> Duration {
-        self.segments.iter().map(|segment| segment.mean).sum()
+        let sum = self.segments
+            .iter()
+            .map(|seg| seg.mean_ns)
+            .sum::<i128>();
+        let sum = u128::try_from(sum)
+            .unwrap_or_else(|e| panic!(
+                "Failed to cast sum of segments from i128 to u128 for {}. The i128 value was {}. Error message: {}",
+                self.website_for_diagnostics,
+                sum,
+                e,
+            ));
+        Duration::from_nanos_u128(sum)
     }
 
     fn formatted_total_duration(&self) -> String {
         format_duration(self.total_duration())
     }
 
+    fn total_length(&self) -> Duration {
+        let sum = self.segments
+            .iter()
+            .map(|seg| seg.mean_ns.max(0))
+            .sum::<i128>();
+        Duration::from_nanos_u128(sum as u128)
+    }
+
+    fn formatted_total_length(&self) -> String {
+        format_duration(self.total_length())
+    }
+
     fn summary_width_pct(&self) -> f64 {
         if self.page_max_duration_ns == 0 {
             0.0
         } else {
-            (self.total_duration().as_nanos() as f64 / self.page_max_duration_ns as f64) * 100.0
+            (self.total_length().as_nanos() as f64 / self.page_max_duration_ns as f64) * 100.0
         }
     }
 
     fn slow_reject_duration(&self) -> Duration {
-        self.segments
+        let Some(segment) = self.segments
             .iter()
             .find(|segment| segment.kind == SegmentKind::SlowRejecting)
-            .map(|segment| segment.mean)
-            .unwrap_or(Duration::ZERO)
+        else {
+            panic!(
+                "SegmentKind::SlowRejecting not found for {}",
+                self.website_for_diagnostics
+            )
+        };
+        let ns = segment.mean_ns.try_into().unwrap_or_else(|e|
+            panic!(
+                "Failed to cast {} slow-reject nanos from i128 to u128. The i128 value was {}. Error message: {}",
+                self.website_for_diagnostics,
+                segment.mean_ns,
+                e
+            )
+        );
+        Duration::from_nanos_u128(ns)
     }
 }
 
 struct SegmentView {
     kind: SegmentKind,
-    parent_total_duration: Duration,
-    mean: Duration,
+    parent_total_bar_length: Duration,
+    mean_ns: i128,
     stddev: Option<Duration>,
 }
 
 impl SegmentView {
     fn width_pct(&self) -> f64 {
-        if self.parent_total_duration.is_zero() {
+        if self.parent_total_bar_length.is_zero() {
             0.0
         } else {
-            (self.mean.as_nanos() as f64 / self.parent_total_duration.as_nanos() as f64) * 100.0
+            (self.mean_ns.max(0) as f64
+                / self.parent_total_bar_length.as_nanos() as f64)
+                * 100.0
         }
-    }
-
-    fn formatted_duration(&self) -> String {
-        format_duration(self.mean)
     }
 
     fn formatted_duration_with_stddev(&self) -> String {
+        let formatted_duration = format_signed_duration_ns(self.mean_ns);
         if let Some(stddev) = self.stddev {
-            format!(
-                "{} \u{00B1} {}",
-                format_duration(self.mean),
-                format_duration(stddev)
-            )
+            format!("{formatted_duration} \u{00B1} {}", format_duration(stddev))
         } else {
-            format_duration(self.mean)
+            formatted_duration
         }
+    }
+
+    fn is_negative(&self) -> bool {
+        self.mean_ns < 0
     }
 }
 
@@ -475,5 +496,16 @@ fn format_duration(duration: Duration) -> String {
         format!("{:.3} us", duration.as_secs_f64() * 1_000_000.0)
     } else {
         format!("{} ns", duration.as_nanos())
+    }
+}
+
+fn format_signed_duration_ns(duration_ns: i128) -> String {
+    if duration_ns < 0 {
+        format!(
+            "-{}",
+            format_duration(Duration::from_nanos_u128(duration_ns.unsigned_abs()))
+        )
+    } else {
+        format_duration(Duration::from_nanos_u128(duration_ns as u128))
     }
 }
