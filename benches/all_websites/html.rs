@@ -24,24 +24,23 @@ impl ReportTemplate<'_> {
 
 impl<'json> From<&'json [WebsiteJson]> for ReportTemplate<'json> {
     fn from(value: &'json [WebsiteJson]) -> Self {
-        let page_max_duration_ns = value
-            .iter()
-            .flat_map(|website| {
-                [
-                    website.summary.before_preprocessing.mean_duration_ns,
-                    website.summary.after_preprocessing.mean_duration_ns
-                        + website.summary.preprocessing.mean_overall_duration_ns,
-                ]
-            })
-            .max()
-            .unwrap_or(0);
-
         Self {
             websites: value
                 .iter()
-                .map(|website| WebsiteView::new(website, page_max_duration_ns))
+                .map(|website| WebsiteView::new(website))
                 .collect(),
         }
+    }
+}
+
+impl ReportTemplate<'_> {
+    fn page_max_bar_length(&self) -> Duration {
+        self.websites.iter()
+            .flat_map(|wv|
+                wv.bars().into_iter().map(BarView::total_length)
+            )
+            .max()
+            .expect("There were no websites.")
     }
 }
 
@@ -53,7 +52,7 @@ struct WebsiteView<'json> {
 }
 
 impl<'json> WebsiteView<'json> {
-    fn new(value: &'json WebsiteJson, page_max_duration_ns: u128) -> Self {
+    fn new(value: &'json WebsiteJson) -> Self {
         let [before_preprocessing, with_preprocessing] = 
             [BarLabel::BeforePreprocessing, BarLabel::WithPreprocessing].map(|label| 
                 BarView::new(
@@ -61,7 +60,6 @@ impl<'json> WebsiteView<'json> {
                     label,
                     &value.summary,
                     &value.selector_slow_rejects_summary,
-                    page_max_duration_ns,
                 )
             );
 
@@ -131,7 +129,6 @@ enum BarLabel {
 
 struct BarView<'json> {
     label: BarLabel,
-    page_max_duration_ns: u128,
     segments: Vec<SegmentView>,
     stats: CountingStatsView,
     top_slow_reject_selectors: Vec<SelectorRowView<'json>>,
@@ -144,7 +141,6 @@ impl<'json> BarView<'json> {
         label: BarLabel,
         summary: &'json SummaryJson,
         selectors_summary: &'json SelectorsSummaryJson,
-        page_max_duration_ns: u128,
     ) -> Self {
         let match_summary;
         let preprocessing_summary;
@@ -254,7 +250,6 @@ impl<'json> BarView<'json> {
 
         BarView {
             label,
-            page_max_duration_ns,
             segments,
             stats: CountingStatsView::from(match_summary.counts),
             top_slow_reject_selectors: build_selector_rows(selector_stats),
@@ -293,11 +288,11 @@ impl<'json> BarView<'json> {
         format_duration(self.total_length())
     }
 
-    fn summary_width_pct(&self) -> f64 {
-        if self.page_max_duration_ns == 0 {
+    fn summary_width_pct(&self, page_max_bar_length: Duration) -> f64 {
+        if page_max_bar_length.is_zero() {
             0.0
         } else {
-            (self.total_length().as_nanos() as f64 / self.page_max_duration_ns as f64) * 100.0
+            (self.total_length().as_nanos() as f64 / page_max_bar_length.as_nanos() as f64) * 100.0
         }
     }
 
