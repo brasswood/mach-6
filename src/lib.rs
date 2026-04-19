@@ -5,6 +5,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use aho_corasick::AhoCorasick;
+use aho_corasick::AhoCorasickBuilder;
+use aho_corasick::AhoCorasickKind;
 use clap::ValueEnum;
 use ::cssparser::ToCss as _;
 use derive_more::Display;
@@ -229,7 +231,9 @@ pub fn build_substr_selector_index<'substr, 'class>(
     // it actually speeds things up.
     let substrings: Vec<&AtomString> = substrings.collect();
     // build the aho-corasick automaton
-    let ac = AhoCorasick::new(substrings.iter().map(AsRef::as_ref)).unwrap();
+    let mut ah_builder = AhoCorasickBuilder::new();
+    ah_builder.kind(Some(AhoCorasickKind::NoncontiguousNFA));
+    let ac = ah_builder.build(substrings.iter().map(AsRef::as_ref)).unwrap();
     let mut ret: HashMap<&AtomString, IndexSet<&AtomIdent>> = HashMap::new();
 
     fn preorder_traversal<'substr, 'class>(
