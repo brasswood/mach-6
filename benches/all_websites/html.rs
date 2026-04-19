@@ -288,6 +288,10 @@ impl<'json> BarView<'json> {
         format_duration(self.total_length())
     }
 
+    fn has_display_length_mismatch(&self) -> bool {
+        self.total_length() != self.total_duration()
+    }
+
     fn summary_width_pct(&self, page_max_bar_length: Duration) -> f64 {
         if page_max_bar_length.is_zero() {
             0.0

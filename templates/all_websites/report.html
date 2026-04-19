@@ -9,6 +9,7 @@
       --bg: #f7f7f3;
       --fg: #1d232b;
       --muted: #5b6470;
+      --danger: #b42318;
       --bar: #0f766e;
       --bar-bg: #d9e5e3;
       --card: #ffffff;
@@ -214,6 +215,10 @@
       color: var(--muted);
       font-size: 12px;
     }
+    .legend-warning {
+      color: var(--danger);
+      font-weight: 700;
+    }
     .swatch {
       display: inline-block;
       width: 10px;
@@ -224,6 +229,22 @@
     .time {
       text-align: right;
       font-variant-numeric: tabular-nums;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .time-value {
+      font-variant-numeric: tabular-nums;
+    }
+    .time-value.warning {
+      color: var(--danger);
+      font-weight: 700;
+    }
+    .time-display-note {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
     }
     .details {
       padding-top: 12px;
@@ -341,6 +362,7 @@
       }
       .time {
         text-align: left;
+        align-items: flex-start;
       }
     }
   </style>
@@ -365,13 +387,18 @@
               <div class="variant-summary">
                 <div class="variant-label">{{ bar.label }}</div>
                 <div class="bar-wrap">
-                  <div class="bar-total" style="width: {{ "{:.2}"|format(bar.summary_width_pct()) }}%">
+                  <div class="bar-total" style="width: {{ "{:.2}"|format(bar.summary_width_pct(page_max_bar_length())) }}%">
                     {% for segment in bar.segments %}
                     <div class="bar-seg {{ segment.kind.css_class() }}" style="width: {{ "{:.2}"|format(segment.width_pct()) }}%"></div>
                     {% endfor %}
                   </div>
                 </div>
-                <div class="time">{{ bar.formatted_total_duration() }}</div>
+                <div class="time">
+                  <div class="time-value {% if bar.has_display_length_mismatch() %}warning{% endif %}">{{ bar.formatted_total_duration() }}</div>
+                  {% if bar.has_display_length_mismatch() %}
+                  <div class="time-display-note">Displayed: {{ bar.formatted_total_length() }}</div>
+                  {% endif %}
+                </div>
               </div>
               {% endfor %}
             </div>
@@ -398,7 +425,7 @@
                 </div>
                 <div class="expanded-legend">
                   {% for segment in bar.segments %}
-                  <span><i class="swatch {{ segment.kind.css_class() }}"></i>{{ segment.kind.label() }}: {{ segment.formatted_duration_with_stddev() }}</span>
+                  <span class="{% if segment.is_negative() %}legend-warning{% endif %}"><i class="swatch {{ segment.kind.css_class() }}"></i>{{ segment.kind.label() }}: {{ segment.formatted_duration_with_stddev() }}</span>
                   {% endfor %}
                   <span>Total: {{ bar.formatted_total_duration() }}</span>
                 </div>
