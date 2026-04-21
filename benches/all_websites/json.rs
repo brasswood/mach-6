@@ -5,6 +5,19 @@ use super::*;
 pub(crate) use overall_summary::*;
 pub(crate) use selector_summary::*;
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+pub struct CommitHash(String);
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct ReportMetadataJson {
+    time_start: time::OffsetDateTime,
+    time_end: time::OffsetDateTime,
+    commit_hash: CommitHash,
+    tagline: String,
+    message: String,
+}
+
 #[derive(Serialize, Deserialize)]
 pub(crate) struct WebsiteJson {
     pub(crate) website: String,
