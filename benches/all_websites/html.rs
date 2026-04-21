@@ -24,7 +24,7 @@ impl ReportTemplate<'_> {
 }
 
 impl<'json> ReportTemplate<'json> {
-    fn new(metadata: &'json ReportMetadataJson, value: &'json [WebsiteJson]) -> Self {
+    pub(crate) fn new(metadata: &'json ReportMetadataJson, value: &'json [WebsiteJson]) -> Self {
         Self {
             metadata,
             websites: value
