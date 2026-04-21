@@ -5,10 +5,6 @@ use super::*;
 pub(crate) use overall_summary::*;
 pub(crate) use selector_summary::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(transparent)]
-pub(crate) struct CommitHash(pub(crate) String);
-
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
     pub(crate) time_start: time::OffsetDateTime,
@@ -16,6 +12,31 @@ pub(crate) struct ReportMetadataJson {
     pub(crate) commit_hash: Option<CommitHash>,
     pub(crate) tagline: Option<String>,
     pub(crate) message: Option<String>,
+}
+
+impl ReportMetadataJson {
+    pub(crate) fn new(
+        git_metadata: Option<ReportGitMetadata>,
+        time_start: time::OffsetDateTime,
+        time_end: time::OffsetDateTime
+    ) -> Self {
+        match git_metadata {
+            Some(git) => Self {
+                time_start,
+                time_end,
+                commit_hash: Some(git.commit_hash),
+                tagline: Some(git.tagline),
+                message: Some(git.message),
+            },
+            None => Self {
+                time_start,
+                time_end,
+                commit_hash: None,
+                tagline: None,
+                message: None,
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, warn};
 use mach_6::{self, build_substr_selector_index, convert_to_is_selectors, get_all_documents_and_selectors, stylist_from_selectors, substrings_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::structs::{Element, Selector};
@@ -12,10 +12,12 @@ use std::cmp::Reverse;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
+use time::OffsetDateTime;
 
-use crate::json::WebsiteJson;
+use crate::json::{ReportMetadataJson, WebsiteJson};
 
 mod html;
 mod json;
@@ -327,6 +329,7 @@ struct WebsiteResult {
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
+    let time_start = OffsetDateTime::now_utc();
     let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
     let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
     let websites = get_documents(website_filter.as_deref());
@@ -357,20 +360,24 @@ fn main() {
         };
         result
     });
-    let json_results = match results.map(|res| write_json(&res)).collect::<io::Result<Vec<_>>>() {
+    let json_results = match results.map(|res| write_website_json(&res)).collect::<io::Result<Vec<_>>>() {
         Ok(v) => v,
         Err(e) => {
             error!("Failed to write JSON: {}", e);
             std::process::exit(1);
         },
     };
-    match write_report(&json_results) {
-        Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
+    let git_metadata = match collect_report_git_metadata() {
+        Ok(git) => Some(git),
         Err(e) => {
-            error!("Failed to write report: {}", e);
-            std::process::exit(1);
-        }
-    }
+            warn!("Failed to collect git metadata: {}", e);
+            None
+        },
+    };
+    let time_end = OffsetDateTime::now_utc();
+    let metadata = ReportMetadataJson::new(git_metadata, time_start, time_end);
+
+    write_report(&metadata, &json_results);
 }
 
 fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> MatchBenchResult {
@@ -488,7 +495,43 @@ fn report_dir() -> PathBuf {
         .join("all_websites_report")
 }
 
-fn write_json(result: &WebsiteResult) -> io::Result<WebsiteJson>{
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+struct CommitHash(String);
+
+struct ReportGitMetadata {
+    commit_hash: CommitHash,
+    tagline: String,
+    message: String,
+}
+
+fn collect_report_git_metadata() -> io::Result<ReportGitMetadata> {
+    Ok(ReportGitMetadata {
+        commit_hash: CommitHash(git_output(&["rev-parse", "HEAD"])?),
+        tagline: git_output(&["show", "-s", "--format=%s", "HEAD"])?,
+        message: git_output(&["show", "-s", "--format=%b", "HEAD"])?,
+    })
+}
+
+fn git_output(args: &[&str]) -> io::Result<String> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()?;
+    if !output.status.success() {
+        return Err(io::Error::other(format!(
+            "git {} failed with status {}",
+            args.join(" "),
+            output.status,
+        )));
+    }
+    let stdout = String::from_utf8(output.stdout)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+    let trimmed = stdout.trim().to_owned();
+    Ok(trimmed)
+}
+
+fn write_website_json(result: &WebsiteResult) -> io::Result<WebsiteJson>{
     let report_dir = report_dir();
     let json_dir = report_dir.join("json");
     fs::create_dir_all(&report_dir)?;
@@ -502,12 +545,36 @@ fn write_json(result: &WebsiteResult) -> io::Result<WebsiteJson>{
     Ok(json)
 }
 
-fn write_report(json_results: &[WebsiteJson]) -> io::Result<PathBuf> {
+fn write_report(metadata: &ReportMetadataJson, json_results: &[WebsiteJson]) {
     let report_dir = report_dir();
-    let report = html::ReportTemplate::from(json_results);
+
+    // Write metadata JSON
+    let metadata_json = serde_json::to_string_pretty(metadata)
+        .map_err(|err| {
+            error!("Failed to serialize metadata json: {err}");
+            io::Error::new(io::ErrorKind::InvalidData, err)
+        });
+    let written_metadata = metadata_json.and_then(|metadata_json| { 
+        fs::write(report_dir.join("json/meta.json"), metadata_json)
+            .map_err(|err| {
+                error!("Failed to write to meta.json: {err}");
+                err
+            })
+    });
+
+    // Write HTML report
+    let report = html::ReportTemplate::new(metadata, json_results);
     let html = report.to_string();
-    fs::write(report_dir.join("index.html"), html)?;
-    Ok(report_dir)
+    let written_html = fs::write(report_dir.join("index.html"), html)
+        .map_err(|err| {
+            error!("Failed to write HTML report: {err}");
+            err
+        });
+
+    // Report success
+    if written_metadata.and(written_html).is_ok() {
+        eprintln!("Wrote report to {}", report_dir.display());
+    }
 }
 
 fn make_filename_safe(string: &str) -> String {
