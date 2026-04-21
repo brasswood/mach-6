@@ -5,7 +5,7 @@ use derive_more::Display;
 use indexmap::IndexSet;
 use num_format::{Locale, ToFormattedString};
 
-use crate::{SelectorString, json::{SelectorsSummaryJson, SummaryJson}};
+use crate::{SelectorString, json::{ReportMetadataJson, SelectorsSummaryJson, SummaryJson}};
 
 use super::json::{CountingStatsJson, SelectorStatsJson, WebsiteJson};
 
@@ -15,6 +15,7 @@ struct Href(String);
 #[derive(Template)]
 #[template(path = "all_websites/report.html")]
 pub struct ReportTemplate<'json> {
+    metadata: &'json ReportMetadataJson,
     websites: Vec<WebsiteView<'json>>,
 }
 
@@ -22,9 +23,10 @@ impl ReportTemplate<'_> {
     const MAX_SLOW_REJECT_ROWS: usize = 100;
 }
 
-impl<'json> From<&'json [WebsiteJson]> for ReportTemplate<'json> {
-    fn from(value: &'json [WebsiteJson]) -> Self {
+impl<'json> ReportTemplate<'json> {
+    fn new(metadata: &'json ReportMetadataJson, value: &'json [WebsiteJson]) -> Self {
         Self {
+            metadata,
             websites: value
                 .iter()
                 .map(|website| WebsiteView::new(website))
