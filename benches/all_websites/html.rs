@@ -15,7 +15,7 @@ struct Href(String);
 #[derive(Template)]
 #[template(path = "all_websites/report.html")]
 pub struct ReportTemplate<'json> {
-    metadata: &'json ReportMetadataJson,
+    metadata: MetadataView<'json>,
     websites: Vec<WebsiteView<'json>>,
 }
 
@@ -26,7 +26,7 @@ impl ReportTemplate<'_> {
 impl<'json> ReportTemplate<'json> {
     pub(crate) fn new(metadata: &'json ReportMetadataJson, value: &'json [WebsiteJson]) -> Self {
         Self {
-            metadata,
+            metadata: MetadataView(metadata),
             websites: value
                 .iter()
                 .map(|website| WebsiteView::new(website))
@@ -45,6 +45,8 @@ impl ReportTemplate<'_> {
             .expect("There were no websites.")
     }
 }
+
+struct MetadataView<'json>(&'json ReportMetadataJson);
 
 struct WebsiteView<'json> {
     name: &'json str,
