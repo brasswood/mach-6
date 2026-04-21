@@ -360,13 +360,17 @@ fn main() {
         };
         result
     });
-    let json_results = match results.map(|res| write_website_json(&res)).collect::<io::Result<Vec<_>>>() {
-        Ok(v) => v,
-        Err(e) => {
-            error!("Failed to write JSON: {}", e);
-            std::process::exit(1);
-        },
-    };
+    let json_results = results.filter_map(|res| {
+        match write_website_json(&res) {
+            Ok(json) => Some(json),
+            Err(e) => {
+                error!("Failed to write JSON for {}: {}", res.website, e);
+                None
+            }
+        }
+    })
+    .collect::<Vec<_>>();
+
     let git_metadata = match collect_report_git_metadata() {
         Ok(git) => Some(git),
         Err(e) => {
