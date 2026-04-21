@@ -7,15 +7,15 @@ pub(crate) use selector_summary::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-pub struct CommitHash(String);
+pub(crate) struct CommitHash(pub(crate) String);
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
-    time_start: time::OffsetDateTime,
-    time_end: time::OffsetDateTime,
-    commit_hash: Option<CommitHash>,
-    tagline: Option<String>,
-    message: Option<String>,
+    pub(crate) time_start: time::OffsetDateTime,
+    pub(crate) time_end: time::OffsetDateTime,
+    pub(crate) commit_hash: Option<CommitHash>,
+    pub(crate) tagline: Option<String>,
+    pub(crate) message: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
