@@ -98,7 +98,7 @@ struct TimedResults<R> {
 impl<R> TimedResults<R> {
     fn overall_mean(&self) -> Duration {
         assert!(self.samples.len() != 0, "tried to compute overall mean on result with no samples");
-        self.total_duration / self.samples.len().try_into().unwrap()
+        self.total_duration / u32::try_from(self.samples.len()).unwrap()
     }
 }
 
