@@ -48,6 +48,23 @@ impl ReportTemplate<'_> {
 
 struct MetadataView<'json>(&'json ReportMetadataJson);
 
+impl MetadataView<'_> {
+    fn commit_hash_short(&self) -> Option<&str> {
+        self.0
+            .commit_hash
+            .as_ref()
+            .map(|hash| hash.0.get(..7).unwrap_or(hash.0.as_str()))
+    }
+
+    fn tagline(&self) -> Option<&str> {
+        self.0.tagline.as_deref()
+    }
+
+    fn has_title_metadata(&self) -> bool {
+        self.commit_hash_short().is_some() && self.tagline().is_some()
+    }
+}
+
 struct WebsiteView<'json> {
     name: &'json str,
     json_file: Href,

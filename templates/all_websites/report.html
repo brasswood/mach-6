@@ -30,6 +30,35 @@
       margin: 0 0 4px 0;
       font-size: 26px;
     }
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .commit-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .commit-hash {
+      display: inline-block;
+      padding: 2px 7px;
+      color: #0969da;
+      background: #ddf4ff;
+      border: 1px solid #b6e3ff;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .commit-tagline {
+      color: var(--fg);
+    }
     .subtitle {
       margin: 0 0 20px 0;
       color: var(--muted);
@@ -343,6 +372,12 @@
       margin: 10px 0 0 0;
     }
     @media (max-width: 700px) {
+      .title-row {
+        align-items: flex-start;
+      }
+      .commit-line {
+        white-space: normal;
+      }
       .row {
         grid-template-columns: 12px 1fr;
         gap: 6px;
@@ -369,7 +404,15 @@
 </head>
 <body>
   <main>
-    <h1>Mach 6 Benchmark Report</h1>
+    <div class="title-row">
+      <h1>Mach 6 Benchmark Report</h1>
+      {% if metadata.has_title_metadata() %}
+      <div class="commit-line">
+        <span class="commit-hash">{{ metadata.commit_hash_short().unwrap() }}</span>
+        <span class="commit-tagline">{{ metadata.tagline().unwrap() }}</span>
+      </div>
+      {% endif %}
+    </div>
     <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics and raw JSON.</p>
     <div class="sort-controls" role="group" aria-label="Sort websites">
       <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
