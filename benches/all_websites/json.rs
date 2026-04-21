@@ -13,9 +13,9 @@ pub struct CommitHash(String);
 pub(crate) struct ReportMetadataJson {
     time_start: time::OffsetDateTime,
     time_end: time::OffsetDateTime,
-    commit_hash: CommitHash,
-    tagline: String,
-    message: String,
+    commit_hash: Option<CommitHash>,
+    tagline: Option<String>,
+    message: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
