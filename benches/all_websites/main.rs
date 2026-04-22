@@ -379,8 +379,12 @@ fn main() {
     };
     let time_end = OffsetDateTime::now_utc();
     let metadata = ReportMetadataJson::new(git_metadata, time_start, time_end);
+    let metadata_result = write_metadata(&metadata);
 
-    match write_metadata(&metadata) {
+    let html_result = write_html();
+
+    match metadata_result.and(html_result)
+    {
         Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
         Err(e) => error!("{e}"),
     };
@@ -585,6 +589,19 @@ fn write_metadata(metadata: &ReportMetadataJson) -> io::Result<PathBuf> {
     fs::write(report_dir.join("json/meta.json"), metadata_json)
         .map_err(|err|
             io::Error::new(err.kind(), format!("Failed to write meta.json: {err}"))
+        )?;
+    Ok(report_dir)
+}
+
+fn write_html() -> io::Result<PathBuf> {
+    let html = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/benches/all_websites/assets/report.html"
+    ));
+    let report_dir = report_dir();
+    fs::write(report_dir.join("index.html"), html)
+        .map_err(|err|
+            io::Error::new(err.kind(), format!("Failed to write index.html: {err}"))
         )?;
     Ok(report_dir)
 }
