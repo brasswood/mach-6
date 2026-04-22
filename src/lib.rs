@@ -232,7 +232,7 @@ pub fn build_substr_selector_index<'substr, 'class>(
     let substrings: Vec<&AtomString> = substrings.collect();
     // build the aho-corasick automaton
     let mut ah_builder = AhoCorasickBuilder::new();
-    ah_builder.kind(Some(AhoCorasickKind::NoncontiguousNFA));
+    ah_builder.kind(None);
     let ac = ah_builder.build(substrings.iter().map(AsRef::as_ref)).unwrap();
     let mut ret: HashMap<&AtomString, IndexSet<&AtomIdent>> = HashMap::new();
 
