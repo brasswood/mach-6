@@ -3,6 +3,12 @@ use serde::{Deserialize, Serialize};
 use super::*;
 
 #[derive(Clone, Serialize, Deserialize)]
+pub(crate) struct ReportJson {
+    pub(crate) metadata: ReportMetadataJson,
+    pub(crate) websites: Vec<WebsiteJson>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
     pub(crate) time_start: time::OffsetDateTime,
     pub(crate) time_end: time::OffsetDateTime,

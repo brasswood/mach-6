@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
 use time::OffsetDateTime;
 
-use crate::json::{ReportMetadataJson, WebsiteJson};
+use crate::json::{ReportJson, ReportMetadataJson, WebsiteJson};
 
 mod json;
 
@@ -359,16 +359,9 @@ fn main() {
         };
         result
     });
-    let _ = results.filter_map(|res| {
-        match write_website_json(&res) {
-            Ok(json) => Some(json),
-            Err(e) => {
-                error!("Failed to write JSON for {}: {}", res.website, e);
-                None
-            }
-        }
-    })
-    .collect::<Vec<_>>();
+    let websites_json = results
+        .map(|res| WebsiteJson::from(&res))
+        .collect::<Vec<_>>();
 
     let git_metadata = match collect_report_git_metadata() {
         Ok(git) => Some(git),
@@ -379,13 +372,24 @@ fn main() {
     };
     let time_end = OffsetDateTime::now_utc();
     let metadata = ReportMetadataJson::new(git_metadata, time_start, time_end);
-    let metadata_result = write_metadata(&metadata);
 
+    let report_json = ReportJson {
+        metadata,
+        websites: websites_json,
+    };
+
+    match fs::create_dir_all(&report_dir()) {
+        Ok(()) => (),
+        Err(e) => {
+            error!("Failed to create report directory: {e}");
+            return
+        },
+    };
+    let report_json_result = write_report_json(&report_json);
     let html_result = write_html();
-
-    match metadata_result.and(html_result)
+    match report_json_result.and(html_result)
     {
-        Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
+        Ok(()) => eprintln!("Wrote report to {}", report_dir().display()),
         Err(e) => error!("{e}"),
     };
 }
@@ -564,36 +568,19 @@ fn git_is_dirty() -> io::Result<bool> {
     }
 }
 
-fn write_website_json(result: &WebsiteResult) -> io::Result<WebsiteJson>{
-    let report_dir = report_dir();
-    let json_dir = report_dir.join("json");
-    fs::create_dir_all(&report_dir)?;
-    fs::create_dir_all(&json_dir)?;
-    let json = WebsiteJson::from(result);
-    let file_name = format!("{}.json", make_filename_safe(&json.website));
-    let json_path = json_dir.join(file_name);
-    let serialized = serde_json::to_string_pretty(&json)
-        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-    fs::write(json_path, serialized)?;
-    Ok(json)
+fn write_report_json(json: &ReportJson) -> io::Result<()> {
+    let report_json = serde_json::to_string_pretty(json)
+        .map_err(|err|
+            io::Error::new(io::ErrorKind::InvalidData, format!("Failed to serialize report.json: {err}"))
+        )?;
+    fs::write(report_dir().join("report.json"), report_json)
+        .map_err(|err|
+            io::Error::new(err.kind(), format!("Failed to write report.json: {err}"))
+        )?;
+    Ok(())
 }
 
-fn write_metadata(metadata: &ReportMetadataJson) -> io::Result<PathBuf> {
-    let report_dir = report_dir();
-
-    // Write metadata JSON
-    let metadata_json = serde_json::to_string_pretty(metadata)
-        .map_err(|err|
-            io::Error::new(io::ErrorKind::InvalidData, format!("Failed to serialize metadata json: {err}"))
-        )?;
-    fs::write(report_dir.join("json/meta.json"), metadata_json)
-        .map_err(|err|
-            io::Error::new(err.kind(), format!("Failed to write meta.json: {err}"))
-        )?;
-    Ok(report_dir)
-}
-
-fn write_html() -> io::Result<PathBuf> {
+fn write_html() -> io::Result<()> {
     let html = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/benches/all_websites/assets/report.html"
@@ -603,20 +590,6 @@ fn write_html() -> io::Result<PathBuf> {
         .map_err(|err|
             io::Error::new(err.kind(), format!("Failed to write index.html: {err}"))
         )?;
-    Ok(report_dir)
+    Ok(())
 }
 
-fn make_filename_safe(string: &str) -> String {
-    let mut string = string.replace(
-        &['?', '"', '/', '\\', '*', '<', '>', ':', '|', '^'][..],
-        "_",
-    );
-    if string.len() > 240 {
-        let mut boundary = 240;
-        while boundary > 0 && !string.is_char_boundary(boundary) {
-            boundary -= 1;
-        }
-        string.truncate(boundary);
-    }
-    string
-}
