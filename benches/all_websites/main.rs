@@ -507,6 +507,7 @@ struct ReportGitMetadata {
     commit_hash: CommitHash,
     tagline: String,
     message: String,
+    branch: Option<String>,
 }
 
 fn collect_report_git_metadata() -> io::Result<ReportGitMetadata> {
@@ -514,6 +515,11 @@ fn collect_report_git_metadata() -> io::Result<ReportGitMetadata> {
         commit_hash: CommitHash(git_output(&["rev-parse", "HEAD"])?),
         tagline: git_output(&["show", "-s", "--format=%s", "HEAD"])?,
         message: git_output(&["show", "-s", "--format=%b", "HEAD"])?,
+        branch: {
+            let branch = git_output(&["branch", "--show-current"])?;
+            let trimmed = branch.trim().to_owned();
+            (!trimmed.is_empty()).then_some(trimmed)
+        },
     })
 }
 
