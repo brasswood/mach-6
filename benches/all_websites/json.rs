@@ -2,10 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::*;
 
-pub(crate) use overall_summary::*;
-pub(crate) use selector_summary::*;
-
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
     pub(crate) time_start: time::OffsetDateTime,
     pub(crate) time_end: time::OffsetDateTime,
@@ -45,7 +42,7 @@ impl ReportMetadataJson {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct WebsiteJson {
     pub(crate) website: String,
     pub(crate) summary: overall_summary::SummaryJson,
@@ -71,7 +68,7 @@ mod overall_summary {
 
     use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
         pub(crate) before_preprocessing: BenchmarkRunSummaryJson,
         pub(crate) preprocessing: PreprocessingSummaryJson,
@@ -88,7 +85,7 @@ mod overall_summary {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct PreprocessingSummaryJson {
         pub(crate) mean_indexing_duration_ns: u128,
         pub(crate) mean_overall_duration_ns: u128,
@@ -103,7 +100,7 @@ mod overall_summary {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct BenchmarkRunSummaryJson {
         pub(crate) mean_duration_ns: u128,
         pub(crate) counts: CountingStatsJson,
@@ -141,7 +138,7 @@ mod overall_summary {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingStatsJson {
         pub(crate) means: TimingsJsonBody,
         pub(crate) stddevs: TimingsJsonBody,
@@ -156,7 +153,7 @@ mod overall_summary {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsJsonBody {
         pub(crate) updating_bloom_filter_ns: u128,
         pub(crate) slow_rejecting_ns: u128,
@@ -191,7 +188,7 @@ mod selector_summary {
 
     use super::{SelectorSlowRejectSamples, SelectorString};
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
         pub(crate) before_preprocessing: SelectorStatsJson,
         pub(crate) after_preprocessing: SelectorStatsJson,
@@ -206,7 +203,7 @@ mod selector_summary {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorStatsJson {
         pub(crate) means_ns: HashMap<SelectorString, u128>,
         pub(crate) stddevs_ns: HashMap<SelectorString, u128>,
@@ -237,7 +234,7 @@ mod samples {
 
     use crate::{MatchBenchResult, SelectorString, WebsiteResult};
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SamplesJson {
         pub(crate) before_preprocessing: TimingsSamplesJson,
         pub(crate) after_preprocessing: TimingsSamplesJson,
@@ -252,7 +249,7 @@ mod samples {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
         pub(crate) updating_bloom_filter_ns: Vec<u128>,
         pub(crate) slow_rejecting_ns: Vec<u128>,
