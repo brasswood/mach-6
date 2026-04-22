@@ -37,6 +37,12 @@
       flex-wrap: wrap;
       margin-bottom: 4px;
     }
+    .title-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
     .commit-line {
       display: inline-flex;
       align-items: center;
@@ -388,6 +394,9 @@
       .title-row {
         align-items: flex-start;
       }
+      .title-meta {
+        width: 100%;
+      }
       .commit-line {
         white-space: normal;
       }
@@ -419,13 +428,15 @@
   <main>
     <div class="title-row">
       <h1>Mach 6 Benchmark Report</h1>
-      {% if metadata.has_title_metadata() %}
+      {% if let Some(commit_hash_short) = metadata.commit_hash_short() %}
       <div class="commit-line">
         {% if let Some(branch) = metadata.branch() %}
         <span class="commit-branch">{{ branch }}</span>
         {% endif %}
-        <span class="commit-hash">{{ metadata.commit_hash_short().unwrap() }}</span>
-        <span class="commit-tagline">{{ metadata.tagline().unwrap() }}</span>
+        <span class="commit-hash">{{ commit_hash_short }}</span>
+        {% if let Some(tagline) = metadata.tagline() %}
+        <span class="commit-tagline">{{ tagline }}</span>
+        {% endif %}
       </div>
       {% endif %}
     </div>

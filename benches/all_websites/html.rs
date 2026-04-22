@@ -63,10 +63,6 @@ impl MetadataView<'_> {
     fn tagline(&self) -> Option<&str> {
         self.0.tagline.as_deref()
     }
-
-    fn has_title_metadata(&self) -> bool {
-        self.commit_hash_short().is_some() && self.tagline().is_some()
-    }
 }
 
 struct WebsiteView<'json> {
