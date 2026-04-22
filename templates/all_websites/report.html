@@ -64,6 +64,9 @@
       border-radius: 6px;
       font-weight: 500;
     }
+    .commit-pill-dirty {
+      color: #9a3412;
+    }
     .commit-tagline {
       color: var(--fg);
     }
@@ -424,7 +427,7 @@
           <span>⎇ {{ branch }}</span>
           <span>•</span>
           {% endif %}
-          <span>{{ commit_hash_short }}</span>
+          <span>{{ commit_hash_short }}{% if metadata.dirty().unwrap() %}-<span class="commit-pill-dirty">dirty</span>{% endif %}</span>
         </span>
         {% if let Some(tagline) = metadata.tagline() %}
         <span class="commit-tagline">{{ tagline }}</span>

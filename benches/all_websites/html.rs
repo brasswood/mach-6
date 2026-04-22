@@ -53,6 +53,10 @@ impl MetadataView<'_> {
         self.0.branch.as_deref()
     }
 
+    fn dirty(&self) -> Option<bool> {
+        self.0.dirty
+    }
+
     fn commit_hash_short(&self) -> Option<&str> {
         self.0
             .commit_hash
