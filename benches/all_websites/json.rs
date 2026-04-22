@@ -12,6 +12,7 @@ pub(crate) struct ReportMetadataJson {
     pub(crate) commit_hash: Option<CommitHash>,
     pub(crate) tagline: Option<String>,
     pub(crate) message: Option<String>,
+    pub(crate) dirty: Option<bool>,
     pub(crate) branch: Option<String>,
 }
 
@@ -28,6 +29,7 @@ impl ReportMetadataJson {
                 commit_hash: Some(git.commit_hash),
                 tagline: Some(git.tagline),
                 message: Some(git.message),
+                dirty: Some(git.dirty),
                 branch: git.branch,
             },
             None => Self {
@@ -36,6 +38,7 @@ impl ReportMetadataJson {
                 commit_hash: None,
                 tagline: None,
                 message: None,
+                dirty: None,
                 branch: None,
             }
         }

@@ -507,6 +507,7 @@ struct ReportGitMetadata {
     commit_hash: CommitHash,
     tagline: String,
     message: String,
+    dirty: bool,
     branch: Option<String>,
 }
 
@@ -515,6 +516,7 @@ fn collect_report_git_metadata() -> io::Result<ReportGitMetadata> {
         commit_hash: CommitHash(git_output(&["rev-parse", "HEAD"])?),
         tagline: git_output(&["show", "-s", "--format=%s", "HEAD"])?,
         message: git_output(&["show", "-s", "--format=%b", "HEAD"])?,
+        dirty: git_is_dirty()?,
         branch: {
             let branch = git_output(&["branch", "--show-current"])?;
             let trimmed = branch.trim().to_owned();
@@ -539,6 +541,21 @@ fn git_output(args: &[&str]) -> io::Result<String> {
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
     let trimmed = stdout.trim().to_owned();
     Ok(trimmed)
+}
+
+fn git_is_dirty() -> io::Result<bool> {
+    let status = Command::new("git")
+        .args(["diff-index", "--quiet", "--ignore-submodules=none", "HEAD", "--"])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .status()?;
+
+    match status.code() {
+        Some(0) => Ok(false),
+        Some(1) => Ok(true),
+        _ => Err(io::Error::other(format!(
+            "git diff-index failed with status {status}"
+        ))),
+    }
 }
 
 fn write_website_json(result: &WebsiteResult) -> io::Result<WebsiteJson>{
