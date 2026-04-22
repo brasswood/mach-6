@@ -64,9 +64,6 @@
       border-radius: 6px;
       font-weight: 500;
     }
-    .commit-pill-sep {
-      color: #6e7781;
-    }
     .commit-tagline {
       color: var(--fg);
     }
@@ -425,7 +422,7 @@
         <span class="commit-pill">
           {% if let Some(branch) = metadata.branch() %}
           <span>⎇ {{ branch }}</span>
-          <span class="commit-pill-sep">•</span>
+          <span>•</span>
           {% endif %}
           <span>{{ commit_hash_short }}</span>
         </span>
