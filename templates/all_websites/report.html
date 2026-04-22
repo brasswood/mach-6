@@ -53,8 +53,10 @@
       line-height: 1.4;
       white-space: nowrap;
     }
-    .commit-hash {
-      display: inline-block;
+    .commit-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       padding: 2px 4px;
       color: #053771;
       background: #ddf4ff;
@@ -62,18 +64,8 @@
       border-radius: 6px;
       font-weight: 500;
     }
-    .commit-branch {
-      display: inline-block;
-      padding: 2px 4px;
-      color: #053771;
-      background: #ddf4ff;
-      border: 1px solid #b6e3ff;
-      border-radius: 6px;
-      font-weight: 500;
-    }
-    .commit-branch::before {
-      content: "⎇";
-      margin-right: 4px;
+    .commit-pill-sep {
+      color: #6e7781;
     }
     .commit-tagline {
       color: var(--fg);
@@ -430,10 +422,13 @@
       <h1>Mach 6 Benchmark Report</h1>
       {% if let Some(commit_hash_short) = metadata.commit_hash_short() %}
       <div class="commit-line">
-        {% if let Some(branch) = metadata.branch() %}
-        <span class="commit-branch">{{ branch }}</span>
-        {% endif %}
-        <span class="commit-hash">{{ commit_hash_short }}</span>
+        <span class="commit-pill">
+          {% if let Some(branch) = metadata.branch() %}
+          <span>⎇ {{ branch }}</span>
+          <span class="commit-pill-sep">•</span>
+          {% endif %}
+          <span>{{ commit_hash_short }}</span>
+        </span>
         {% if let Some(tagline) = metadata.tagline() %}
         <span class="commit-tagline">{{ tagline }}</span>
         {% endif %}
