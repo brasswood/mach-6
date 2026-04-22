@@ -67,6 +67,22 @@ impl MetadataView<'_> {
     fn tagline(&self) -> Option<&str> {
         self.0.tagline.as_deref()
     }
+
+    fn page_title(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(branch) = self.branch() {
+            parts.push(format!("⎇ {branch}"));
+        }
+        if let Some(commit_hash_short) = self.commit_hash_short() {
+            let mut commit = commit_hash_short.to_owned();
+            if self.dirty().unwrap_or(false) {
+                commit.push_str("-dirty");
+            }
+            parts.push(commit);
+        }
+        parts.push("Mach 6 Report".to_owned());
+        parts.join(" • ")
+    }
 }
 
 struct WebsiteView<'json> {
