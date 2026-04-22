@@ -19,7 +19,6 @@ use time::OffsetDateTime;
 
 use crate::json::{ReportMetadataJson, WebsiteJson};
 
-mod html;
 mod json;
 
 #[derive(Clone, Debug, Default)]
@@ -360,7 +359,7 @@ fn main() {
         };
         result
     });
-    let json_results = results.filter_map(|res| {
+    let _ = results.filter_map(|res| {
         match write_website_json(&res) {
             Ok(json) => Some(json),
             Err(e) => {
@@ -381,7 +380,10 @@ fn main() {
     let time_end = OffsetDateTime::now_utc();
     let metadata = ReportMetadataJson::new(git_metadata, time_start, time_end);
 
-    write_report(&metadata, &json_results);
+    match write_metadata(&metadata) {
+        Ok(report_dir) => eprintln!("Wrote report to {}", report_dir.display()),
+        Err(e) => error!("{e}"),
+    };
 }
 
 fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> MatchBenchResult {
@@ -572,36 +574,19 @@ fn write_website_json(result: &WebsiteResult) -> io::Result<WebsiteJson>{
     Ok(json)
 }
 
-fn write_report(metadata: &ReportMetadataJson, json_results: &[WebsiteJson]) {
+fn write_metadata(metadata: &ReportMetadataJson) -> io::Result<PathBuf> {
     let report_dir = report_dir();
 
     // Write metadata JSON
     let metadata_json = serde_json::to_string_pretty(metadata)
-        .map_err(|err| {
-            error!("Failed to serialize metadata json: {err}");
-            io::Error::new(io::ErrorKind::InvalidData, err)
-        });
-    let written_metadata = metadata_json.and_then(|metadata_json| { 
-        fs::write(report_dir.join("json/meta.json"), metadata_json)
-            .map_err(|err| {
-                error!("Failed to write to meta.json: {err}");
-                err
-            })
-    });
-
-    // Write HTML report
-    let report = html::ReportTemplate::new(metadata, json_results);
-    let html = report.to_string();
-    let written_html = fs::write(report_dir.join("index.html"), html)
-        .map_err(|err| {
-            error!("Failed to write HTML report: {err}");
-            err
-        });
-
-    // Report success
-    if written_metadata.and(written_html).is_ok() {
-        eprintln!("Wrote report to {}", report_dir.display());
-    }
+        .map_err(|err|
+            io::Error::new(io::ErrorKind::InvalidData, format!("Failed to serialize metadata json: {err}"))
+        )?;
+    fs::write(report_dir.join("json/meta.json"), metadata_json)
+        .map_err(|err|
+            io::Error::new(err.kind(), format!("Failed to write meta.json: {err}"))
+        )?;
+    Ok(report_dir)
 }
 
 fn make_filename_safe(string: &str) -> String {
