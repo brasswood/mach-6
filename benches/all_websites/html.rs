@@ -49,6 +49,10 @@ impl ReportTemplate<'_> {
 struct MetadataView<'json>(&'json ReportMetadataJson);
 
 impl MetadataView<'_> {
+    fn branch(&self) -> Option<&str> {
+        self.0.branch.as_deref()
+    }
+
     fn commit_hash_short(&self) -> Option<&str> {
         self.0
             .commit_hash

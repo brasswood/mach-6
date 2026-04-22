@@ -56,6 +56,15 @@
       border-radius: 6px;
       font-weight: 500;
     }
+    .commit-branch {
+      display: inline-block;
+      padding: 2px 4px;
+      color: #053771;
+      background: #ddf4ff;
+      border: 1px solid #b6e3ff;
+      border-radius: 6px;
+      font-weight: 500;
+    }
     .commit-tagline {
       color: var(--fg);
     }
@@ -408,6 +417,9 @@
       <h1>Mach 6 Benchmark Report</h1>
       {% if metadata.has_title_metadata() %}
       <div class="commit-line">
+        {% if let Some(branch) = metadata.branch() %}
+        <span class="commit-branch">{{ branch }}</span>
+        {% endif %}
         <span class="commit-hash">{{ metadata.commit_hash_short().unwrap() }}</span>
         <span class="commit-tagline">{{ metadata.tagline().unwrap() }}</span>
       </div>
