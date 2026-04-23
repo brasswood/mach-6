@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ metadata.page_title() }}</title>
+  <title>Mach 6 Report</title>
   <style>
     :root {
       --bg: #f7f7f3;
@@ -73,6 +73,14 @@
     .subtitle {
       margin: 0 0 20px 0;
       color: var(--muted);
+    }
+    .status {
+      margin: 0 0 14px 0;
+      color: var(--muted);
+    }
+    .status.error {
+      color: var(--danger);
+      font-weight: 700;
     }
     .sort-controls {
       display: flex;
@@ -420,159 +428,16 @@
   <main>
     <div class="title-row">
       <h1>Mach 6 Benchmark Report</h1>
-      {% if let Some(commit_hash_short) = metadata.commit_hash_short() %}
-      <div class="commit-line">
-        <span class="commit-pill">
-          {% if let Some(branch) = metadata.branch() %}
-          <span>⎇ {{ branch }}</span>
-          <span>•</span>
-          {% endif %}
-          <span>{{ commit_hash_short }}{% if metadata.dirty().unwrap() %}-<span class="commit-pill-dirty">dirty</span>{% endif %}</span>
-        </span>
-        {% if let Some(tagline) = metadata.tagline() %}
-        <span class="commit-tagline">{{ tagline }}</span>
-        {% endif %}
-      </div>
-      {% endif %}
+      <div id="report-commit-line" class="commit-line" hidden></div>
     </div>
-    <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics and raw JSON.</p>
+    <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics.</p>
+    <p id="report-status" class="status">Loading report data...</p>
     <div class="sort-controls" role="group" aria-label="Sort websites">
       <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
       <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
     </div>
-    <section id="websites-list">
-      {% for website in websites %}
-      <details class="site" data-total-ns="{{ website.total_duration_sort_key() }}" data-slow-reject-ns="{{ website.slow_reject_duration_sort_key() }}">
-        <summary>
-          <div class="row">
-            <div class="chevron" aria-hidden="true"></div>
-            <div class="name">{{ website.name }}</div>
-            <div class="summary-variants">
-              {% for bar in website.bars() %}
-              <div class="variant-summary">
-                <div class="variant-label">{{ bar.label }}</div>
-                <div class="bar-wrap">
-                  <div class="bar-total" style="width: {{ "{:.2}"|format(bar.summary_width_pct(page_max_bar_length())) }}%">
-                    {% for segment in bar.segments %}
-                    <div class="bar-seg {{ segment.kind.css_class() }}" style="width: {{ "{:.2}"|format(segment.width_pct()) }}%"></div>
-                    {% endfor %}
-                  </div>
-                </div>
-                <div class="time">
-                  <div class="time-value {% if bar.has_display_length_mismatch() %}warning{% endif %}">{{ bar.formatted_total_duration() }}</div>
-                  {% if bar.has_display_length_mismatch() %}
-                  <div class="time-display-note">Displayed: {{ bar.formatted_total_length() }}</div>
-                  {% endif %}
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-          <div class="bar-legend">
-            {% for segment in website.compact_legend_segments() %}
-            <span><i class="swatch {{ segment.css_class() }}"></i>{{ segment.label() }}</span>
-            {% endfor %}
-          </div>
-        </summary>
-        <div class="details">
-          <div class="details-variants">
-            {% for bar in website.bars() %}
-            <section class="variant-details">
-              <h4 class="variant-details-title">{{ bar.label }}</h4>
-              <section class="expanded-chart">
-                <h5>Timing Breakdown</h5>
-                <div class="expanded-bar-wrap">
-                  <div class="expanded-bar-total">
-                    {% for segment in bar.segments %}
-                    <div class="expanded-bar-seg {{ segment.kind.css_class() }}" style="width: {{ "{:.2}"|format(segment.width_pct()) }}%"></div>
-                    {% endfor %}
-                  </div>
-                </div>
-                <div class="expanded-legend">
-                  {% for segment in bar.segments %}
-                  <span class="{% if segment.is_negative() %}legend-warning{% endif %}"><i class="swatch {{ segment.kind.css_class() }}"></i>{{ segment.kind.label() }}: {{ segment.formatted_duration_with_stddev() }}</span>
-                  {% endfor %}
-                  <span>Total: {{ bar.formatted_total_duration() }}</span>
-                </div>
-              </section>
-              <table>
-                <tbody>
-                  <tr><th>Sharing Instances</th><td>{{ bar.stats.formatted_sharing_instances() }}</td></tr>
-                  <tr><th>Selector Map Hits</th><td>{{ bar.stats.formatted_selector_map_hits() }}</td></tr>
-                  <tr><th>Fast Rejects</th><td>{{ bar.stats.formatted_fast_rejects() }}</td></tr>
-                  <tr><th>Slow Rejects</th><td>{{ bar.stats.formatted_slow_rejects() }}</td></tr>
-                  <tr><th>Slow Accepts</th><td>{{ bar.stats.formatted_slow_accepts() }}</td></tr>
-                </tbody>
-              </table>
-              <details class="selector-breakdown">
-                <summary>Slow-Reject Timings Aggregated by Selector (Top {{ Self::MAX_SLOW_REJECT_ROWS }})</summary>
-                <div class="selector-breakdown-inner">
-                  <table class="selector-breakdown-table">
-                    <thead>
-                      <tr>
-                        <th class="col-selector">Selector</th>
-                        <th class="col-time">Total Slow Reject Time</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% if bar.top_slow_reject_selectors.is_empty() %}
-                      <tr><td colspan="2">No selector stats captured.</td></tr>
-                      {% else %}
-                      {% for row in bar.top_slow_reject_selectors %}
-                      <tr>
-                        <td class="col-selector"><div class="cell-scroll"><code>{{ row.selector() }}</code></div></td>
-                        <td class="col-time"><div class="cell-scroll">{{ row.formatted_mean_with_stddev() }}</div></td>
-                      </tr>
-                      {% endfor %}
-                      {% endif %}
-                    </tbody>
-                  </table>
-                </div>
-              </details>
-            </section>
-            {% endfor %}
-          </div>
-          <p><a href="{{ website.json_file }}">JSON data</a></p>
-        </div>
-      </details>
-      {% endfor %}
-    </section>
+    <section id="websites-list"></section>
   </main>
-  <script>
-    (function () {
-      const list = document.getElementById("websites-list");
-      const byTotal = document.getElementById("sort-total");
-      const bySlow = document.getElementById("sort-slow");
-      if (!list || !byTotal || !bySlow) return;
-
-      function setActive(activeBtn) {
-        byTotal.classList.toggle("active", activeBtn === byTotal);
-        bySlow.classList.toggle("active", activeBtn === bySlow);
-      }
-
-      function sortBy(datasetKey, activeBtn) {
-        const sites = Array.from(list.querySelectorAll(":scope > details.site"));
-        sites.sort((a, b) => {
-          const av = BigInt(a.dataset[datasetKey] || "0");
-          const bv = BigInt(b.dataset[datasetKey] || "0");
-          if (av === bv) return 0;
-          return av > bv ? -1 : 1;
-        });
-        for (const site of sites) {
-          list.appendChild(site);
-        }
-        setActive(activeBtn);
-      }
-
-      byTotal.addEventListener("click", function () {
-        sortBy("totalNs", byTotal);
-      });
-      bySlow.addEventListener("click", function () {
-        sortBy("slowRejectNs", bySlow);
-      });
-
-      sortBy("totalNs", byTotal);
-    })();
-  </script>
+  <script src="report.js"></script>
 </body>
 </html>
