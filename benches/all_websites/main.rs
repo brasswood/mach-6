@@ -583,7 +583,7 @@ fn write_report_json(json: &ReportJson) -> io::Result<()> {
 fn write_html() -> io::Result<()> {
     let html = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/benches/all_websites/assets/report.html"
+        "/benches/all_websites/ui/report.html"
     ));
     let report_dir = report_dir();
     fs::write(report_dir.join("index.html"), html)
