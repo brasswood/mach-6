@@ -2,3 +2,5 @@
 /target
 /tests/equality_failures
 /nightly-credentials.ps1
+node_modules/
+*.tsbuildinfo

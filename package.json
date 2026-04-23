@@ -1,0 +1,27 @@
+{
+  "name": "mach-6",
+  "version": "1.0.0",
+  "description": "A test bench for alternative CSS selector matching algorithms.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brasswood/mach-6.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/brasswood/mach-6/issues"
+  },
+  "homepage": "https://github.com/brasswood/mach-6#readme",
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}
