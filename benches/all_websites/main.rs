@@ -386,7 +386,7 @@ fn main() {
         },
     };
     let report_json_result = write_report_json(&report_json);
-    let html_result = write_html();
+    let html_result = copy_html_js();
     match report_json_result.and(html_result)
     {
         Ok(()) => eprintln!("Wrote report to {}", report_dir().display()),
@@ -580,15 +580,21 @@ fn write_report_json(json: &ReportJson) -> io::Result<()> {
     Ok(())
 }
 
-fn write_html() -> io::Result<()> {
-    let html = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/benches/all_websites/ui/report.html"
-    ));
+fn copy_html_js() -> io::Result<()> {
     let report_dir = report_dir();
-    fs::write(report_dir.join("index.html"), html)
+    fs::copy(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("benches").join("all_websites").join("ui").join("report.html"),
+        report_dir.join("index.html"),
+    )
         .map_err(|err|
-            io::Error::new(err.kind(), format!("Failed to write index.html: {err}"))
+            io::Error::new(err.kind(), format!("Failed to copy report.html to index.html: {err}"))
+        )?;
+    fs::copy(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target").join("all_websites_ui").join("report.js"),
+        report_dir.join("report.js"),
+    )
+        .map_err(|err|
+            io::Error::new(err.kind(), format!("Failed to copy compiled report.js: {err}"))
         )?;
     Ok(())
 }
