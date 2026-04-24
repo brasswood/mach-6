@@ -14,4 +14,7 @@ git submodule update --init
 rm -r target/all_websites_report
 
 # Run benchmarks
-cargo bench
+# cargo bench
+
+# Build reports index
+python scripts/generate_reports_index.py
