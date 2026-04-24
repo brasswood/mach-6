@@ -35,20 +35,11 @@ def load_json(path: Path) -> dict[str, Any]:
     return data
 
 
-def metadata_sort_key(entry: dict[str, Any]) -> tuple[int, datetime | str, str]:
-    metadata = entry.get("metadata")
-    if not isinstance(metadata, dict):
-        return (1, "", entry["url"])
-
-    time_end = metadata.get("time_end")
-    if not isinstance(time_end, str):
-        return (1, "", entry["url"])
-
-    try:
-        parsed = datetime.fromisoformat(time_end.replace("Z", "+00:00"))
-        return (0, parsed, entry["url"])
-    except ValueError:
-        return (1, time_end, entry["url"])
+def metadata_sort_key(entry: dict[str, Any]) -> datetime:
+    metadata = entry["metadata"]
+    time_end = metadata["time_end"]
+    parsed = datetime.fromisoformat(time_end.replace("Z", "+00:00"))
+    return parsed
 
 
 def gather_reports(reports_root: Path, base_url: str) -> list[dict[str, Any]]:
