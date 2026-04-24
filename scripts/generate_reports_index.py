@@ -8,12 +8,15 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-REPORTS_INDEX_NAME = "reports-index.json"
 # The reports root as seen by the slurm process
-REPORTS_ROOT = Path("/data/reports/mach-6")
-REPORTS_INDEX_PATH = REPORTS_ROOT / REPORTS_INDEX_NAME
+REPORTS_FS_ROOT = Path("/data/reports/mach-6")
 # The reports root as typed in the URL bar
 BASE_URL = "/reports/mach-6"
+
+REPORTS_INDEX_NAME = "reports-index.json"
+
+OUTPUT_DIR = Path("target/all_websites_report")
+OUT_REPORTS_INDEX = OUTPUT_DIR / REPORTS_INDEX_NAME
 
 
 def normalize_base_url(base_url: str) -> str:
@@ -44,9 +47,9 @@ def metadata_sort_key(entry: dict[str, Any]) -> datetime:
     return parsed
 
 
-def gather_reports(reports_root: Path, base_url: str) -> list[dict[str, Any]]:
+def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]:
     reports: list[dict[str, Any]] = []
-    for child in sorted(reports_root.iterdir()):
+    for child in sorted(reports_fs_root.iterdir()):
         if not child.is_dir():
             continue
 
@@ -85,15 +88,14 @@ def write_json_atomically(path: Path, payload: dict[str, Any]) -> None:
 
 
 def main() -> int:
-    reports_root = REPORTS_ROOT.resolve()
-    output = REPORTS_INDEX_PATH.resolve()
+    reports_fs_root = REPORTS_FS_ROOT.resolve()
     base_url = normalize_base_url(BASE_URL)
 
-    if not reports_root.is_dir():
-        raise SystemExit(f"{reports_root} is not a directory")
+    if not reports_fs_root.is_dir():
+        raise SystemExit(f"{reports_fs_root} is not a directory")
 
-    reports = gather_reports(reports_root, base_url)
-    write_json_atomically(output, {"reports": reports})
+    reports = gather_reports(reports_fs_root, base_url)
+    write_json_atomically(OUT_REPORTS_INDEX, {"reports": reports})
     return 0
 
 
