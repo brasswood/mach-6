@@ -10,7 +10,7 @@ from typing import Any
 
 REPORTS_INDEX_NAME = "reports-index.json"
 # The reports root as seen by the slurm process
-REPORTS_ROOT = Path("/reports/mach-6")
+REPORTS_ROOT = Path("/data/reports/mach-6")
 REPORTS_INDEX_PATH = REPORTS_ROOT / REPORTS_INDEX_NAME
 # The reports root as typed in the URL bar
 BASE_URL = "/reports/mach-6"
