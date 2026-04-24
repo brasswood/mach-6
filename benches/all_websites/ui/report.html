@@ -23,10 +23,18 @@
       background: linear-gradient(180deg, #f7f7f3 0%, #f2f5f8 100%);
     }
     main {
+      max-width: none;
+      margin: 0 auto;
+    }
+    .page-header {
       max-width: 980px;
       margin: 0 auto;
     }
-    body.compare-active main {
+    .report-body {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    body.compare-active .report-body {
       max-width: 1960px;
     }
     h1 {
@@ -536,39 +544,43 @@
 </head>
 <body>
   <main>
-    <div class="title-row">
-      <h1>Mach 6 Benchmark Report</h1>
-      <div id="report-commit-line" class="commit-line" hidden></div>
-    </div>
-    <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics.</p>
-    <p id="report-status" class="status">Loading report data...</p>
-    <section id="compare-controls" class="compare-controls" hidden aria-labelledby="compare-controls-title">
-      <h2 id="compare-controls-title" class="compare-controls-title">Compare Reports</h2>
-      <div class="compare-controls-grid">
-        <div class="compare-field">
-          <label for="compare-left">Left report</label>
-          <select id="compare-left" class="compare-select">
-            <option>Loading available reports...</option>
-          </select>
-        </div>
-        <div class="compare-field">
-          <label for="compare-right">Right report</label>
-          <select id="compare-right" class="compare-select">
-            <option>Loading available reports...</option>
-          </select>
-        </div>
+    <div class="page-header">
+      <div class="title-row">
+        <h1>Mach 6 Benchmark Report</h1>
+        <div id="report-commit-line" class="commit-line" hidden></div>
       </div>
-      <div class="compare-actions">
-        <button id="compare-run" class="compare-btn" type="button">Compare</button>
-      </div>
-      <p id="compare-status" class="compare-status" hidden></p>
-    </section>
-    <div class="sort-controls" role="group" aria-label="Sort websites">
-      <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
-      <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
+      <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics.</p>
+      <p id="report-status" class="status">Loading report data...</p>
+      <section id="compare-controls" class="compare-controls" hidden aria-labelledby="compare-controls-title">
+        <h2 id="compare-controls-title" class="compare-controls-title">Compare Reports</h2>
+        <div class="compare-controls-grid">
+          <div class="compare-field">
+            <label for="compare-left">Left report</label>
+            <select id="compare-left" class="compare-select">
+              <option>Loading available reports...</option>
+            </select>
+          </div>
+          <div class="compare-field">
+            <label for="compare-right">Right report</label>
+            <select id="compare-right" class="compare-select">
+              <option>Loading available reports...</option>
+            </select>
+          </div>
+        </div>
+        <div class="compare-actions">
+          <button id="compare-run" class="compare-btn" type="button">Compare</button>
+        </div>
+        <p id="compare-status" class="compare-status" hidden></p>
+      </section>
     </div>
-    <section id="websites-list"></section>
-    <section id="compare-results" class="compare-results" hidden></section>
+    <div class="report-body">
+      <div class="sort-controls" role="group" aria-label="Sort websites">
+        <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
+        <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
+      </div>
+      <section id="websites-list"></section>
+      <section id="compare-results" class="compare-results" hidden></section>
+    </div>
   </main>
   <script src="report.js"></script>
 </body>
