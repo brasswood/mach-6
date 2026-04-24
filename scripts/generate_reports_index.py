@@ -35,18 +35,14 @@ def build_report_url(base_url: str, report_dir_name: str) -> str:
 
 def load_json(path: Path) -> dict[str, Any]:
     if path.is_file():
-        open_fn = path.open
-        open_args = ("r",)
+        with path.open("r", encoding="utf-8") as file:
+            data = json.load(file)
     else:
         gz_path = Path(str(path) + ".gz")
         if not gz_path.is_file():
             raise FileNotFoundError(f"Neither {path} nor {gz_path} exists")
-        path = gz_path
-        open_fn = gzip.open
-        open_args = ("rt",)
-
-    with open_fn(path, *open_args, encoding="utf-8") as file:
-        data = json.load(file)
+        with gzip.open(gz_path, "rt", encoding="utf-8") as file:
+            data = json.load(file)
 
     if not isinstance(data, dict):
         raise ValueError(f"{path} did not contain a top-level JSON object")
