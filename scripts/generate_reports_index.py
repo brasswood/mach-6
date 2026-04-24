@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 from datetime import datetime
 from pathlib import Path
@@ -33,8 +34,20 @@ def build_report_url(base_url: str, report_dir_name: str) -> str:
 
 
 def load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as file:
+    if path.is_file():
+        open_fn = path.open
+        open_args = ("r",)
+    else:
+        gz_path = Path(str(path) + ".gz")
+        if not gz_path.is_file():
+            raise FileNotFoundError(f"Neither {path} nor {gz_path} exists")
+        path = gz_path
+        open_fn = gzip.open
+        open_args = ("rt",)
+
+    with open_fn(path, *open_args, encoding="utf-8") as file:
         data = json.load(file)
+
     if not isinstance(data, dict):
         raise ValueError(f"{path} did not contain a top-level JSON object")
     return data
@@ -54,10 +67,11 @@ def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]
             continue
 
         report_json_path = child / "report.json"
-        if not report_json_path.is_file():
+        try:
+            report_json = load_json(report_json_path)
+        except FileNotFoundError:
             continue
 
-        report_json = load_json(report_json_path)
         metadata = report_json.get("metadata")
         if not isinstance(metadata, dict):
             continue
