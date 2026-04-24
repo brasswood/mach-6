@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 from datetime import datetime
 from pathlib import Path
@@ -10,33 +9,9 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 
 REPORTS_INDEX_NAME = "reports-index.json"
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            f"Generate a {REPORTS_INDEX_NAME} index for a directory of Mach 6 nightly reports. "
-            "Each report is expected to live in its own child directory and contain report.json."
-        )
-    )
-    parser.add_argument(
-        "reports_root",
-        type=Path,
-        help="Directory containing individual report directories.",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        help=f"Path to the generated {REPORTS_INDEX_NAME}. Defaults to <reports_root>/{REPORTS_INDEX_NAME}.",
-    )
-    parser.add_argument(
-        "--base-url",
-        default="",
-        help=(
-            "Optional URL prefix to prepend to each report directory name. "
-            "For example: /reports/mach-6"
-        ),
-    )
-    return parser.parse_args()
+REPORTS_ROOT = Path("/reports/mach-6")
+REPORTS_INDEX_PATH = REPORTS_ROOT / REPORTS_INDEX_NAME
+BASE_URL = "/reports/mach-6"
 
 
 def normalize_base_url(base_url: str) -> str:
@@ -117,10 +92,9 @@ def write_json_atomically(path: Path, payload: dict[str, Any]) -> None:
 
 
 def main() -> int:
-    args = parse_args()
-    reports_root = args.reports_root.resolve()
-    output = args.output.resolve() if args.output else reports_root / REPORTS_INDEX_NAME
-    base_url = normalize_base_url(args.base_url)
+    reports_root = REPORTS_ROOT.resolve()
+    output = REPORTS_INDEX_PATH.resolve()
+    base_url = normalize_base_url(BASE_URL)
 
     if not reports_root.is_dir():
         raise SystemExit(f"{reports_root} is not a directory")
