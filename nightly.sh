@@ -17,4 +17,4 @@ rm -r target/all_websites_report
 # cargo bench
 
 # Build reports index
-python scripts/generate_reports_index.py
+python3 scripts/generate_reports_index.py
