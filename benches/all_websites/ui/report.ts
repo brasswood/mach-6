@@ -17,6 +17,10 @@ interface ReportJson {
   websites: WebsiteJson[];
 }
 
+interface ReportsIndexJson {
+  reports: unknown[];
+}
+
 interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
@@ -117,6 +121,13 @@ interface WebsiteView {
 
 const MAX_SLOW_REJECT_ROWS = 100;
 const NUMBER_FORMAT = new Intl.NumberFormat("en-US");
+const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC"
+});
 const SEGMENT_ORDER: readonly SegmentKind[] = [
   "indexing",
   "otherPreprocessing",
@@ -218,6 +229,153 @@ function renderMetadata(metadata: ReportMetadataJson, commitLine: HTMLElement): 
     taglineHtml
   ].join("");
   commitLine.hidden = false;
+}
+
+function isReportsIndexJson(value: unknown): value is ReportsIndexJson {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return Array.isArray(record.reports);
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function getOptionalString(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === "string" ? value : null;
+}
+
+function getOptionalBoolean(record: Record<string, unknown>, key: string): boolean | null {
+  const value = record[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function normalizeReportUrl(url: string): string {
+  return url.endsWith("/") ? url : url + "/";
+}
+
+function currentReportUrl(): string {
+  const url = new URL(window.location.href);
+  let pathname = url.pathname;
+  if (pathname.endsWith("/index.html")) {
+    pathname = pathname.slice(0, -"/index.html".length);
+  }
+  return normalizeReportUrl(pathname);
+}
+
+function formatReportDate(timeEnd: string | null): string | null {
+  if (!timeEnd) {
+    return null;
+  }
+  const parsed = new Date(timeEnd);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return REPORT_DATE_FORMAT.format(parsed);
+}
+
+function buildReportOptionLabel(entry: Record<string, unknown>): string {
+  const metadata = getRecord(entry.metadata) ?? getRecord(entry.raw_metadata);
+  const fallbackUrl = getOptionalString(entry, "url") ?? "Unknown report";
+  if (metadata === null) {
+    return fallbackUrl;
+  }
+
+  const parts: string[] = [];
+  const formattedDate = formatReportDate(getOptionalString(metadata, "time_end"));
+  if (formattedDate) {
+    parts.push(formattedDate);
+  }
+
+  const branch = getOptionalString(metadata, "branch");
+  if (branch) {
+    parts.push(branch);
+  }
+
+  const commitHash = getOptionalString(metadata, "commit_hash");
+  if (commitHash) {
+    parts.push(commitHash.slice(0, 7));
+  }
+
+  const tagline = getOptionalString(metadata, "tagline");
+  if (tagline) {
+    parts.push(tagline);
+  }
+
+  if (getOptionalBoolean(metadata, "dirty")) {
+    parts.push("(dirty)");
+  }
+
+  return parts.length > 0 ? parts.join(" ") : fallbackUrl;
+}
+
+function populateCompareSelect(
+  select: HTMLSelectElement,
+  reportEntries: Record<string, unknown>[],
+  selectedUrl: string
+): void {
+  select.innerHTML = "";
+  for (const entry of reportEntries) {
+    const url = getOptionalString(entry, "url");
+    if (!url) {
+      continue;
+    }
+    const option = document.createElement("option");
+    option.value = url;
+    option.textContent = buildReportOptionLabel(entry);
+    option.selected = normalizeReportUrl(url) === normalizeReportUrl(selectedUrl);
+    select.appendChild(option);
+  }
+}
+
+async function loadCompareControls(
+  container: HTMLElement,
+  leftSelect: HTMLSelectElement,
+  rightSelect: HTMLSelectElement,
+  compareStatus: HTMLElement
+): Promise<void> {
+  try {
+    const response = await fetch("reports-index.json");
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status + " while loading reports-index.json");
+    }
+
+    const raw: unknown = await response.json();
+    if (!isReportsIndexJson(raw)) {
+      throw new Error("reports-index.json had an unexpected shape");
+    }
+
+    const reportEntries = raw.reports.flatMap((entry) => {
+      const record = getRecord(entry);
+      return record === null ? [] : [record];
+    });
+    if (reportEntries.length === 0) {
+      throw new Error("reports-index.json did not contain any reports");
+    }
+
+    const currentUrl = currentReportUrl();
+    populateCompareSelect(leftSelect, reportEntries, currentUrl);
+    populateCompareSelect(rightSelect, reportEntries, currentUrl);
+
+    container.hidden = false;
+    compareStatus.hidden = true;
+    compareStatus.textContent = "";
+    compareStatus.classList.remove("error");
+  } catch (error: unknown) {
+    container.hidden = false;
+    leftSelect.innerHTML = '<option selected>Compare unavailable</option>';
+    rightSelect.innerHTML = '<option selected>Compare unavailable</option>';
+    compareStatus.hidden = false;
+    compareStatus.classList.add("error");
+    const message = error instanceof Error ? error.message : String(error);
+    compareStatus.textContent = "Failed to load available reports: " + message;
+  }
 }
 
 function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
@@ -479,11 +637,19 @@ async function main(): Promise<void> {
   const bySlow = document.getElementById("sort-slow");
   const status = document.getElementById("report-status");
   const commitLine = document.getElementById("report-commit-line");
+  const compareControls = document.getElementById("compare-controls");
+  const compareLeft = document.getElementById("compare-left");
+  const compareRight = document.getElementById("compare-right");
+  const compareStatus = document.getElementById("compare-status");
   if (!(list instanceof HTMLElement)
     || !(byTotal instanceof HTMLButtonElement)
     || !(bySlow instanceof HTMLButtonElement)
     || !(status instanceof HTMLElement)
-    || !(commitLine instanceof HTMLElement)) {
+    || !(commitLine instanceof HTMLElement)
+    || !(compareControls instanceof HTMLElement)
+    || !(compareLeft instanceof HTMLSelectElement)
+    || !(compareRight instanceof HTMLSelectElement)
+    || !(compareStatus instanceof HTMLElement)) {
     return;
   }
 
@@ -518,6 +684,7 @@ async function main(): Promise<void> {
     }).join("");
     status.hidden = true;
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
+    await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus);
   } catch (error: unknown) {
     status.hidden = false;
     status.classList.add("error");

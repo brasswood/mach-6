@@ -88,6 +88,55 @@
       margin: 0 0 14px 0;
       flex-wrap: wrap;
     }
+    .compare-controls {
+      display: grid;
+      gap: 12px;
+      margin: 0 0 18px 0;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .compare-controls-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .compare-controls-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .compare-field {
+      display: grid;
+      gap: 6px;
+    }
+    .compare-field label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .compare-select {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--fg);
+      font: inherit;
+    }
+    .compare-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .compare-status.error {
+      color: var(--danger);
+      font-weight: 700;
+    }
     .sort-btn {
       border: 1px solid var(--line);
       background: #fff;
@@ -414,6 +463,9 @@
         grid-template-columns: 1fr;
         gap: 6px;
       }
+      .compare-controls-grid {
+        grid-template-columns: 1fr;
+      }
       .expanded-bar-wrap {
         height: 28px;
       }
@@ -432,6 +484,24 @@
     </div>
     <p class="subtitle">Each row shows total runtime; expand for detailed selector statistics.</p>
     <p id="report-status" class="status">Loading report data...</p>
+    <section id="compare-controls" class="compare-controls" hidden aria-labelledby="compare-controls-title">
+      <h2 id="compare-controls-title" class="compare-controls-title">Compare Reports</h2>
+      <div class="compare-controls-grid">
+        <div class="compare-field">
+          <label for="compare-left">Left report</label>
+          <select id="compare-left" class="compare-select">
+            <option>Loading available reports...</option>
+          </select>
+        </div>
+        <div class="compare-field">
+          <label for="compare-right">Right report</label>
+          <select id="compare-right" class="compare-select">
+            <option>Loading available reports...</option>
+          </select>
+        </div>
+      </div>
+      <p id="compare-status" class="compare-status" hidden></p>
+    </section>
     <div class="sort-controls" role="group" aria-label="Sort websites">
       <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
       <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
