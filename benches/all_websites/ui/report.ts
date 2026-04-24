@@ -26,6 +26,7 @@ interface ReportMetadataJson {
   commit_hash: string | null;
   dirty: boolean | null;
   tagline: string | null;
+  time_end?: string | null;
 }
 
 interface WebsiteJson {
@@ -338,7 +339,8 @@ async function loadCompareControls(
   container: HTMLElement,
   leftSelect: HTMLSelectElement,
   rightSelect: HTMLSelectElement,
-  compareStatus: HTMLElement
+  compareStatus: HTMLElement,
+  currentMetadata: ReportMetadataJson
 ): Promise<void> {
   try {
     const response = await fetch("reports-index.json");
@@ -360,6 +362,11 @@ async function loadCompareControls(
     }
 
     const currentUrl = currentReportUrl();
+    reportEntries.unshift({
+      url: currentUrl,
+      metadata: currentMetadata
+    });
+
     populateCompareSelect(leftSelect, reportEntries, currentUrl);
     populateCompareSelect(rightSelect, reportEntries, currentUrl);
 
@@ -684,7 +691,7 @@ async function main(): Promise<void> {
     }).join("");
     status.hidden = true;
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
-    await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus);
+    await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
   } catch (error: unknown) {
     status.hidden = false;
     status.classList.add("error");
