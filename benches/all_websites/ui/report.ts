@@ -455,6 +455,7 @@ function installCompareHandler(
       const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
       const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
       renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
+      syncCompareDetails(compareResults);
       list.hidden = true;
       sortControls.hidden = true;
       document.body.classList.add("compare-active");
@@ -798,6 +799,32 @@ function renderCompareResults(
     ].join("");
   }).join("");
   compareResults.hidden = false;
+}
+
+function syncCompareDetails(compareResults: HTMLElement): void {
+  const compareRows = Array.from(compareResults.querySelectorAll<HTMLElement>(":scope > .compare-row"));
+  for (const row of compareRows) {
+    const leftDetails = row.querySelector<HTMLDetailsElement>(".compare-column:first-of-type details.site");
+    const rightDetails = row.querySelector<HTMLDetailsElement>(".compare-column:last-of-type details.site");
+    if (!leftDetails || !rightDetails) {
+      continue;
+    }
+
+    let syncing = false;
+    const installSync = (source: HTMLDetailsElement, target: HTMLDetailsElement): void => {
+      source.addEventListener("toggle", () => {
+        if (syncing) {
+          return;
+        }
+        syncing = true;
+        target.open = source.open;
+        syncing = false;
+      });
+    };
+
+    installSync(leftDetails, rightDetails);
+    installSync(rightDetails, leftDetails);
+  }
 }
 
 function setActive(activeBtn: HTMLButtonElement, byTotal: HTMLButtonElement, bySlow: HTMLButtonElement): void {
