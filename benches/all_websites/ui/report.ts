@@ -295,40 +295,39 @@ function buildReportOptionLabel(entry: Record<string, unknown>): string {
   const tagline = getOptionalString(metadata, "tagline");
   const branch = getOptionalString(metadata, "branch");
   const formattedDate = formatReportDate(getOptionalString(metadata, "time_end"));
+  const parts: string[] = [];
+
+  if (formattedDate && tagline) {
+    parts.push(formattedDate + ": " + tagline);
+  } else if (formattedDate) {
+    parts.push(formattedDate);
+  } else if (tagline) {
+    parts.push(tagline);
+  }
 
   if (dirtyCommit) {
-    let label = dirtyCommit;
+    let commitPart = "(" + dirtyCommit + ")";
+    if (branch) {
+      commitPart += " (" + branch + ")";
+    }
+    parts.push(commitPart);
+  } else if (branch) {
+    parts.push("(" + branch + ")");
+  }
+
+  if (parts.length > 0) {
+    return parts.join(" ");
+  }
+
+  if (dirtyCommit) {
+    let label = "(" + dirtyCommit + ")";
     if (tagline) {
-      label += ": " + tagline;
-    }
-    if (branch) {
-      label += " (" + branch + ")";
-    }
-    if (formattedDate) {
-      label += " (" + formattedDate + ")";
+      label = tagline + " " + label;
     }
     return label;
   }
 
-  if (tagline) {
-    let label = tagline;
-    if (branch) {
-      label += " (" + branch + ")";
-    }
-    if (formattedDate) {
-      label += " (" + formattedDate + ")";
-    }
-    return label;
-  }
-
-  const suffixes: string[] = [];
-  if (branch) {
-    suffixes.push("(" + branch + ")");
-  }
-  if (formattedDate) {
-    suffixes.push("(" + formattedDate + ")");
-  }
-  return suffixes.length > 0 ? suffixes.join(" ") : fallbackUrl;
+  return fallbackUrl;
 }
 
 function populateCompareSelect(
