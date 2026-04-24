@@ -49,13 +49,16 @@ def load_json(path: Path) -> dict[str, Any]:
     return data
 
 
-def metadata_sort_key(entry: dict[str, Any]) -> tuple[datetime, str]:
+def metadata_sort_key(entry: dict[str, Any]) -> tuple[int, datetime | str, str]:
+    # (0, datetime, str) | (1, str, str)
     metadata = entry["metadata"]
     time_end = metadata["time_end"]
-    parsed_time_end = datetime.fromisoformat(time_end)
-    url = metadata["url"]
-    return (parsed_time_end, url)
-
+    url = entry["url"]
+    try:
+        parsed_time_end = datetime.fromisoformat(time_end)
+        return (0, parsed_time_end, url)
+    except ValueError:
+        return (1, time_end, url)
 
 def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]:
     reports: list[dict[str, Any]] = []
