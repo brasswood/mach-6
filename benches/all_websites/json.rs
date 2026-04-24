@@ -10,7 +10,9 @@ pub(crate) struct ReportJson {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
+    #[serde(with = "time::serde::iso8601")]
     pub(crate) time_start: time::OffsetDateTime,
+    #[serde(with = "time::serde::iso8601")]
     pub(crate) time_end: time::OffsetDateTime,
     pub(crate) commit_hash: Option<CommitHash>,
     pub(crate) tagline: Option<String>,
