@@ -401,6 +401,63 @@ async function loadCompareControls(
   }
 }
 
+function joinReportPath(reportUrl: string, fileName: string): string {
+  const normalizedUrl = normalizeReportUrl(reportUrl);
+  return normalizedUrl + fileName;
+}
+
+async function fetchReportJson(reportUrl: string): Promise<ReportJson> {
+  const response = await fetch(joinReportPath(reportUrl, "report.json"));
+  if (!response.ok) {
+    throw new Error("HTTP " + response.status + " while loading " + joinReportPath(reportUrl, "report.json"));
+  }
+
+  const raw: unknown = await response.json();
+  if (!isReportJson(raw)) {
+    throw new Error(joinReportPath(reportUrl, "report.json") + " had an unexpected shape");
+  }
+  return raw;
+}
+
+function setCompareStatus(compareStatus: HTMLElement, message: string, isError: boolean): void {
+  compareStatus.hidden = false;
+  compareStatus.classList.toggle("error", isError);
+  compareStatus.textContent = message;
+}
+
+function installCompareHandler(
+  compareButton: HTMLButtonElement,
+  leftSelect: HTMLSelectElement,
+  rightSelect: HTMLSelectElement,
+  compareStatus: HTMLElement
+): void {
+  compareButton.addEventListener("click", async () => {
+    compareButton.disabled = true;
+    setCompareStatus(compareStatus, "Loading selected reports...", false);
+
+    try {
+      const leftUrl = leftSelect.value;
+      const rightUrl = rightSelect.value;
+      const [leftReport, rightReport] = await Promise.all([
+        fetchReportJson(leftUrl),
+        fetchReportJson(rightUrl)
+      ]);
+
+      setCompareStatus(
+        compareStatus,
+        "Loaded compare data for " + leftReport.websites.length + " left websites and "
+          + rightReport.websites.length + " right websites.",
+        false
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setCompareStatus(compareStatus, "Failed to load compare reports: " + message, true);
+    } finally {
+      compareButton.disabled = false;
+    }
+  });
+}
+
 function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
   const rows = Object.entries(stats.means_ns).map(([selector, meanNs]) => {
     const stddevNs = stats.stddevs_ns[selector];
@@ -664,6 +721,7 @@ async function main(): Promise<void> {
   const compareLeft = document.getElementById("compare-left");
   const compareRight = document.getElementById("compare-right");
   const compareStatus = document.getElementById("compare-status");
+  const compareRun = document.getElementById("compare-run");
   if (!(list instanceof HTMLElement)
     || !(byTotal instanceof HTMLButtonElement)
     || !(bySlow instanceof HTMLButtonElement)
@@ -672,7 +730,8 @@ async function main(): Promise<void> {
     || !(compareControls instanceof HTMLElement)
     || !(compareLeft instanceof HTMLSelectElement)
     || !(compareRight instanceof HTMLSelectElement)
-    || !(compareStatus instanceof HTMLElement)) {
+    || !(compareStatus instanceof HTMLElement)
+    || !(compareRun instanceof HTMLButtonElement)) {
     return;
   }
 
@@ -708,6 +767,7 @@ async function main(): Promise<void> {
     status.hidden = true;
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
     await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
+    installCompareHandler(compareRun, compareLeft, compareRight, compareStatus);
   } catch (error: unknown) {
     status.hidden = false;
     status.classList.add("error");

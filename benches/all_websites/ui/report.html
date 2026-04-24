@@ -107,6 +107,12 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
+    .compare-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
     .compare-field {
       display: grid;
       gap: 6px;
@@ -137,6 +143,20 @@
     .compare-status.error {
       color: var(--danger);
       font-weight: 700;
+    }
+    .compare-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--fg);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .compare-btn:disabled {
+      cursor: default;
+      opacity: 0.65;
     }
     .sort-btn {
       border: 1px solid var(--line);
@@ -500,6 +520,9 @@
             <option>Loading available reports...</option>
           </select>
         </div>
+      </div>
+      <div class="compare-actions">
+        <button id="compare-run" class="compare-btn" type="button">Compare</button>
       </div>
       <p id="compare-status" class="compare-status" hidden></p>
     </section>
