@@ -126,7 +126,8 @@ const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   month: "short",
   day: "numeric",
-  timeZone: "UTC"
+  hour: "numeric",
+  minute: "2-digit"
 });
 const SEGMENT_ORDER: readonly SegmentKind[] = [
   "indexing",
