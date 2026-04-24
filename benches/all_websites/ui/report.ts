@@ -120,6 +120,12 @@ interface WebsiteView {
   legendKinds: SegmentKind[];
 }
 
+interface CompareWebsiteView {
+  name: string;
+  left: WebsiteView | null;
+  right: WebsiteView | null;
+}
+
 const MAX_SLOW_REJECT_ROWS = 100;
 const NUMBER_FORMAT = new Intl.NumberFormat("en-US");
 const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
@@ -429,7 +435,10 @@ function installCompareHandler(
   compareButton: HTMLButtonElement,
   leftSelect: HTMLSelectElement,
   rightSelect: HTMLSelectElement,
-  compareStatus: HTMLElement
+  compareStatus: HTMLElement,
+  list: HTMLElement,
+  sortControls: HTMLElement,
+  compareResults: HTMLElement
 ): void {
   compareButton.addEventListener("click", async () => {
     compareButton.disabled = true;
@@ -443,14 +452,20 @@ function installCompareHandler(
         fetchReportJson(rightUrl)
       ]);
 
+      const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
+      const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
+      renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
+      list.hidden = true;
+      sortControls.hidden = true;
       setCompareStatus(
         compareStatus,
-        "Loaded compare data for " + leftReport.websites.length + " left websites and "
+        "Showing compare view for " + leftReport.websites.length + " left websites and "
           + rightReport.websites.length + " right websites.",
         false
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
+      compareResults.hidden = true;
       setCompareStatus(compareStatus, "Failed to load compare reports: " + message, true);
     } finally {
       compareButton.disabled = false;
@@ -676,6 +691,90 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string
   ].join("");
 }
 
+function buildWebsiteMap(websites: WebsiteJson[]): Map<string, WebsiteView> {
+  const websiteMap = new Map<string, WebsiteView>();
+  for (const website of websites) {
+    websiteMap.set(website.website, buildWebsiteView(website));
+  }
+  return websiteMap;
+}
+
+function getPageMaxBarLengthNs(websites: WebsiteView[]): bigint {
+  return websites.reduce((max, website) => {
+    return website.bars.reduce((innerMax, bar) => {
+      return bar.totalLengthNs > innerMax ? bar.totalLengthNs : innerMax;
+    }, max);
+  }, 0n);
+}
+
+function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): CompareWebsiteView[] {
+  const leftMap = buildWebsiteMap(leftReport.websites);
+  const rightMap = buildWebsiteMap(rightReport.websites);
+  const names = new Set<string>();
+  for (const name of leftMap.keys()) {
+    names.add(name);
+  }
+  for (const name of rightMap.keys()) {
+    names.add(name);
+  }
+
+  return Array.from(names).sort((left, right) => {
+    return left.localeCompare(right);
+  }).map((name) => {
+    return {
+      name,
+      left: leftMap.get(name) ?? null,
+      right: rightMap.get(name) ?? null
+    };
+  });
+}
+
+function renderCompareCell(
+  website: WebsiteView | null,
+  pageMaxBarLengthNs: bigint,
+  missingLabel: string
+): string {
+  if (website === null) {
+    return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
+  }
+  return renderWebsite(website, pageMaxBarLengthNs);
+}
+
+function renderCompareResults(
+  compareResults: HTMLElement,
+  leftReport: ReportJson,
+  rightReport: ReportJson,
+  leftLabel: string,
+  rightLabel: string
+): void {
+  const compareWebsites = buildCompareWebsites(leftReport, rightReport);
+  const leftWebsites = compareWebsites.flatMap((website) => {
+    return website.left === null ? [] : [website.left];
+  });
+  const rightWebsites = compareWebsites.flatMap((website) => {
+    return website.right === null ? [] : [website.right];
+  });
+  const leftPageMaxBarLengthNs = getPageMaxBarLengthNs(leftWebsites);
+  const rightPageMaxBarLengthNs = getPageMaxBarLengthNs(rightWebsites);
+
+  compareResults.innerHTML = compareWebsites.map((website) => {
+    return [
+      '<section class="compare-row">',
+      '<div class="compare-name">' + escapeHtml(website.name) + '</div>',
+      '<div class="compare-column">',
+      '<h3 class="compare-column-header">' + escapeHtml(leftLabel) + '</h3>',
+      renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
+      '</div>',
+      '<div class="compare-column">',
+      '<h3 class="compare-column-header">' + escapeHtml(rightLabel) + '</h3>',
+      renderCompareCell(website.right, rightPageMaxBarLengthNs, "Not present in right report."),
+      '</div>',
+      '</section>'
+    ].join("");
+  }).join("");
+  compareResults.hidden = false;
+}
+
 function setActive(activeBtn: HTMLButtonElement, byTotal: HTMLButtonElement, bySlow: HTMLButtonElement): void {
   byTotal.classList.toggle("active", activeBtn === byTotal);
   bySlow.classList.toggle("active", activeBtn === bySlow);
@@ -722,6 +821,8 @@ async function main(): Promise<void> {
   const compareRight = document.getElementById("compare-right");
   const compareStatus = document.getElementById("compare-status");
   const compareRun = document.getElementById("compare-run");
+  const compareResults = document.getElementById("compare-results");
+  const sortControls = document.querySelector(".sort-controls");
   if (!(list instanceof HTMLElement)
     || !(byTotal instanceof HTMLButtonElement)
     || !(bySlow instanceof HTMLButtonElement)
@@ -731,7 +832,9 @@ async function main(): Promise<void> {
     || !(compareLeft instanceof HTMLSelectElement)
     || !(compareRight instanceof HTMLSelectElement)
     || !(compareStatus instanceof HTMLElement)
-    || !(compareRun instanceof HTMLButtonElement)) {
+    || !(compareRun instanceof HTMLButtonElement)
+    || !(compareResults instanceof HTMLElement)
+    || !(sortControls instanceof HTMLElement)) {
     return;
   }
 
@@ -764,10 +867,11 @@ async function main(): Promise<void> {
     list.innerHTML = websites.map((website) => {
       return renderWebsite(website, pageMaxBarLengthNs);
     }).join("");
+    list.hidden = false;
     status.hidden = true;
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
     await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
-    installCompareHandler(compareRun, compareLeft, compareRight, compareStatus);
+    installCompareHandler(compareRun, compareLeft, compareRight, compareStatus, list, sortControls, compareResults);
   } catch (error: unknown) {
     status.hidden = false;
     status.classList.add("error");

@@ -158,6 +158,45 @@
       cursor: default;
       opacity: 0.65;
     }
+    .compare-results {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .compare-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .compare-name {
+      padding-top: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .compare-column {
+      min-width: 0;
+    }
+    .compare-column-header {
+      margin: 0 0 8px 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .compare-empty {
+      margin: 0;
+      padding: 18px 14px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
     .sort-btn {
       border: 1px solid var(--line);
       background: #fff;
@@ -487,6 +526,13 @@
       .compare-controls-grid {
         grid-template-columns: 1fr;
       }
+      .compare-row {
+        grid-template-columns: 1fr;
+      }
+      .compare-name {
+        padding-top: 0;
+        white-space: normal;
+      }
       .expanded-bar-wrap {
         height: 28px;
       }
@@ -531,6 +577,7 @@
       <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
     </div>
     <section id="websites-list"></section>
+    <section id="compare-results" class="compare-results" hidden></section>
   </main>
   <script src="report.js"></script>
 </body>
