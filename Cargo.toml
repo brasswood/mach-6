@@ -32,7 +32,7 @@ serde_json = "1.0.143"
 test-log = "0.2.19"
 num-format = "0.4"
 html5ever = "0.36"
-time = { version = "0.3", features = ["serde", "formatting", "parsing"]}
+time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros", "local-offset"]}
 
 [profile.dev.package]
 insta.opt-level = 3

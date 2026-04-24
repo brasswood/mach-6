@@ -328,7 +328,7 @@ struct WebsiteResult {
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
-    let time_start = OffsetDateTime::now_utc();
+    let time_start = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
     let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
     let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
     let websites = get_documents(website_filter.as_deref());
@@ -370,7 +370,7 @@ fn main() {
             None
         },
     };
-    let time_end = OffsetDateTime::now_utc();
+    let time_end = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
     let metadata = ReportMetadataJson::new(git_metadata, time_start, time_end);
 
     let report_json = ReportJson {

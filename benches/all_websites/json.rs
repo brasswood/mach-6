@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use time::format_description::well_known::{iso8601, Iso8601};
 
 use super::*;
 
@@ -8,11 +9,18 @@ pub(crate) struct ReportJson {
     pub(crate) websites: Vec<WebsiteJson>,
 }
 
+const CONFIG: iso8601::EncodedConfig = iso8601::Config::DEFAULT
+    .set_time_precision(iso8601::TimePrecision::Second { decimal_digits: None })
+    .encode();
+const FORMAT: Iso8601<CONFIG> = Iso8601::<CONFIG>;
+
+time::serde::format_description!(rfc3339_nodecimal, OffsetDateTime, FORMAT);
+
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
-    #[serde(with = "time::serde::iso8601")]
+    #[serde(with = "rfc3339_nodecimal")]
     pub(crate) time_start: time::OffsetDateTime,
-    #[serde(with = "time::serde::iso8601")]
+    #[serde(with = "rfc3339_nodecimal")]
     pub(crate) time_end: time::OffsetDateTime,
     pub(crate) commit_hash: Option<CommitHash>,
     pub(crate) tagline: Option<String>,
