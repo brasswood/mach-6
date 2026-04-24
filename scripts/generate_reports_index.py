@@ -49,17 +49,6 @@ def load_json(path: Path) -> dict[str, Any]:
     return data
 
 
-def metadata_sort_key(entry: dict[str, Any]) -> tuple[int, datetime | str, str]:
-    # (0, datetime, str) | (1, str, str)
-    metadata = entry["raw_metadata"]
-    time_end = metadata["time_end"]
-    url = entry["url"]
-    try:
-        parsed_time_end = datetime.fromisoformat(time_end)
-        return (0, parsed_time_end, url)
-    except Exception:
-        return (1, time_end, url)
-
 def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]:
     reports: list[dict[str, Any]] = []
     for child in sorted(reports_fs_root.iterdir()):
@@ -79,7 +68,7 @@ def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]
             "raw_metadata": metadata,
         })
 
-    reports.sort(key=metadata_sort_key, reverse=True)
+    reports.sort(key=lambda entry: entry["url"], reverse=True)
     return reports
 
 
