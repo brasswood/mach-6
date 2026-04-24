@@ -64,7 +64,7 @@ def gather_reports(reports_root: Path, base_url: str) -> list[dict[str, Any]]:
         report_json = load_json(report_json_path)
         metadata = report_json.get("metadata")
         if not isinstance(metadata, dict):
-            raise ValueError(f"{report_json_path} did not contain a top-level 'metadata' object")
+            continue
 
         reports.append({
             "url": build_report_url(base_url, child.name),
