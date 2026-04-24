@@ -742,6 +742,30 @@ function renderCompareCell(
   return renderWebsite(website, pageMaxBarLengthNs);
 }
 
+function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
+  const parts: string[] = [];
+  const commitHash = metadata.commit_hash;
+  if (commitHash) {
+    let commitLabel = commitHash.slice(0, 7);
+    if (metadata.dirty) {
+      commitLabel += "-dirty";
+    }
+    parts.push('<span class="compare-header-commit">' + escapeHtml(commitLabel) + "</span>");
+  }
+  if (metadata.tagline) {
+    if (commitHash) {
+      parts.push(": " + escapeHtml(metadata.tagline));
+    } else {
+      parts.push(escapeHtml(metadata.tagline));
+    }
+  }
+  if (metadata.branch) {
+    parts.push(' (<span class="compare-header-branch">' + escapeHtml(metadata.branch) + "</span>)");
+  }
+
+  return parts.length > 0 ? parts.join("") : escapeHtml(fallbackLabel);
+}
+
 function renderCompareResults(
   compareResults: HTMLElement,
   leftReport: ReportJson,
@@ -763,11 +787,11 @@ function renderCompareResults(
     return [
       '<section class="compare-row">',
       '<div class="compare-column">',
-      '<h3 class="compare-column-header">' + escapeHtml(leftLabel) + '</h3>',
+      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(leftReport.metadata, leftLabel) + '</h3>',
       renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
       '</div>',
       '<div class="compare-column">',
-      '<h3 class="compare-column-header">' + escapeHtml(rightLabel) + '</h3>',
+      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(rightReport.metadata, rightLabel) + '</h3>',
       renderCompareCell(website.right, rightPageMaxBarLengthNs, "Not present in right report."),
       '</div>',
       '</section>'
