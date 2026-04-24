@@ -126,7 +126,6 @@ const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   month: "short",
   day: "numeric",
-  year: "numeric",
   timeZone: "UTC"
 });
 const SEGMENT_ORDER: readonly SegmentKind[] = [
@@ -288,32 +287,48 @@ function buildReportOptionLabel(entry: Record<string, unknown>): string {
     return fallbackUrl;
   }
 
-  const parts: string[] = [];
-  const formattedDate = formatReportDate(getOptionalString(metadata, "time_end"));
-  if (formattedDate) {
-    parts.push(formattedDate);
-  }
-
-  const branch = getOptionalString(metadata, "branch");
-  if (branch) {
-    parts.push(branch);
-  }
-
   const commitHash = getOptionalString(metadata, "commit_hash");
-  if (commitHash) {
-    parts.push(commitHash.slice(0, 7));
-  }
-
+  const shortCommit = commitHash ? commitHash.slice(0, 7) : null;
+  const dirtyCommit = shortCommit
+    ? shortCommit + (getOptionalBoolean(metadata, "dirty") ? "-dirty" : "")
+    : null;
   const tagline = getOptionalString(metadata, "tagline");
+  const branch = getOptionalString(metadata, "branch");
+  const formattedDate = formatReportDate(getOptionalString(metadata, "time_end"));
+
+  if (dirtyCommit) {
+    let label = dirtyCommit;
+    if (tagline) {
+      label += ": " + tagline;
+    }
+    if (branch) {
+      label += " (" + branch + ")";
+    }
+    if (formattedDate) {
+      label += " (" + formattedDate + ")";
+    }
+    return label;
+  }
+
   if (tagline) {
-    parts.push(tagline);
+    let label = tagline;
+    if (branch) {
+      label += " (" + branch + ")";
+    }
+    if (formattedDate) {
+      label += " (" + formattedDate + ")";
+    }
+    return label;
   }
 
-  if (getOptionalBoolean(metadata, "dirty")) {
-    parts.push("(dirty)");
+  const suffixes: string[] = [];
+  if (branch) {
+    suffixes.push("(" + branch + ")");
   }
-
-  return parts.length > 0 ? parts.join(" ") : fallbackUrl;
+  if (formattedDate) {
+    suffixes.push("(" + formattedDate + ")");
+  }
+  return suffixes.length > 0 ? suffixes.join(" ") : fallbackUrl;
 }
 
 function populateCompareSelect(
