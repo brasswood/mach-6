@@ -57,7 +57,7 @@ def metadata_sort_key(entry: dict[str, Any]) -> tuple[int, datetime | str, str]:
     try:
         parsed_time_end = datetime.fromisoformat(time_end)
         return (0, parsed_time_end, url)
-    except ValueError:
+    except Exception:
         return (1, time_end, url)
 
 def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]:
