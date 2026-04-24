@@ -51,7 +51,7 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def metadata_sort_key(entry: dict[str, Any]) -> tuple[int, datetime | str, str]:
     # (0, datetime, str) | (1, str, str)
-    metadata = entry["metadata"]
+    metadata = entry["raw_metadata"]
     time_end = metadata["time_end"]
     url = entry["url"]
     try:
@@ -73,12 +73,10 @@ def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]
             continue
 
         metadata = report_json.get("metadata")
-        if not isinstance(metadata, dict):
-            continue
 
         reports.append({
             "url": build_report_url(base_url, child.name),
-            "metadata": metadata,
+            "raw_metadata": metadata,
         })
 
     reports.sort(key=metadata_sort_key, reverse=True)
