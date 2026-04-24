@@ -455,7 +455,7 @@ function installCompareHandler(
       const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
       const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
       renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
-      syncCompareDetails(compareResults);
+      syncCompareSelectorBreakdowns(compareResults);
       list.hidden = true;
       sortControls.hidden = true;
       document.body.classList.add("compare-active");
@@ -672,10 +672,8 @@ function renderVariantDetails(bar: BarView): string {
   ].join("");
 }
 
-function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string {
+function renderWebsiteSummaryContent(website: WebsiteView, pageMaxBarLengthNs: bigint): string {
   return [
-    '<details class="site" data-total-ns="' + website.totalSortKeyNs.toString() + '" data-slow-reject-ns="' + website.slowRejectSortKeyNs.toString() + '">',
-    '<summary>',
     '<div class="row">',
     '<div class="chevron" aria-hidden="true"></div>',
     '<div class="name">' + escapeHtml(website.name) + '</div>',
@@ -685,10 +683,22 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string
     '</div>',
     '<div class="bar-legend">' + website.legendKinds.map((kind) => {
       return '<span>' + renderSegmentSwatch(kind) + '</span>';
-    }).join("") + '</div>',
+    }).join("") + '</div>'
+  ].join("");
+}
+
+function renderWebsiteDetailsContent(website: WebsiteView): string {
+  return '<div class="details-variants">' + website.bars.map(renderVariantDetails).join("") + '</div>';
+}
+
+function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string {
+  return [
+    '<details class="site" data-total-ns="' + website.totalSortKeyNs.toString() + '" data-slow-reject-ns="' + website.slowRejectSortKeyNs.toString() + '">',
+    '<summary>',
+    renderWebsiteSummaryContent(website, pageMaxBarLengthNs),
     '</summary>',
     '<div class="details">',
-    '<div class="details-variants">' + website.bars.map(renderVariantDetails).join("") + '</div>',
+    renderWebsiteDetailsContent(website),
     '</div>',
     '</details>'
   ].join("");
@@ -740,7 +750,17 @@ function renderCompareCell(
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsite(website, pageMaxBarLengthNs);
+  return renderWebsiteSummaryContent(website, pageMaxBarLengthNs);
+}
+
+function renderCompareDetailsCell(
+  website: WebsiteView | null,
+  missingLabel: string
+): string {
+  if (website === null) {
+    return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
+  }
+  return renderWebsiteDetailsContent(website);
 }
 
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
@@ -786,7 +806,9 @@ function renderCompareResults(
 
   compareResults.innerHTML = compareWebsites.map((website) => {
     return [
-      '<section class="compare-row">',
+      '<details class="site compare-site">',
+      '<summary>',
+      '<div class="compare-row">',
       '<div class="compare-column">',
       '<h3 class="compare-column-header">' + renderCompareHeaderHtml(leftReport.metadata, leftLabel) + '</h3>',
       renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
@@ -795,35 +817,54 @@ function renderCompareResults(
       '<h3 class="compare-column-header">' + renderCompareHeaderHtml(rightReport.metadata, rightLabel) + '</h3>',
       renderCompareCell(website.right, rightPageMaxBarLengthNs, "Not present in right report."),
       '</div>',
-      '</section>'
+      '</div>',
+      '</summary>',
+      '<div class="details">',
+      '<div class="compare-row">',
+      '<div class="compare-column">',
+      renderCompareDetailsCell(website.left, "Not present in left report."),
+      '</div>',
+      '<div class="compare-column">',
+      renderCompareDetailsCell(website.right, "Not present in right report."),
+      '</div>',
+      '</div>',
+      '</div>',
+      '</details>'
     ].join("");
   }).join("");
   compareResults.hidden = false;
 }
 
-function syncCompareDetails(compareResults: HTMLElement): void {
-  const compareRows = Array.from(compareResults.querySelectorAll<HTMLElement>(":scope > .compare-row"));
-  for (const row of compareRows) {
-    const leftDetails = row.querySelector<HTMLDetailsElement>(".compare-column:first-of-type details.site");
-    const rightDetails = row.querySelector<HTMLDetailsElement>(".compare-column:last-of-type details.site");
-    if (!leftDetails || !rightDetails) {
-      continue;
+function syncPairedDetails(leftDetails: HTMLDetailsElement, rightDetails: HTMLDetailsElement): void {
+  let syncing = false;
+  const installSync = (source: HTMLDetailsElement, target: HTMLDetailsElement): void => {
+    source.addEventListener("toggle", () => {
+      if (syncing) {
+        return;
+      }
+      syncing = true;
+      target.open = source.open;
+      syncing = false;
+    });
+  };
+
+  installSync(leftDetails, rightDetails);
+  installSync(rightDetails, leftDetails);
+}
+
+function syncCompareSelectorBreakdowns(compareResults: HTMLElement): void {
+  const compareSites = Array.from(compareResults.querySelectorAll<HTMLDetailsElement>(":scope > details.compare-site"));
+  for (const site of compareSites) {
+    const leftDetails = Array.from(site.querySelectorAll<HTMLDetailsElement>(".compare-column:first-of-type details.selector-breakdown"));
+    const rightDetails = Array.from(site.querySelectorAll<HTMLDetailsElement>(".compare-column:last-of-type details.selector-breakdown"));
+    const pairCount = Math.min(leftDetails.length, rightDetails.length);
+    for (let index = 0; index < pairCount; index += 1) {
+      const leftDetail = leftDetails[index];
+      const rightDetail = rightDetails[index];
+      if (leftDetail && rightDetail) {
+        syncPairedDetails(leftDetail, rightDetail);
+      }
     }
-
-    let syncing = false;
-    const installSync = (source: HTMLDetailsElement, target: HTMLDetailsElement): void => {
-      source.addEventListener("toggle", () => {
-        if (syncing) {
-          return;
-        }
-        syncing = true;
-        target.open = source.open;
-        syncing = false;
-      });
-    };
-
-    installSync(leftDetails, rightDetails);
-    installSync(rightDetails, leftDetails);
   }
 }
 
