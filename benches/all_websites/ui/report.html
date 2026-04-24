@@ -26,6 +26,9 @@
       max-width: 980px;
       margin: 0 auto;
     }
+    body.compare-active main {
+      max-width: 1960px;
+    }
     h1 {
       margin: 0 0 4px 0;
       font-size: 26px;
@@ -165,17 +168,9 @@
     }
     .compare-row {
       display: grid;
-      grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 12px;
       align-items: start;
-    }
-    .compare-name {
-      padding-top: 10px;
-      font-size: 14px;
-      font-weight: 700;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
     .compare-column {
       min-width: 0;
@@ -528,10 +523,6 @@
       }
       .compare-row {
         grid-template-columns: 1fr;
-      }
-      .compare-name {
-        padding-top: 0;
-        white-space: normal;
       }
       .expanded-bar-wrap {
         height: 28px;

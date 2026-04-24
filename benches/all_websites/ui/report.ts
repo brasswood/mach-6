@@ -457,6 +457,7 @@ function installCompareHandler(
       renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
       list.hidden = true;
       sortControls.hidden = true;
+      document.body.classList.add("compare-active");
       setCompareStatus(
         compareStatus,
         "Showing compare view for " + leftReport.websites.length + " left websites and "
@@ -466,6 +467,7 @@ function installCompareHandler(
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       compareResults.hidden = true;
+      document.body.classList.remove("compare-active");
       setCompareStatus(compareStatus, "Failed to load compare reports: " + message, true);
     } finally {
       compareButton.disabled = false;
@@ -760,7 +762,6 @@ function renderCompareResults(
   compareResults.innerHTML = compareWebsites.map((website) => {
     return [
       '<section class="compare-row">',
-      '<div class="compare-name">' + escapeHtml(website.name) + '</div>',
       '<div class="compare-column">',
       '<h3 class="compare-column-header">' + escapeHtml(leftLabel) + '</h3>',
       renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
@@ -868,6 +869,7 @@ async function main(): Promise<void> {
       return renderWebsite(website, pageMaxBarLengthNs);
     }).join("");
     list.hidden = false;
+    document.body.classList.remove("compare-active");
     status.hidden = true;
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
     await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
