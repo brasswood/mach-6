@@ -14,7 +14,7 @@ git submodule update --init
 rm -r target/all_websites_report
 
 # Run benchmarks
-# cargo bench
+cargo bench andrewriachi.com
 
 # Build reports index
 python3 scripts/generate_reports_index.py
