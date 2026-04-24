@@ -4,3 +4,4 @@
 /nightly-credentials.ps1
 node_modules/
 *.tsbuildinfo
+__pycache__/
