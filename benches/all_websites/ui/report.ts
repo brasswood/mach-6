@@ -921,10 +921,7 @@ function getCompareSortValue(row: HTMLElement, side: CompareSide, datasetKey: So
 }
 
 function setActiveCompareSortButton(activeBtn: HTMLButtonElement, compareResults: HTMLElement): void {
-  const side = activeBtn.dataset.compareSide;
-  const buttons = compareResults.querySelectorAll<HTMLButtonElement>(
-    '.compare-sort-controls button[data-compare-side="' + side + '"]'
-  );
+  const buttons = compareResults.querySelectorAll<HTMLButtonElement>(".compare-sort-controls button");
   for (const button of buttons) {
     button.classList.toggle("active", button === activeBtn);
   }
