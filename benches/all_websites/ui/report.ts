@@ -455,6 +455,7 @@ function installCompareHandler(
       const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
       const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
       renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
+      syncCompareDetails(compareResults);
       list.hidden = true;
       sortControls.hidden = true;
       document.body.classList.add("compare-active");
@@ -646,26 +647,6 @@ function renderSelectorRows(rows: SelectorRow[]): string {
   }).join("");
 }
 
-function renderSelectorBreakdownContent(bar: BarView): string {
-  return [
-    '<div class="selector-breakdown-inner">',
-    '<table class="selector-breakdown-table">',
-    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Time</th></tr></thead>',
-    '<tbody>' + renderSelectorRows(bar.topSlowRejectSelectors) + '</tbody>',
-    '</table>',
-    '</div>'
-  ].join("");
-}
-
-function renderSelectorBreakdown(bar: BarView): string {
-  return [
-    '<details class="selector-breakdown">',
-    '<summary>Slow-Reject Timings Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
-    renderSelectorBreakdownContent(bar),
-    '</details>'
-  ].join("");
-}
-
 function renderVariantDetails(bar: BarView): string {
   return [
     '<section class="variant-details">',
@@ -678,29 +659,23 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     '</tbody></table>',
-    renderSelectorBreakdown(bar),
+    '<details class="selector-breakdown">',
+    '<summary>Slow-Reject Timings Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+    '<div class="selector-breakdown-inner">',
+    '<table class="selector-breakdown-table">',
+    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Time</th></tr></thead>',
+    '<tbody>' + renderSelectorRows(bar.topSlowRejectSelectors) + '</tbody>',
+    '</table>',
+    '</div>',
+    '</details>',
     '</section>'
   ].join("");
 }
 
-function renderVariantDetailsWithoutBreakdown(bar: BarView): string {
+function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string {
   return [
-    '<section class="variant-details">',
-    '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
-    renderExpandedBar(bar),
-    '<table><tbody>',
-    '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
-    '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
-    '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
-    '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
-    '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
-    '</tbody></table>',
-    '</section>'
-  ].join("");
-}
-
-function renderWebsiteSummaryContent(website: WebsiteView, pageMaxBarLengthNs: bigint): string {
-  return [
+    '<details class="site" data-total-ns="' + website.totalSortKeyNs.toString() + '" data-slow-reject-ns="' + website.slowRejectSortKeyNs.toString() + '">',
+    '<summary>',
     '<div class="row">',
     '<div class="chevron" aria-hidden="true"></div>',
     '<div class="name">' + escapeHtml(website.name) + '</div>',
@@ -710,22 +685,10 @@ function renderWebsiteSummaryContent(website: WebsiteView, pageMaxBarLengthNs: b
     '</div>',
     '<div class="bar-legend">' + website.legendKinds.map((kind) => {
       return '<span>' + renderSegmentSwatch(kind) + '</span>';
-    }).join("") + '</div>'
-  ].join("");
-}
-
-function renderWebsiteDetailsContent(website: WebsiteView): string {
-  return '<div class="details-variants">' + website.bars.map(renderVariantDetails).join("") + '</div>';
-}
-
-function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string {
-  return [
-    '<details class="site" data-total-ns="' + website.totalSortKeyNs.toString() + '" data-slow-reject-ns="' + website.slowRejectSortKeyNs.toString() + '">',
-    '<summary>',
-    renderWebsiteSummaryContent(website, pageMaxBarLengthNs),
+    }).join("") + '</div>',
     '</summary>',
     '<div class="details">',
-    renderWebsiteDetailsContent(website),
+    '<div class="details-variants">' + website.bars.map(renderVariantDetails).join("") + '</div>',
     '</div>',
     '</details>'
   ].join("");
@@ -777,92 +740,7 @@ function renderCompareCell(
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsiteSummaryContent(website, pageMaxBarLengthNs);
-}
-
-function renderCompareSelectorBreakdownCard(
-  bar: BarView | null,
-  missingLabel: string
-): string {
-  if (bar === null) {
-    return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
-  }
-  return renderSelectorBreakdownContent(bar);
-}
-
-function renderCompareVariantDetailsCard(
-  bar: BarView | null,
-  missingLabel: string
-): string {
-  if (bar === null) {
-    return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
-  }
-  return renderVariantDetailsWithoutBreakdown(bar);
-}
-
-function renderCompareVariantPair(
-  leftBar: BarView | null,
-  rightBar: BarView | null
-): string {
-  const title = leftBar?.label ?? rightBar?.label ?? "Variant";
-  return [
-    '<details class="selector-breakdown compare-selector-breakdown">',
-    '<summary class="compare-selector-summary">',
-    '<div class="compare-row compare-variant-row">',
-    '<div class="compare-column">',
-    renderCompareVariantDetailsCard(leftBar, "Not present in left report."),
-    '</div>',
-    '<div class="compare-column">',
-    renderCompareVariantDetailsCard(rightBar, "Not present in right report."),
-    '</div>',
-    '</div>',
-    '<div class="compare-selector-label">Slow-Reject Timings Aggregated by Selector for ' + escapeHtml(title) + ' (Top ' + MAX_SLOW_REJECT_ROWS + ')</div>',
-    '</summary>',
-    '<div class="compare-row selector-breakdown-inner compare-breakdown-row">',
-      '<div class="compare-column">',
-      renderCompareSelectorBreakdownCard(leftBar, "Not present in left report."),
-      '</div>',
-      '<div class="compare-column">',
-      renderCompareSelectorBreakdownCard(rightBar, "Not present in right report."),
-    '</div>',
-    '</div>',
-    '</details>'
-  ].join("");
-}
-
-function renderCompareWebsiteBreakdowns(
-  leftWebsite: WebsiteView | null,
-  rightWebsite: WebsiteView | null
-): string {
-  const leftBars = leftWebsite?.bars ?? [];
-  const rightBars = rightWebsite?.bars ?? [];
-  const maxBars = Math.max(leftBars.length, rightBars.length);
-  const sections: string[] = [];
-
-  for (let index = 0; index < maxBars; index += 1) {
-    const leftBar = leftBars[index] ?? null;
-    const rightBar = rightBars[index] ?? null;
-    sections.push(
-      renderCompareVariantPair(leftBar, rightBar)
-    );
-  }
-
-  return sections.join("");
-}
-
-function renderCompareCard(
-  metadata: ReportMetadataJson,
-  fallbackLabel: string,
-  website: WebsiteView | null,
-  pageMaxBarLengthNs: bigint,
-  missingLabel: string
-): string {
-  return [
-    '<div class="compare-card">',
-    '<h3 class="compare-column-header">' + renderCompareHeaderHtml(metadata, fallbackLabel) + '</h3>',
-    renderCompareCell(website, pageMaxBarLengthNs, missingLabel),
-    '</div>'
-  ].join("");
+  return renderWebsite(website, pageMaxBarLengthNs);
 }
 
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
@@ -908,53 +786,45 @@ function renderCompareResults(
 
   compareResults.innerHTML = compareWebsites.map((website) => {
     return [
-      '<details class="site compare-site">',
-      '<summary>',
-      '<div class="compare-row">',
+      '<section class="compare-row">',
       '<div class="compare-column">',
-      renderCompareCard(
-        leftReport.metadata,
-        leftLabel,
-        website.left,
-        leftPageMaxBarLengthNs,
-        "Not present in left report."
-      ),
+      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(leftReport.metadata, leftLabel) + '</h3>',
+      renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
       '</div>',
       '<div class="compare-column">',
-      renderCompareCard(
-        rightReport.metadata,
-        rightLabel,
-        website.right,
-        rightPageMaxBarLengthNs,
-        "Not present in right report."
-      ),
+      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(rightReport.metadata, rightLabel) + '</h3>',
+      renderCompareCell(website.right, rightPageMaxBarLengthNs, "Not present in right report."),
       '</div>',
-      '</div>',
-      '</summary>',
-      '<div class="details">',
-      renderCompareWebsiteBreakdowns(website.left, website.right),
-      '</div>',
-      '</details>'
+      '</section>'
     ].join("");
   }).join("");
   compareResults.hidden = false;
 }
 
-function syncPairedDetails(leftDetails: HTMLDetailsElement, rightDetails: HTMLDetailsElement): void {
-  let syncing = false;
-  const installSync = (source: HTMLDetailsElement, target: HTMLDetailsElement): void => {
-    source.addEventListener("toggle", () => {
-      if (syncing) {
-        return;
-      }
-      syncing = true;
-      target.open = source.open;
-      syncing = false;
-    });
-  };
+function syncCompareDetails(compareResults: HTMLElement): void {
+  const compareRows = Array.from(compareResults.querySelectorAll<HTMLElement>(":scope > .compare-row"));
+  for (const row of compareRows) {
+    const leftDetails = row.querySelector<HTMLDetailsElement>(".compare-column:first-of-type details.site");
+    const rightDetails = row.querySelector<HTMLDetailsElement>(".compare-column:last-of-type details.site");
+    if (!leftDetails || !rightDetails) {
+      continue;
+    }
 
-  installSync(leftDetails, rightDetails);
-  installSync(rightDetails, leftDetails);
+    let syncing = false;
+    const installSync = (source: HTMLDetailsElement, target: HTMLDetailsElement): void => {
+      source.addEventListener("toggle", () => {
+        if (syncing) {
+          return;
+        }
+        syncing = true;
+        target.open = source.open;
+        syncing = false;
+      });
+    };
+
+    installSync(leftDetails, rightDetails);
+    installSync(rightDetails, leftDetails);
+  }
 }
 
 function setActive(activeBtn: HTMLButtonElement, byTotal: HTMLButtonElement, bySlow: HTMLButtonElement): void {
