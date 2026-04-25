@@ -1,5 +1,20 @@
+param(
+    [string]$Branch
+)
+
+$ErrorActionPreference = "Stop"
+
 $repo = "mach-6"
-$branch = "main"
+
+if (-not $Branch) {
+    $upstream = & git -C $PSScriptRoot rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $upstream) {
+        throw "No branch specified and the current branch does not have a remote tracking branch. Pass -Branch <branch>."
+    }
+
+    $Branch = $upstream -replace "^[^/]+/", ""
+}
+
 $credsPath = Join-Path $PSScriptRoot "nightly-credentials.ps1"
 if (-not (Test-Path $credsPath)) {
     throw "Missing credentials file: $credsPath"
@@ -12,7 +27,7 @@ $params = @{
     Method = 'Post'
     Uri = 'https://nightly.cs.washington.edu//runnow'
     Headers = $headers
-    Body = @{ repo = $repo; branch = $branch }
+    Body = @{ repo = $repo; branch = $Branch }
     MaximumRedirection = 0
 }
 try {
