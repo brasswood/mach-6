@@ -7,6 +7,15 @@ $ErrorActionPreference = "Stop"
 $repo = "mach-6"
 
 if (-not $Branch) {
+    $currentBranch = & git -C $PSScriptRoot branch --show-current
+    if ($LASTEXITCODE -ne 0) {
+        throw "No branch specified and unable to determine the current branch. Pass -Branch <branch>."
+    }
+
+    if (-not $currentBranch) {
+        throw "No branch specified and Git is in a detached HEAD state. Check out a branch or pass -Branch <branch>."
+    }
+
     $upstream = & git -C $PSScriptRoot rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $upstream) {
         throw "No branch specified and the current branch does not have a remote tracking branch. Pass -Branch <branch>."
