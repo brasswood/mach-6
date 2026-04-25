@@ -822,10 +822,9 @@ function renderCompareVariantPair(
   ].join("");
 }
 
-function renderCompareWebsiteDetails(
+function renderCompareWebsiteBreakdowns(
   leftWebsite: WebsiteView | null,
-  rightWebsite: WebsiteView | null,
-  missingLabel: string
+  rightWebsite: WebsiteView | null
 ): string {
   const leftBars = leftWebsite?.bars ?? [];
   const rightBars = rightWebsite?.bars ?? [];
@@ -836,17 +835,7 @@ function renderCompareWebsiteDetails(
     const leftBar = leftBars[index] ?? null;
     const rightBar = rightBars[index] ?? null;
     sections.push(
-      [
-        '<div class="compare-row compare-variant-row">',
-        '<div class="compare-column">',
-        leftBar === null ? '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>' : renderVariantDetailsWithoutBreakdown(leftBar),
-        '</div>',
-        '<div class="compare-column">',
-        rightBar === null ? '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>' : renderVariantDetailsWithoutBreakdown(rightBar),
-        '</div>',
-        '</div>',
-        renderCompareVariantPair(leftBar, rightBar)
-      ].join("")
+      renderCompareVariantPair(leftBar, rightBar)
     );
   }
 
@@ -857,17 +846,15 @@ function renderCompareCard(
   metadata: ReportMetadataJson,
   fallbackLabel: string,
   website: WebsiteView | null,
-  otherWebsite: WebsiteView | null,
   pageMaxBarLengthNs: bigint,
-  missingLabel: string,
-  otherMissingLabel: string
+  missingLabel: string
 ): string {
   return [
     '<div class="compare-card">',
     '<h3 class="compare-column-header">' + renderCompareHeaderHtml(metadata, fallbackLabel) + '</h3>',
     renderCompareCell(website, pageMaxBarLengthNs, missingLabel),
     '<div class="compare-card-details">',
-    renderCompareWebsiteDetails(website, otherWebsite, otherMissingLabel),
+    renderCompareDetailsCell(website, missingLabel),
     '</div>',
     '</div>'
   ].join("");
@@ -924,10 +911,8 @@ function renderCompareResults(
         leftReport.metadata,
         leftLabel,
         website.left,
-        website.right,
         leftPageMaxBarLengthNs,
-        "Not present in left report.",
-        "Not present in right report."
+        "Not present in left report."
       ),
       '</div>',
       '<div class="compare-column">',
@@ -935,14 +920,15 @@ function renderCompareResults(
         rightReport.metadata,
         rightLabel,
         website.right,
-        website.left,
         rightPageMaxBarLengthNs,
-        "Not present in right report.",
-        "Not present in left report."
+        "Not present in right report."
       ),
       '</div>',
       '</div>',
       '</summary>',
+      '<div class="details">',
+      renderCompareWebsiteBreakdowns(website.left, website.right),
+      '</div>',
       '</details>'
     ].join("");
   }).join("");
