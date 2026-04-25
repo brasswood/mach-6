@@ -188,9 +188,9 @@
       background: transparent;
     }
     .site.compare-site > .details {
-      border-top: 1px solid var(--line);
-      padding-top: 12px;
-      margin-top: 10px;
+      border-top: 0;
+      padding-top: 0;
+      margin-top: 0;
     }
     .compare-row {
       display: grid;
@@ -207,6 +207,18 @@
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 8px;
+    }
+    .site.compare-site[open] > summary .compare-column {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .site.compare-site > .details .compare-column {
+      padding: 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-top: 0;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
     }
     .compare-column-header {
       margin: 0 0 8px 0;
