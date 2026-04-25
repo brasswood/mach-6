@@ -11,7 +11,6 @@ type SegmentKind =
   | "other";
 
 type SortDatasetKey = "totalNs" | "slowRejectNs";
-type CompareSortDatasetKey = "leftTotalNs" | "leftSlowRejectNs" | "rightTotalNs" | "rightSlowRejectNs";
 
 interface ReportJson {
   metadata: ReportMetadataJson;
@@ -476,9 +475,6 @@ function installCompareHandler(
   list: HTMLElement,
   sortControls: HTMLElement,
   compareResults: HTMLElement,
-  compareSortControls: HTMLElement,
-  compareSortLeftTotal: HTMLButtonElement,
-  compareSortButtons: HTMLButtonElement[],
   byTotal: HTMLButtonElement,
   bySlow: HTMLButtonElement
 ): void {
@@ -502,8 +498,6 @@ function installCompareHandler(
     syncCompareDetails(compareResults);
     list.hidden = true;
     sortControls.hidden = true;
-    compareSortControls.hidden = false;
-    sortCompareResults("leftTotalNs", compareSortLeftTotal, compareResults, compareSortButtons);
     document.body.classList.add("compare-active");
     setCompareStatus(
       compareStatus,
@@ -521,7 +515,6 @@ function installCompareHandler(
     hideCompareResults(compareResults);
     list.hidden = false;
     sortControls.hidden = false;
-    compareSortControls.hidden = true;
     document.body.classList.remove("compare-active");
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
     setCompareStatus(
@@ -546,7 +539,6 @@ function installCompareHandler(
         const message = error instanceof Error ? error.message : String(error);
         hideCompareResults(compareResults);
         document.body.classList.remove("compare-active");
-        compareSortControls.hidden = true;
         setCompareStatus(compareStatus, "Failed to load compare reports: " + message, true);
       } finally {
         setButtonsDisabled(false);
@@ -872,15 +864,8 @@ function renderCompareResults(
   const rightPageMaxBarLengthNs = getPageMaxBarLengthNs(rightWebsites);
 
   compareResults.innerHTML = compareWebsites.map((website) => {
-    const leftTotalNs = website.left?.totalSortKeyNs ?? 0n;
-    const leftSlowRejectNs = website.left?.slowRejectSortKeyNs ?? 0n;
-    const rightTotalNs = website.right?.totalSortKeyNs ?? 0n;
-    const rightSlowRejectNs = website.right?.slowRejectSortKeyNs ?? 0n;
     return [
-      '<section class="compare-row" data-left-total-ns="' + leftTotalNs.toString()
-        + '" data-left-slow-reject-ns="' + leftSlowRejectNs.toString()
-        + '" data-right-total-ns="' + rightTotalNs.toString()
-        + '" data-right-slow-reject-ns="' + rightSlowRejectNs.toString() + '">',
+      '<section class="compare-row">',
       '<div class="compare-column">',
       '<h3 class="compare-column-header">' + renderCompareHeaderHtml(leftReport.metadata, leftLabel) + '</h3>',
       renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
@@ -967,33 +952,6 @@ function sortBy(
   setActive(activeBtn, byTotal, bySlow);
 }
 
-function setActiveCompareSort(activeBtn: HTMLButtonElement, buttons: HTMLButtonElement[]): void {
-  for (const button of buttons) {
-    button.classList.toggle("active", button === activeBtn);
-  }
-}
-
-function sortCompareResults(
-  datasetKey: CompareSortDatasetKey,
-  activeBtn: HTMLButtonElement,
-  compareResults: HTMLElement,
-  buttons: HTMLButtonElement[]
-): void {
-  const compareRows = Array.from(compareResults.querySelectorAll<HTMLElement>(":scope > .compare-row"));
-  compareRows.sort((a, b) => {
-    const av = BigInt(a.dataset[datasetKey] ?? "0");
-    const bv = BigInt(b.dataset[datasetKey] ?? "0");
-    if (av === bv) {
-      return 0;
-    }
-    return av > bv ? -1 : 1;
-  });
-  for (const row of compareRows) {
-    compareResults.appendChild(row);
-  }
-  setActiveCompareSort(activeBtn, buttons);
-}
-
 function isReportJson(value: unknown): value is ReportJson {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -1016,12 +974,7 @@ async function main(): Promise<void> {
   const compareLeftOnly = document.getElementById("compare-left-only");
   const compareRightOnly = document.getElementById("compare-right-only");
   const compareResults = document.getElementById("compare-results");
-  const sortControls = document.getElementById("sort-controls") ?? document.querySelector(".sort-controls");
-  const compareSortControls = document.getElementById("compare-sort-controls");
-  const compareSortLeftTotal = document.getElementById("compare-sort-left-total");
-  const compareSortLeftSlow = document.getElementById("compare-sort-left-slow");
-  const compareSortRightTotal = document.getElementById("compare-sort-right-total");
-  const compareSortRightSlow = document.getElementById("compare-sort-right-slow");
+  const sortControls = document.querySelector(".sort-controls");
   if (!(list instanceof HTMLElement)
     || !(byTotal instanceof HTMLButtonElement)
     || !(bySlow instanceof HTMLButtonElement)
@@ -1035,39 +988,15 @@ async function main(): Promise<void> {
     || !(compareLeftOnly instanceof HTMLButtonElement)
     || !(compareRightOnly instanceof HTMLButtonElement)
     || !(compareResults instanceof HTMLElement)
-    || !(sortControls instanceof HTMLElement)
-    || !(compareSortControls instanceof HTMLElement)
-    || !(compareSortLeftTotal instanceof HTMLButtonElement)
-    || !(compareSortLeftSlow instanceof HTMLButtonElement)
-    || !(compareSortRightTotal instanceof HTMLButtonElement)
-    || !(compareSortRightSlow instanceof HTMLButtonElement)) {
+    || !(sortControls instanceof HTMLElement)) {
     return;
   }
-
-  const compareSortButtons = [
-    compareSortLeftTotal,
-    compareSortLeftSlow,
-    compareSortRightTotal,
-    compareSortRightSlow
-  ];
 
   byTotal.addEventListener("click", () => {
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
   });
   bySlow.addEventListener("click", () => {
     sortBy("slowRejectNs", bySlow, list, byTotal, bySlow);
-  });
-  compareSortLeftTotal.addEventListener("click", () => {
-    sortCompareResults("leftTotalNs", compareSortLeftTotal, compareResults, compareSortButtons);
-  });
-  compareSortLeftSlow.addEventListener("click", () => {
-    sortCompareResults("leftSlowRejectNs", compareSortLeftSlow, compareResults, compareSortButtons);
-  });
-  compareSortRightTotal.addEventListener("click", () => {
-    sortCompareResults("rightTotalNs", compareSortRightTotal, compareResults, compareSortButtons);
-  });
-  compareSortRightSlow.addEventListener("click", () => {
-    sortCompareResults("rightSlowRejectNs", compareSortRightSlow, compareResults, compareSortButtons);
   });
 
   try {
@@ -1086,7 +1015,6 @@ async function main(): Promise<void> {
     list.hidden = false;
     hideCompareResults(compareResults);
     document.body.classList.remove("compare-active");
-    compareSortControls.hidden = true;
     status.hidden = true;
     await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
     installCompareHandler(
@@ -1099,9 +1027,6 @@ async function main(): Promise<void> {
       list,
       sortControls,
       compareResults,
-      compareSortControls,
-      compareSortLeftTotal,
-      compareSortButtons,
       byTotal,
       bySlow
     );
