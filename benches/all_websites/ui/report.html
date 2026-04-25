@@ -202,14 +202,37 @@
       border: 1px solid var(--line);
       border-radius: 8px;
     }
-    .compare-card-details {
-      display: none;
-      padding-top: 12px;
+    .site.compare-site > .details {
       margin-top: 10px;
-      border-top: 1px solid var(--line);
+      padding-top: 0;
+      border-top: 0;
     }
-    .site.compare-site[open] .compare-card-details {
-      display: block;
+    .compare-selector-breakdown {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 0;
+      background: transparent;
+      border: 0;
+    }
+    .compare-selector-breakdown > summary {
+      grid-row: 2;
+    }
+    .compare-selector-breakdown > .compare-variant-row {
+      grid-row: 1;
+    }
+    .compare-selector-breakdown > .compare-breakdown-row {
+      grid-row: 3;
+      display: none;
+    }
+    .compare-selector-breakdown[open] > .compare-breakdown-row {
+      display: grid;
+    }
+    .compare-breakdown-row .compare-column {
+      padding: 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
     }
     .compare-column-header {
       margin: 0 0 8px 0;

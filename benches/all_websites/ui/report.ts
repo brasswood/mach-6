@@ -780,18 +780,6 @@ function renderCompareCell(
   return renderWebsiteSummaryContent(website, pageMaxBarLengthNs);
 }
 
-function renderCompareDetailsCell(
-  website: WebsiteView | null,
-  missingLabel: string
-): string {
-  if (website === null) {
-    return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
-  }
-  return website.bars.map((bar) => {
-    return renderVariantDetailsWithoutBreakdown(bar);
-  }).join("");
-}
-
 function renderCompareSelectorBreakdownCard(
   bar: BarView | null,
   missingLabel: string
@@ -802,6 +790,16 @@ function renderCompareSelectorBreakdownCard(
   return renderSelectorBreakdownContent(bar);
 }
 
+function renderCompareVariantDetailsCard(
+  bar: BarView | null,
+  missingLabel: string
+): string {
+  if (bar === null) {
+    return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
+  }
+  return renderVariantDetailsWithoutBreakdown(bar);
+}
+
 function renderCompareVariantPair(
   leftBar: BarView | null,
   rightBar: BarView | null
@@ -810,12 +808,20 @@ function renderCompareVariantPair(
   return [
     '<details class="selector-breakdown compare-selector-breakdown">',
     '<summary>Slow-Reject Timings Aggregated by Selector for ' + escapeHtml(title) + ' (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+    '<div class="compare-row compare-variant-row">',
+      '<div class="compare-column">',
+      renderCompareVariantDetailsCard(leftBar, "Not present in left report."),
+      '</div>',
+      '<div class="compare-column">',
+      renderCompareVariantDetailsCard(rightBar, "Not present in right report."),
+      '</div>',
+      '</div>',
     '<div class="compare-row selector-breakdown-inner compare-breakdown-row">',
-    '<div class="compare-column">',
-    renderCompareSelectorBreakdownCard(leftBar, "Not present in left report."),
-    '</div>',
-    '<div class="compare-column">',
-    renderCompareSelectorBreakdownCard(rightBar, "Not present in right report."),
+      '<div class="compare-column">',
+      renderCompareSelectorBreakdownCard(leftBar, "Not present in left report."),
+      '</div>',
+      '<div class="compare-column">',
+      renderCompareSelectorBreakdownCard(rightBar, "Not present in right report."),
     '</div>',
     '</div>',
     '</details>'
@@ -853,9 +859,6 @@ function renderCompareCard(
     '<div class="compare-card">',
     '<h3 class="compare-column-header">' + renderCompareHeaderHtml(metadata, fallbackLabel) + '</h3>',
     renderCompareCell(website, pageMaxBarLengthNs, missingLabel),
-    '<div class="compare-card-details">',
-    renderCompareDetailsCell(website, missingLabel),
-    '</div>',
     '</div>'
   ].join("");
 }
