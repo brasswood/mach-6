@@ -763,6 +763,24 @@ function renderCompareDetailsCell(
   return renderWebsiteDetailsContent(website);
 }
 
+function renderCompareCard(
+  metadata: ReportMetadataJson,
+  fallbackLabel: string,
+  website: WebsiteView | null,
+  pageMaxBarLengthNs: bigint,
+  missingLabel: string
+): string {
+  return [
+    '<div class="compare-card">',
+    '<h3 class="compare-column-header">' + renderCompareHeaderHtml(metadata, fallbackLabel) + '</h3>',
+    renderCompareCell(website, pageMaxBarLengthNs, missingLabel),
+    '<div class="compare-card-details">',
+    renderCompareDetailsCell(website, missingLabel),
+    '</div>',
+    '</div>'
+  ].join("");
+}
+
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
   const parts: string[] = [];
   const commitHash = metadata.commit_hash;
@@ -810,25 +828,25 @@ function renderCompareResults(
       '<summary>',
       '<div class="compare-row">',
       '<div class="compare-column">',
-      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(leftReport.metadata, leftLabel) + '</h3>',
-      renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
+      renderCompareCard(
+        leftReport.metadata,
+        leftLabel,
+        website.left,
+        leftPageMaxBarLengthNs,
+        "Not present in left report."
+      ),
       '</div>',
       '<div class="compare-column">',
-      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(rightReport.metadata, rightLabel) + '</h3>',
-      renderCompareCell(website.right, rightPageMaxBarLengthNs, "Not present in right report."),
+      renderCompareCard(
+        rightReport.metadata,
+        rightLabel,
+        website.right,
+        rightPageMaxBarLengthNs,
+        "Not present in right report."
+      ),
       '</div>',
       '</div>',
       '</summary>',
-      '<div class="details">',
-      '<div class="compare-row">',
-      '<div class="compare-column">',
-      renderCompareDetailsCell(website.left, "Not present in left report."),
-      '</div>',
-      '<div class="compare-column">',
-      renderCompareDetailsCell(website.right, "Not present in right report."),
-      '</div>',
-      '</div>',
-      '</div>',
       '</details>'
     ].join("");
   }).join("");
@@ -855,8 +873,14 @@ function syncPairedDetails(leftDetails: HTMLDetailsElement, rightDetails: HTMLDe
 function syncCompareSelectorBreakdowns(compareResults: HTMLElement): void {
   const compareSites = Array.from(compareResults.querySelectorAll<HTMLDetailsElement>(":scope > details.compare-site"));
   for (const site of compareSites) {
-    const leftDetails = Array.from(site.querySelectorAll<HTMLDetailsElement>(".compare-column:first-of-type details.selector-breakdown"));
-    const rightDetails = Array.from(site.querySelectorAll<HTMLDetailsElement>(".compare-column:last-of-type details.selector-breakdown"));
+    const compareColumns = Array.from(site.querySelectorAll<HTMLElement>(":scope > summary > .compare-row > .compare-column"));
+    const leftColumn = compareColumns[0];
+    const rightColumn = compareColumns[1];
+    if (!leftColumn || !rightColumn) {
+      continue;
+    }
+    const leftDetails = Array.from(leftColumn.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown"));
+    const rightDetails = Array.from(rightColumn.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown"));
     const pairCount = Math.min(leftDetails.length, rightDetails.length);
     for (let index = 0; index < pairCount; index += 1) {
       const leftDetail = leftDetails[index];
