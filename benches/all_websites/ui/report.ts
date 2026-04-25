@@ -431,25 +431,33 @@ function setCompareStatus(compareStatus: HTMLElement, message: string, isError: 
   compareStatus.textContent = message;
 }
 
-function renderSelectedReportResults(
-  compareResults: HTMLElement,
+function renderSingleReportList(
+  list: HTMLElement,
   report: ReportJson,
-  label: string
+  label: string | null
 ): void {
   const websites = report.websites.map(buildWebsiteView);
   const pageMaxBarLengthNs = getPageMaxBarLengthNs(websites);
+  const headerHtml = label === null
+    ? ""
+    : '<h3 class="compare-column-header">' + renderCompareHeaderHtml(report.metadata, label) + '</h3>';
 
-  compareResults.innerHTML = [
-    '<section class="compare-row">',
-    '<div class="compare-column">',
-    '<h3 class="compare-column-header">' + renderCompareHeaderHtml(report.metadata, label) + '</h3>',
+  list.innerHTML = [
+    headerHtml,
     websites.map((website) => {
       return renderWebsite(website, pageMaxBarLengthNs);
     }).join(""),
-    '</div>',
-    '</section>'
   ].join("");
-  compareResults.hidden = false;
+}
+
+function renderDefaultReportList(
+  list: HTMLElement,
+  byTotal: HTMLButtonElement,
+  bySlow: HTMLButtonElement,
+  report: ReportJson
+): void {
+  renderSingleReportList(list, report, null);
+  sortBy("totalNs", byTotal, list, byTotal, bySlow);
 }
 
 function installCompareHandler(
@@ -461,7 +469,9 @@ function installCompareHandler(
   compareStatus: HTMLElement,
   list: HTMLElement,
   sortControls: HTMLElement,
-  compareResults: HTMLElement
+  compareResults: HTMLElement,
+  byTotal: HTMLButtonElement,
+  bySlow: HTMLButtonElement
 ): void {
   const setButtonsDisabled = (disabled: boolean): void => {
     compareButton.disabled = disabled;
@@ -496,10 +506,12 @@ function installCompareHandler(
     const select = side === "left" ? leftSelect : rightSelect;
     const report = await fetchReportJson(select.value);
     const label = select.selectedOptions[0]?.textContent ?? (side === "left" ? "Left report" : "Right report");
-    renderSelectedReportResults(compareResults, report, label);
-    list.hidden = true;
-    sortControls.hidden = true;
+    renderSingleReportList(list, report, label);
+    compareResults.hidden = true;
+    list.hidden = false;
+    sortControls.hidden = false;
     document.body.classList.remove("compare-active");
+    sortBy("totalNs", byTotal, list, byTotal, bySlow);
     setCompareStatus(
       compareStatus,
       "Showing " + (side === "left" ? "left" : "right") + " report only for " + report.websites.length + " websites.",
@@ -994,20 +1006,11 @@ async function main(): Promise<void> {
     }
 
     renderMetadata(raw.metadata, commitLine);
-    const websites = raw.websites.map(buildWebsiteView);
-    const pageMaxBarLengthNs = websites.reduce((max, website) => {
-      return website.bars.reduce((innerMax, bar) => {
-        return bar.totalLengthNs > innerMax ? bar.totalLengthNs : innerMax;
-      }, max);
-    }, 0n);
-
-    list.innerHTML = websites.map((website) => {
-      return renderWebsite(website, pageMaxBarLengthNs);
-    }).join("");
+    renderDefaultReportList(list, byTotal, bySlow, raw);
     list.hidden = false;
+    compareResults.hidden = true;
     document.body.classList.remove("compare-active");
     status.hidden = true;
-    sortBy("totalNs", byTotal, list, byTotal, bySlow);
     await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
     installCompareHandler(
       compareRun,
@@ -1018,7 +1021,9 @@ async function main(): Promise<void> {
       compareStatus,
       list,
       sortControls,
-      compareResults
+      compareResults,
+      byTotal,
+      bySlow
     );
   } catch (error: unknown) {
     status.hidden = false;
