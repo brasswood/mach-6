@@ -432,6 +432,10 @@ function setCompareStatus(compareStatus: HTMLElement, message: string, isError: 
   compareStatus.textContent = message;
 }
 
+function formatWebsiteCount(count: number): string {
+  return count.toString() + " " + (count === 1 ? "website" : "websites");
+}
+
 function renderSingleReportList(
   list: HTMLElement,
   report: ReportJson,
@@ -509,8 +513,8 @@ function installCompareHandler(
     document.body.classList.add("compare-active");
     setCompareStatus(
       compareStatus,
-      "Showing compare view for " + leftReport.websites.length + " left websites and "
-        + rightReport.websites.length + " right websites.",
+      "Showing compare view for " + formatWebsiteCount(leftReport.websites.length) + " on the left and "
+        + formatWebsiteCount(rightReport.websites.length) + " on the right.",
       false
     );
   };
@@ -527,7 +531,8 @@ function installCompareHandler(
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
     setCompareStatus(
       compareStatus,
-      "Showing " + (side === "left" ? "left" : "right") + " report only for " + report.websites.length + " websites.",
+      "Showing " + (side === "left" ? "left" : "right") + " report only for "
+        + formatWebsiteCount(report.websites.length) + ".",
       false
     );
   };
