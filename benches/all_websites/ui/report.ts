@@ -431,8 +431,31 @@ function setCompareStatus(compareStatus: HTMLElement, message: string, isError: 
   compareStatus.textContent = message;
 }
 
+function renderSelectedReportResults(
+  compareResults: HTMLElement,
+  report: ReportJson,
+  label: string
+): void {
+  const websites = report.websites.map(buildWebsiteView);
+  const pageMaxBarLengthNs = getPageMaxBarLengthNs(websites);
+
+  compareResults.innerHTML = [
+    '<section class="compare-row">',
+    '<div class="compare-column">',
+    '<h3 class="compare-column-header">' + renderCompareHeaderHtml(report.metadata, label) + '</h3>',
+    websites.map((website) => {
+      return renderWebsite(website, pageMaxBarLengthNs);
+    }).join(""),
+    '</div>',
+    '</section>'
+  ].join("");
+  compareResults.hidden = false;
+}
+
 function installCompareHandler(
   compareButton: HTMLButtonElement,
+  leftOnlyButton: HTMLButtonElement,
+  rightOnlyButton: HTMLButtonElement,
   leftSelect: HTMLSelectElement,
   rightSelect: HTMLSelectElement,
   compareStatus: HTMLElement,
@@ -440,39 +463,78 @@ function installCompareHandler(
   sortControls: HTMLElement,
   compareResults: HTMLElement
 ): void {
-  compareButton.addEventListener("click", async () => {
-    compareButton.disabled = true;
-    setCompareStatus(compareStatus, "Loading selected reports...", false);
+  const setButtonsDisabled = (disabled: boolean): void => {
+    compareButton.disabled = disabled;
+    leftOnlyButton.disabled = disabled;
+    rightOnlyButton.disabled = disabled;
+  };
 
-    try {
-      const leftUrl = leftSelect.value;
-      const rightUrl = rightSelect.value;
-      const [leftReport, rightReport] = await Promise.all([
-        fetchReportJson(leftUrl),
-        fetchReportJson(rightUrl)
-      ]);
+  const renderTwoSided = async (): Promise<void> => {
+    const leftUrl = leftSelect.value;
+    const rightUrl = rightSelect.value;
+    const [leftReport, rightReport] = await Promise.all([
+      fetchReportJson(leftUrl),
+      fetchReportJson(rightUrl)
+    ]);
 
-      const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
-      const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
-      renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
-      syncCompareDetails(compareResults);
-      list.hidden = true;
-      sortControls.hidden = true;
-      document.body.classList.add("compare-active");
-      setCompareStatus(
-        compareStatus,
-        "Showing compare view for " + leftReport.websites.length + " left websites and "
-          + rightReport.websites.length + " right websites.",
-        false
-      );
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      compareResults.hidden = true;
-      document.body.classList.remove("compare-active");
-      setCompareStatus(compareStatus, "Failed to load compare reports: " + message, true);
-    } finally {
-      compareButton.disabled = false;
-    }
+    const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
+    const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
+    renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
+    syncCompareDetails(compareResults);
+    list.hidden = true;
+    sortControls.hidden = true;
+    document.body.classList.add("compare-active");
+    setCompareStatus(
+      compareStatus,
+      "Showing compare view for " + leftReport.websites.length + " left websites and "
+        + rightReport.websites.length + " right websites.",
+      false
+    );
+  };
+
+  const renderOneSided = async (side: "left" | "right"): Promise<void> => {
+    const select = side === "left" ? leftSelect : rightSelect;
+    const report = await fetchReportJson(select.value);
+    const label = select.selectedOptions[0]?.textContent ?? (side === "left" ? "Left report" : "Right report");
+    renderSelectedReportResults(compareResults, report, label);
+    list.hidden = true;
+    sortControls.hidden = true;
+    document.body.classList.remove("compare-active");
+    setCompareStatus(
+      compareStatus,
+      "Showing " + (side === "left" ? "left" : "right") + " report only for " + report.websites.length + " websites.",
+      false
+    );
+  };
+
+  const installAction = (
+    button: HTMLButtonElement,
+    loadingMessage: string,
+    action: () => Promise<void>
+  ): void => {
+    button.addEventListener("click", async () => {
+      setButtonsDisabled(true);
+      setCompareStatus(compareStatus, loadingMessage, false);
+
+      try {
+        await action();
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        compareResults.hidden = true;
+        document.body.classList.remove("compare-active");
+        setCompareStatus(compareStatus, "Failed to load compare reports: " + message, true);
+      } finally {
+        setButtonsDisabled(false);
+      }
+    });
+  };
+
+  installAction(compareButton, "Loading selected reports...", renderTwoSided);
+  installAction(leftOnlyButton, "Loading left report...", async () => {
+    await renderOneSided("left");
+  });
+  installAction(rightOnlyButton, "Loading right report...", async () => {
+    await renderOneSided("right");
   });
 }
 
@@ -892,6 +954,8 @@ async function main(): Promise<void> {
   const compareRight = document.getElementById("compare-right");
   const compareStatus = document.getElementById("compare-status");
   const compareRun = document.getElementById("compare-run");
+  const compareLeftOnly = document.getElementById("compare-left-only");
+  const compareRightOnly = document.getElementById("compare-right-only");
   const compareResults = document.getElementById("compare-results");
   const sortControls = document.querySelector(".sort-controls");
   if (!(list instanceof HTMLElement)
@@ -904,6 +968,8 @@ async function main(): Promise<void> {
     || !(compareRight instanceof HTMLSelectElement)
     || !(compareStatus instanceof HTMLElement)
     || !(compareRun instanceof HTMLButtonElement)
+    || !(compareLeftOnly instanceof HTMLButtonElement)
+    || !(compareRightOnly instanceof HTMLButtonElement)
     || !(compareResults instanceof HTMLElement)
     || !(sortControls instanceof HTMLElement)) {
     return;
@@ -943,7 +1009,17 @@ async function main(): Promise<void> {
     status.hidden = true;
     sortBy("totalNs", byTotal, list, byTotal, bySlow);
     await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
-    installCompareHandler(compareRun, compareLeft, compareRight, compareStatus, list, sortControls, compareResults);
+    installCompareHandler(
+      compareRun,
+      compareLeftOnly,
+      compareRightOnly,
+      compareLeft,
+      compareRight,
+      compareStatus,
+      list,
+      sortControls,
+      compareResults
+    );
   } catch (error: unknown) {
     status.hidden = false;
     status.classList.add("error");
