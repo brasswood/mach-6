@@ -455,7 +455,6 @@ function installCompareHandler(
       const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
       const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
       renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
-      syncCompareSelectorBreakdowns(compareResults);
       list.hidden = true;
       sortControls.hidden = true;
       document.body.classList.add("compare-active");
@@ -647,6 +646,26 @@ function renderSelectorRows(rows: SelectorRow[]): string {
   }).join("");
 }
 
+function renderSelectorBreakdownContent(bar: BarView): string {
+  return [
+    '<div class="selector-breakdown-inner">',
+    '<table class="selector-breakdown-table">',
+    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Time</th></tr></thead>',
+    '<tbody>' + renderSelectorRows(bar.topSlowRejectSelectors) + '</tbody>',
+    '</table>',
+    '</div>'
+  ].join("");
+}
+
+function renderSelectorBreakdown(bar: BarView): string {
+  return [
+    '<details class="selector-breakdown">',
+    '<summary>Slow-Reject Timings Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+    renderSelectorBreakdownContent(bar),
+    '</details>'
+  ].join("");
+}
+
 function renderVariantDetails(bar: BarView): string {
   return [
     '<section class="variant-details">',
@@ -659,15 +678,23 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     '</tbody></table>',
-    '<details class="selector-breakdown">',
-    '<summary>Slow-Reject Timings Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
-    '<div class="selector-breakdown-inner">',
-    '<table class="selector-breakdown-table">',
-    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Time</th></tr></thead>',
-    '<tbody>' + renderSelectorRows(bar.topSlowRejectSelectors) + '</tbody>',
-    '</table>',
-    '</div>',
-    '</details>',
+    renderSelectorBreakdown(bar),
+    '</section>'
+  ].join("");
+}
+
+function renderVariantDetailsWithoutBreakdown(bar: BarView): string {
+  return [
+    '<section class="variant-details">',
+    '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
+    renderExpandedBar(bar),
+    '<table><tbody>',
+    '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
+    '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
+    '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
+    '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
+    '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
+    '</tbody></table>',
     '</section>'
   ].join("");
 }
@@ -760,22 +787,87 @@ function renderCompareDetailsCell(
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsiteDetailsContent(website);
+  return website.bars.map((bar) => {
+    return renderVariantDetailsWithoutBreakdown(bar);
+  }).join("");
+}
+
+function renderCompareSelectorBreakdownCard(
+  bar: BarView | null,
+  missingLabel: string
+): string {
+  if (bar === null) {
+    return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
+  }
+  return renderSelectorBreakdownContent(bar);
+}
+
+function renderCompareVariantPair(
+  leftBar: BarView | null,
+  rightBar: BarView | null
+): string {
+  const title = leftBar?.label ?? rightBar?.label ?? "Variant";
+  return [
+    '<details class="selector-breakdown compare-selector-breakdown">',
+    '<summary>Slow-Reject Timings Aggregated by Selector for ' + escapeHtml(title) + ' (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+    '<div class="compare-row selector-breakdown-inner compare-breakdown-row">',
+    '<div class="compare-column">',
+    renderCompareSelectorBreakdownCard(leftBar, "Not present in left report."),
+    '</div>',
+    '<div class="compare-column">',
+    renderCompareSelectorBreakdownCard(rightBar, "Not present in right report."),
+    '</div>',
+    '</div>',
+    '</details>'
+  ].join("");
+}
+
+function renderCompareWebsiteDetails(
+  leftWebsite: WebsiteView | null,
+  rightWebsite: WebsiteView | null,
+  missingLabel: string
+): string {
+  const leftBars = leftWebsite?.bars ?? [];
+  const rightBars = rightWebsite?.bars ?? [];
+  const maxBars = Math.max(leftBars.length, rightBars.length);
+  const sections: string[] = [];
+
+  for (let index = 0; index < maxBars; index += 1) {
+    const leftBar = leftBars[index] ?? null;
+    const rightBar = rightBars[index] ?? null;
+    sections.push(
+      [
+        '<div class="compare-row compare-variant-row">',
+        '<div class="compare-column">',
+        leftBar === null ? '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>' : renderVariantDetailsWithoutBreakdown(leftBar),
+        '</div>',
+        '<div class="compare-column">',
+        rightBar === null ? '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>' : renderVariantDetailsWithoutBreakdown(rightBar),
+        '</div>',
+        '</div>',
+        renderCompareVariantPair(leftBar, rightBar)
+      ].join("")
+    );
+  }
+
+  return sections.join("");
 }
 
 function renderCompareCard(
   metadata: ReportMetadataJson,
   fallbackLabel: string,
   website: WebsiteView | null,
+  otherWebsite: WebsiteView | null,
   pageMaxBarLengthNs: bigint,
-  missingLabel: string
+  missingLabel: string,
+  otherMissingLabel: string
 ): string {
   return [
     '<div class="compare-card">',
     '<h3 class="compare-column-header">' + renderCompareHeaderHtml(metadata, fallbackLabel) + '</h3>',
     renderCompareCell(website, pageMaxBarLengthNs, missingLabel),
     '<div class="compare-card-details">',
-    renderCompareDetailsCell(website, missingLabel),
+    renderCompareWebsiteDetails(website, otherWebsite, otherMissingLabel),
     '</div>',
     '</div>'
   ].join("");
@@ -832,8 +924,10 @@ function renderCompareResults(
         leftReport.metadata,
         leftLabel,
         website.left,
+        website.right,
         leftPageMaxBarLengthNs,
-        "Not present in left report."
+        "Not present in left report.",
+        "Not present in right report."
       ),
       '</div>',
       '<div class="compare-column">',
@@ -841,8 +935,10 @@ function renderCompareResults(
         rightReport.metadata,
         rightLabel,
         website.right,
+        website.left,
         rightPageMaxBarLengthNs,
-        "Not present in right report."
+        "Not present in right report.",
+        "Not present in left report."
       ),
       '</div>',
       '</div>',
@@ -868,28 +964,6 @@ function syncPairedDetails(leftDetails: HTMLDetailsElement, rightDetails: HTMLDe
 
   installSync(leftDetails, rightDetails);
   installSync(rightDetails, leftDetails);
-}
-
-function syncCompareSelectorBreakdowns(compareResults: HTMLElement): void {
-  const compareSites = Array.from(compareResults.querySelectorAll<HTMLDetailsElement>(":scope > details.compare-site"));
-  for (const site of compareSites) {
-    const compareColumns = Array.from(site.querySelectorAll<HTMLElement>(":scope > summary > .compare-row > .compare-column"));
-    const leftColumn = compareColumns[0];
-    const rightColumn = compareColumns[1];
-    if (!leftColumn || !rightColumn) {
-      continue;
-    }
-    const leftDetails = Array.from(leftColumn.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown"));
-    const rightDetails = Array.from(rightColumn.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown"));
-    const pairCount = Math.min(leftDetails.length, rightDetails.length);
-    for (let index = 0; index < pairCount; index += 1) {
-      const leftDetail = leftDetails[index];
-      const rightDetail = rightDetails[index];
-      if (leftDetail && rightDetail) {
-        syncPairedDetails(leftDetail, rightDetail);
-      }
-    }
-  }
 }
 
 function setActive(activeBtn: HTMLButtonElement, byTotal: HTMLButtonElement, bySlow: HTMLButtonElement): void {
