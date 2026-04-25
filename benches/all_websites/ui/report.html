@@ -590,9 +590,15 @@
       </section>
     </div>
     <div class="report-body">
-      <div class="sort-controls" role="group" aria-label="Sort websites">
+      <div id="sort-controls" class="sort-controls" role="group" aria-label="Sort websites">
         <button id="sort-total" class="sort-btn" type="button">Sort by Overall Time</button>
         <button id="sort-slow" class="sort-btn" type="button">Sort by Slow-Reject Time</button>
+      </div>
+      <div id="compare-sort-controls" class="sort-controls" role="group" aria-label="Sort compared websites" hidden>
+        <button id="compare-sort-left-total" class="sort-btn" type="button">Left Overall Time</button>
+        <button id="compare-sort-left-slow" class="sort-btn" type="button">Left Slow-Reject Time</button>
+        <button id="compare-sort-right-total" class="sort-btn" type="button">Right Overall Time</button>
+        <button id="compare-sort-right-slow" class="sort-btn" type="button">Right Slow-Reject Time</button>
       </div>
       <section id="websites-list"></section>
       <section id="compare-results" class="compare-results" hidden></section>
