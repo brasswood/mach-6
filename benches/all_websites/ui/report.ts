@@ -801,29 +801,48 @@ function renderCompareResults(
   compareResults.hidden = false;
 }
 
+function syncPairedDetails(leftDetails: HTMLDetailsElement, rightDetails: HTMLDetailsElement): void {
+  let syncing = false;
+  const installSync = (source: HTMLDetailsElement, target: HTMLDetailsElement): void => {
+    source.addEventListener("toggle", () => {
+      if (syncing) {
+        return;
+      }
+      syncing = true;
+      target.open = source.open;
+      syncing = false;
+    });
+  };
+
+  installSync(leftDetails, rightDetails);
+  installSync(rightDetails, leftDetails);
+}
+
 function syncCompareDetails(compareResults: HTMLElement): void {
   const compareRows = Array.from(compareResults.querySelectorAll<HTMLElement>(":scope > .compare-row"));
   for (const row of compareRows) {
-    const leftDetails = row.querySelector<HTMLDetailsElement>(".compare-column:first-of-type details.site");
-    const rightDetails = row.querySelector<HTMLDetailsElement>(".compare-column:last-of-type details.site");
-    if (!leftDetails || !rightDetails) {
+    const leftWebsiteDetails = row.querySelector<HTMLDetailsElement>(".compare-column:first-of-type details.site");
+    const rightWebsiteDetails = row.querySelector<HTMLDetailsElement>(".compare-column:last-of-type details.site");
+    if (!leftWebsiteDetails || !rightWebsiteDetails) {
       continue;
     }
 
-    let syncing = false;
-    const installSync = (source: HTMLDetailsElement, target: HTMLDetailsElement): void => {
-      source.addEventListener("toggle", () => {
-        if (syncing) {
-          return;
-        }
-        syncing = true;
-        target.open = source.open;
-        syncing = false;
-      });
-    };
+    syncPairedDetails(leftWebsiteDetails, rightWebsiteDetails);
 
-    installSync(leftDetails, rightDetails);
-    installSync(rightDetails, leftDetails);
+    const leftBreakdowns = Array.from(
+      leftWebsiteDetails.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown")
+    );
+    const rightBreakdowns = Array.from(
+      rightWebsiteDetails.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown")
+    );
+    const pairCount = Math.min(leftBreakdowns.length, rightBreakdowns.length);
+    for (let index = 0; index < pairCount; index += 1) {
+      const leftBreakdown = leftBreakdowns[index];
+      const rightBreakdown = rightBreakdowns[index];
+      if (leftBreakdown && rightBreakdown) {
+        syncPairedDetails(leftBreakdown, rightBreakdown);
+      }
+    }
   }
 }
 
