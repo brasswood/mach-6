@@ -460,6 +460,11 @@ function renderDefaultReportList(
   sortBy("totalNs", byTotal, list, byTotal, bySlow);
 }
 
+function hideCompareResults(compareResults: HTMLElement): void {
+  compareResults.innerHTML = "";
+  compareResults.hidden = true;
+}
+
 function installCompareHandler(
   compareButton: HTMLButtonElement,
   leftOnlyButton: HTMLButtonElement,
@@ -507,7 +512,7 @@ function installCompareHandler(
     const report = await fetchReportJson(select.value);
     const label = select.selectedOptions[0]?.textContent ?? (side === "left" ? "Left report" : "Right report");
     renderSingleReportList(list, report, label);
-    compareResults.hidden = true;
+    hideCompareResults(compareResults);
     list.hidden = false;
     sortControls.hidden = false;
     document.body.classList.remove("compare-active");
@@ -532,7 +537,7 @@ function installCompareHandler(
         await action();
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        compareResults.hidden = true;
+        hideCompareResults(compareResults);
         document.body.classList.remove("compare-active");
         setCompareStatus(compareStatus, "Failed to load compare reports: " + message, true);
       } finally {
@@ -1008,7 +1013,7 @@ async function main(): Promise<void> {
     renderMetadata(raw.metadata, commitLine);
     renderDefaultReportList(list, byTotal, bySlow, raw);
     list.hidden = false;
-    compareResults.hidden = true;
+    hideCompareResults(compareResults);
     document.body.classList.remove("compare-active");
     status.hidden = true;
     await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
