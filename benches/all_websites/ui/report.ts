@@ -11,6 +11,7 @@ type SegmentKind =
   | "other";
 
 type SortDatasetKey = "totalNs" | "slowRejectNs";
+type CompareSide = "left" | "right";
 
 interface ReportJson {
   metadata: ReportMetadataJson;
@@ -495,6 +496,13 @@ function installCompareHandler(
     const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
     const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
     renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
+    installCompareSortHandlers(compareResults);
+    const defaultSortButton = compareResults.querySelector<HTMLButtonElement>(
+      '.compare-sort-controls button[data-compare-side="left"][data-sort-key="totalNs"]'
+    );
+    if (defaultSortButton) {
+      sortCompareRows(compareResults, "left", "totalNs", defaultSortButton);
+    }
     syncCompareDetails(compareResults);
     list.hidden = true;
     sortControls.hidden = true;
@@ -846,6 +854,16 @@ function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: st
   return parts.length > 0 ? parts.join("") : escapeHtml(fallbackLabel);
 }
 
+function renderCompareSortControls(side: CompareSide): string {
+  const sideLabel = side === "left" ? "left" : "right";
+  return [
+    '<div class="compare-sort-controls" role="group" aria-label="Sort websites by ' + sideLabel + ' report">',
+    '<button class="sort-btn active" type="button" data-compare-side="' + side + '" data-sort-key="totalNs">Sort by Overall Time</button>',
+    '<button class="sort-btn" type="button" data-compare-side="' + side + '" data-sort-key="slowRejectNs">Sort by Slow-Reject Time</button>',
+    '</div>'
+  ].join("");
+}
+
 function renderCompareResults(
   compareResults: HTMLElement,
   leftReport: ReportJson,
@@ -863,21 +881,88 @@ function renderCompareResults(
   const leftPageMaxBarLengthNs = getPageMaxBarLengthNs(leftWebsites);
   const rightPageMaxBarLengthNs = getPageMaxBarLengthNs(rightWebsites);
 
-  compareResults.innerHTML = compareWebsites.map((website) => {
+  const headerHtml = [
+    '<section class="compare-sort-row">',
+    '<div class="compare-column">',
+    '<h3 class="compare-column-header">' + renderCompareHeaderHtml(leftReport.metadata, leftLabel) + '</h3>',
+    renderCompareSortControls("left"),
+    '</div>',
+    '<div class="compare-column">',
+    '<h3 class="compare-column-header">' + renderCompareHeaderHtml(rightReport.metadata, rightLabel) + '</h3>',
+    renderCompareSortControls("right"),
+    '</div>',
+    '</section>'
+  ].join("");
+
+  compareResults.innerHTML = headerHtml + compareWebsites.map((website) => {
     return [
-      '<section class="compare-row">',
+      '<section class="compare-row" data-website-name="' + escapeHtml(website.name) + '">',
       '<div class="compare-column">',
-      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(leftReport.metadata, leftLabel) + '</h3>',
       renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
       '</div>',
       '<div class="compare-column">',
-      '<h3 class="compare-column-header">' + renderCompareHeaderHtml(rightReport.metadata, rightLabel) + '</h3>',
       renderCompareCell(website.right, rightPageMaxBarLengthNs, "Not present in right report."),
       '</div>',
       '</section>'
     ].join("");
   }).join("");
   compareResults.hidden = false;
+}
+
+function getCompareSortValue(row: HTMLElement, side: CompareSide, datasetKey: SortDatasetKey): bigint {
+  const selector = side === "left"
+    ? ".compare-column:first-of-type details.site"
+    : ".compare-column:last-of-type details.site";
+  const site = row.querySelector<HTMLDetailsElement>(selector);
+  if (!site) {
+    return 0n;
+  }
+  return BigInt(site.dataset[datasetKey] ?? "0");
+}
+
+function setActiveCompareSortButton(activeBtn: HTMLButtonElement, compareResults: HTMLElement): void {
+  const side = activeBtn.dataset.compareSide;
+  const buttons = compareResults.querySelectorAll<HTMLButtonElement>(
+    '.compare-sort-controls button[data-compare-side="' + side + '"]'
+  );
+  for (const button of buttons) {
+    button.classList.toggle("active", button === activeBtn);
+  }
+}
+
+function sortCompareRows(
+  compareResults: HTMLElement,
+  side: CompareSide,
+  datasetKey: SortDatasetKey,
+  activeBtn: HTMLButtonElement
+): void {
+  const rows = Array.from(compareResults.querySelectorAll<HTMLElement>(":scope > .compare-row"));
+  rows.sort((a, b) => {
+    const av = getCompareSortValue(a, side, datasetKey);
+    const bv = getCompareSortValue(b, side, datasetKey);
+    if (av !== bv) {
+      return av > bv ? -1 : 1;
+    }
+    return (a.dataset.websiteName ?? "").localeCompare(b.dataset.websiteName ?? "");
+  });
+  for (const row of rows) {
+    compareResults.appendChild(row);
+  }
+  setActiveCompareSortButton(activeBtn, compareResults);
+}
+
+function installCompareSortHandlers(compareResults: HTMLElement): void {
+  const sortButtons = compareResults.querySelectorAll<HTMLButtonElement>(".compare-sort-controls button");
+  for (const button of sortButtons) {
+    button.addEventListener("click", () => {
+      const side = button.dataset.compareSide;
+      const sortKey = button.dataset.sortKey;
+      if ((side !== "left" && side !== "right") || (sortKey !== "totalNs" && sortKey !== "slowRejectNs")) {
+        return;
+      }
+      sortCompareRows(compareResults, side, sortKey, button);
+    });
+  }
 }
 
 function syncPairedDetails(leftDetails: HTMLDetailsElement, rightDetails: HTMLDetailsElement): void {

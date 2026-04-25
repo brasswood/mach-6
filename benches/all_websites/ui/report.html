@@ -180,6 +180,17 @@
       gap: 12px;
       align-items: start;
     }
+    .compare-sort-row {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 0 0 4px 0;
+      background: #f7f7f3;
+    }
     .compare-column {
       min-width: 0;
     }
@@ -213,6 +224,11 @@
       border-radius: 8px;
       color: var(--muted);
       font-size: 13px;
+    }
+    .compare-sort-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .sort-btn {
       border: 1px solid var(--line);
@@ -544,6 +560,10 @@
         grid-template-columns: 1fr;
       }
       .compare-row {
+        grid-template-columns: 1fr;
+      }
+      .compare-sort-row {
+        position: static;
         grid-template-columns: 1fr;
       }
       .expanded-bar-wrap {
