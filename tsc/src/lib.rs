@@ -214,6 +214,10 @@ impl Duration {
         let nanos = u64::try_from(nanos).ok()?;
         Some(std::time::Duration::from_nanos(nanos))
     }
+
+    pub const fn from_cycles(cycles: u64) -> Self {
+        Self(cycles)
+    }
 }
 
 impl ops::Sub<Start> for Stop {
