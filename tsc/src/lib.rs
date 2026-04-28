@@ -252,6 +252,13 @@ impl ops::AddAssign for Duration {
     }
 }
 
+impl ops::Div<u64> for Duration {
+    type Output = Self;
+    fn div(self, other: u64) -> Self {
+        Self(self.0 / other)
+    }
+}
+
 /* NIGHTLY
 #[cfg(test)]
 mod tests {
