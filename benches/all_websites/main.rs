@@ -326,8 +326,7 @@ struct WebsiteResult {
 }
 
 fn frequency() -> tsc_timer::Frequency {
-    const FREQUENCY: tsc_timer::Frequency = tsc_timer::Frequency::from_hz(4_000_000_000);
-    FREQUENCY
+    tsc_timer::Frequency::from_hz(4_000_000_000)
 }
 
 fn to_std_duration(cycles: tsc_timer::Duration) -> std::time::Duration {
