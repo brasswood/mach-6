@@ -181,7 +181,7 @@ impl Stop {
 }
 
 /// Duration between two time instants
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Duration(u64);
 
 impl Duration {
