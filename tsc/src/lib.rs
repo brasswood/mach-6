@@ -202,10 +202,10 @@ impl Duration {
 
     #[cfg(feature = "std")]
     /// Converts to a `std::time::Duration` given CPU frequency
-    pub fn checked_to_std(self, frequency_hz: u64) -> Option<std::time::Duration> {
+    pub fn checked_to_std(self, frequency: Frequency) -> Option<std::time::Duration> {
         let nanos = (self.0 as u128)
             .checked_mul(1_000_000_000)?
-            .checked_div(frequency_hz as u128)?;
+            .checked_div(frequency.hz() as u128)?;
 
         let nanos = u64::try_from(nanos).ok()?;
         Some(std::time::Duration::from_nanos(nanos))
