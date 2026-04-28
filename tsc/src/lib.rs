@@ -143,6 +143,10 @@ impl Frequency {
         let hz = (cycles as u128 * 1_000_000_000_000u128) / wall_elapsed.as_nanos();
         Frequency(hz as u64)
     }
+
+    pub const fn from_hz(hz: u64) -> Self {
+        Self(hz)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
