@@ -44,7 +44,7 @@ harness = false
 
 [workspace]
 resolver = "3"
-members = ["scraper"]
+members = ["scraper", "tsc"]
 exclude = ["stylo"]
 
 [features]
