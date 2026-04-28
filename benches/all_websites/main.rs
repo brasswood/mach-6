@@ -13,7 +13,6 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::{Duration, Instant};
 use cssparser::ToCss as _;
 use time::OffsetDateTime;
 
@@ -64,42 +63,42 @@ impl<T> Samples<T> {
 #[derive(Debug, Clone, Copy)]
 struct OnlineDurationStats {
     num_samples: usize,
-    mean_ns: f64,
+    mean_cycles: f64,
     /// The running sum of squared deviations from the mean
-    m2_ns: f64,
+    m2_cycles: f64,
 }
 
 impl OnlineDurationStats {
-    fn push(&mut self, sample: Duration) {
-        let x = sample.as_nanos() as f64;
+    fn push(&mut self, sample: tsc_timer::Duration) {
+        let x = sample.cycles() as f64;
         self.num_samples += 1;
-        let delta = x - self.mean_ns;
-        self.mean_ns += delta / self.num_samples as f64;
-        let delta2 = x - self.mean_ns;
-        self.m2_ns += delta * delta2;
+        let delta = x - self.mean_cycles;
+        self.mean_cycles += delta / self.num_samples as f64;
+        let delta2 = x - self.mean_cycles;
+        self.m2_cycles += delta * delta2;
     }
 
-    fn mean(&self) -> Duration {
+    fn mean(&self) -> tsc_timer::Duration {
         assert!(self.num_samples != 0, "tried to compute online mean with no samples");
-        Duration::from_nanos(self.mean_ns.round() as u64)
+        tsc_timer::Duration::from_cycles(self.mean_cycles.round() as u64)
     }
 
-    fn stddev(&self) -> Duration {
+    fn stddev(&self) -> tsc_timer::Duration {
         assert!(self.num_samples != 0, "tried to compute online stddev with no samples");
-        let variance = self.m2_ns / self.num_samples as f64;
-        Duration::from_nanos(variance.sqrt().round() as u64)
+        let variance = self.m2_cycles / self.num_samples as f64;
+        tsc_timer::Duration::from_cycles(variance.sqrt().round() as u64)
     }
 }
 
 struct TimedResults<R> {
-    total_duration: Duration,
+    total_duration: tsc_timer::Duration,
     samples: Samples<R>,
 }
 
 impl<R> TimedResults<R> {
-    fn overall_mean(&self) -> Duration {
+    fn overall_mean(&self) -> tsc_timer::Duration {
         assert!(self.samples.len() != 0, "tried to compute overall mean on result with no samples");
-        self.total_duration / u32::try_from(self.samples.len()).unwrap()
+        self.total_duration / u64::try_from(self.samples.len()).unwrap()
     }
 }
 
@@ -119,18 +118,18 @@ trait StdDev: Mean {
         Self: Sized;
 }
 
-impl Mean for Duration {
-    type Output = Duration;
+impl Mean for tsc_timer::Duration {
+    type Output = tsc_timer::Duration;
 
     fn mean(samples: &[Self]) -> Self::Output {
         assert!(!samples.is_empty(), "tried to compute mean of empty sample set");
-        let total: Duration = samples.iter().copied().sum();
-        total / samples.len() as u32
+        let total: tsc_timer::Duration = samples.iter().copied().fold(tsc_timer::Duration::default(), |acc, d| acc + d);
+        total / samples.len() as u64
     }
 }
 
-impl StdDev for Duration {
-    type Output = Duration;
+impl StdDev for tsc_timer::Duration {
+    type Output = tsc_timer::Duration;
 
     fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> <Self as StdDev>::Output {
         assert!(
@@ -140,12 +139,12 @@ impl StdDev for Duration {
         let variance = samples
             .iter()
             .map(|sample| {
-                let delta = sample.as_nanos() as f64 - mean.as_nanos() as f64;
+                let delta = sample.cycles() as f64 - mean.cycles() as f64;
                 delta * delta
             })
             .sum::<f64>()
             / samples.len() as f64;
-        Duration::from_nanos(variance.sqrt().round() as u64)
+        tsc_timer::Duration::from_cycles(variance.sqrt().round() as u64)
     }
 }
 
@@ -158,7 +157,7 @@ impl Mean for TimingStats {
         let sum = iter
             .reduce(|l, r| l + r)
             .expect("tried to compute mean of empty sample set");
-        sum / samples.len() as u32
+        sum / samples.len() as u64
     }
 }
 
@@ -171,16 +170,16 @@ impl StdDev for TimingStats {
             "tried to compute standard deviation of empty sample set"
         );
 
-        let stddev = |project: fn(&TimingStats) -> Duration| {
+        let stddev = |project: fn(&TimingStats) -> tsc_timer::Duration| {
             let variance = samples
                 .iter()
                 .map(|sample| {
-                    let delta = project(sample).as_nanos() as f64 - project(mean).as_nanos() as f64;
+                    let delta = project(sample).cycles() as f64 - project(mean).cycles() as f64;
                     delta * delta
                 })
                 .sum::<f64>()
                 / samples.len() as f64;
-            Duration::from_nanos(variance.sqrt().round() as u64)
+            tsc_timer::Duration::from_cycles(variance.sqrt().round() as u64)
         };
 
         TimingStats {
@@ -210,7 +209,7 @@ impl From<&Selector> for SelectorString {
 #[derive(Clone, Debug)]
 struct SelectorSlowRejectSamples {
     selector: SelectorString,
-    aggregate_durations: Samples<Duration>,
+    aggregate_durations: Samples<tsc_timer::Duration>,
 }
 
 /// Aggregated data for one matching variant in the website report.
@@ -222,7 +221,7 @@ struct SelectorSlowRejectSamples {
 #[derive(Clone, Debug)]
 struct MatchBenchResult {
     /// The total duration of the benched website
-    total_duration: Duration,
+    total_duration: tsc_timer::Duration,
     /// Counting stats of one sample (should be the same accross all samples)
     counting_stats: CountingStats,
     /// Per-sample timing stats
@@ -251,7 +250,7 @@ impl MatchBenchResult {
             .map(|stats| stats.times)
             .collect();
 
-        let mut map: HashMap<SelectorString, Vec<Duration>> = HashMap::new();
+        let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
             for ((_element, selector), selector_stats) in per_match_stats {
                 let slow_reject_duration = match selector_stats {
@@ -286,8 +285,8 @@ impl MatchBenchResult {
         }
     }
 
-    fn mean_duration(&self) -> Duration {
-        self.total_duration / self.timing_stats.len() as u32
+    fn mean_duration(&self) -> tsc_timer::Duration {
+        self.total_duration / self.timing_stats.len() as u64
     }
 }
 
@@ -306,13 +305,13 @@ impl PreprocessingResult {
             overall_preprocessing,
         }
     }
-    fn mean_indexing(&self) -> Duration {
-        self.indexing.total_duration / self.indexing.samples.len() as u32
+    fn mean_indexing(&self) -> tsc_timer::Duration {
+        self.indexing.total_duration / self.indexing.samples.len() as u64
     }
-    fn mean_overall(&self) -> Duration {
-        self.overall_preprocessing.total_duration / self.overall_preprocessing.samples.len() as u32
+    fn mean_overall(&self) -> tsc_timer::Duration {
+        self.overall_preprocessing.total_duration / self.overall_preprocessing.samples.len() as u64
     }
-    fn mean_non_indexing(&self) -> Duration {
+    fn mean_non_indexing(&self) -> tsc_timer::Duration {
         self.mean_overall() - self.mean_indexing()
     }
 }
@@ -324,6 +323,17 @@ struct WebsiteResult {
     before_preprocessing: MatchBenchResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
+}
+
+fn frequency() -> tsc_timer::Frequency {
+    const FREQUENCY: tsc_timer::Frequency = tsc_timer::Frequency::from_hz(4_000_000_000);
+    FREQUENCY
+}
+
+fn to_std_duration(cycles: tsc_timer::Duration) -> std::time::Duration {
+    cycles.checked_to_std(frequency()).unwrap_or_else(|| 
+        panic!("Couldn't convert {} cycles using frequency {}Hz.", cycles.cycles(), frequency().hz())
+    )
 }
 
 fn main() {
@@ -465,13 +475,13 @@ fn bench_function<F, R>(name: &str, func: F) -> TimedResults<R>
 where
     F: Fn() -> R,
 {
-    const NUM_SAMPLES: u32 = 25;
-    const WARM_UP_TIME: Duration = Duration::from_secs(5);
+    const NUM_SAMPLES: u64 = 25;
+    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_secs(5);
     let mut samples_vec = Vec::with_capacity(NUM_SAMPLES as usize);
     eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
     warm_up(&WARM_UP_TIME, &func);
     eprint!("measuring {NUM_SAMPLES} samples...");
-    let start = Instant::now();
+    let start = tsc_timer::Start::now();
     for _ in 0..NUM_SAMPLES {
       samples_vec.push(func());
     }
@@ -483,20 +493,21 @@ where
     }
 }
 
-fn warm_up<F, R>(warm_up_time: &Duration, func: &F)
+fn warm_up<F, R>(warm_up_time: &std::time::Duration, func: &F)
 where
     F: Fn() -> R
 {
-    let start = Instant::now();
+    let start = std::time::Instant::now();
     while start.elapsed() < *warm_up_time {
         func();
     }
 }
 
-fn format_duration(duration: Duration) -> String {
-    if duration >= Duration::from_millis(1) {
+fn format_duration(duration: tsc_timer::Duration) -> String {
+    let duration = to_std_duration(duration);
+    if duration >= std::time::Duration::from_millis(1) {
         format!("{:.3} ms", duration.as_secs_f64() * 1_000.0)
-    } else if duration >= Duration::from_micros(1) {
+    } else if duration >= std::time::Duration::from_micros(1) {
         format!("{:.3} us", duration.as_secs_f64() * 1_000_000.0)
     } else {
         format!("{} ns", duration.as_nanos())

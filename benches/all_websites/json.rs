@@ -16,6 +16,10 @@ const FORMAT: Iso8601<CONFIG> = Iso8601::<CONFIG>;
 
 time::serde::format_description!(rfc3339_nodecimal, OffsetDateTime, FORMAT);
 
+fn nanos(cycles: tsc_timer::Duration) -> u128 {
+    to_std_duration(cycles).as_nanos()
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
     #[serde(with = "rfc3339_nodecimal")]
@@ -82,7 +86,7 @@ mod overall_summary {
 
     use crate::WebsiteResult;
 
-    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
+    use super::{CountingStats, MatchBenchResult, nanos, PreprocessingResult, Samples, TimingStats};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
@@ -110,8 +114,8 @@ mod overall_summary {
     impl From<&PreprocessingResult> for PreprocessingSummaryJson {
         fn from(value: &PreprocessingResult) -> Self {
             Self {
-                mean_indexing_duration_ns: value.mean_indexing().as_nanos(),
-                mean_overall_duration_ns: value.mean_overall().as_nanos(),
+                mean_indexing_duration_ns: nanos(value.mean_indexing()),
+                mean_overall_duration_ns: nanos(value.mean_overall()),
             }
         }
     }
@@ -126,7 +130,7 @@ mod overall_summary {
     impl From<&MatchBenchResult> for BenchmarkRunSummaryJson {
         fn from(value: &MatchBenchResult) -> Self {
             Self {
-                mean_duration_ns: value.mean_duration().as_nanos(),
+                mean_duration_ns: nanos(value.mean_duration()),
                 counts: CountingStatsJson::from(value.counting_stats),
                 times: TimingStatsJson::from(&value.timing_stats),
             }
@@ -183,13 +187,13 @@ mod overall_summary {
     impl From<TimingStats> for TimingsJsonBody {
         fn from(value: TimingStats) -> Self {
             Self {
-                updating_bloom_filter_ns: value.updating_bloom_filter.as_nanos(),
-                slow_rejecting_ns: value.slow_rejecting.as_nanos(),
-                slow_accepting_ns: value.slow_accepting.as_nanos(),
-                fast_rejecting_ns: value.fast_rejecting.as_nanos(),
-                checking_style_sharing_ns: value.checking_style_sharing.as_nanos(),
-                inserting_into_sharing_cache_ns: value.inserting_into_sharing_cache.as_nanos(),
-                querying_selector_map_ns: value.querying_selector_map.as_nanos(),
+                updating_bloom_filter_ns: nanos(value.updating_bloom_filter),
+                slow_rejecting_ns: nanos(value.slow_rejecting),
+                slow_accepting_ns: nanos(value.slow_accepting),
+                fast_rejecting_ns: nanos(value.fast_rejecting),
+                checking_style_sharing_ns: nanos(value.checking_style_sharing),
+                inserting_into_sharing_cache_ns: nanos(value.inserting_into_sharing_cache),
+                querying_selector_map_ns: nanos(value.querying_selector_map),
             }
         }
     }
@@ -202,7 +206,7 @@ mod selector_summary {
 
     use crate::WebsiteResult;
 
-    use super::{SelectorSlowRejectSamples, SelectorString};
+    use super::{nanos, SelectorSlowRejectSamples, SelectorString};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
@@ -230,11 +234,11 @@ mod selector_summary {
             Self {
                 means_ns: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.aggregate_durations.mean().as_nanos()))
+                    .map(|row| (row.selector.clone(), nanos(row.aggregate_durations.mean())))
                     .collect(),
                 stddevs_ns: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().as_nanos()))
+                    .map(|row| (row.selector.clone(), nanos(row.aggregate_durations.stddev())))
                     .collect(),
             }
         }
@@ -242,7 +246,7 @@ mod selector_summary {
 }
 
 mod samples {
-    use std::time::Duration;
+    use tsc_timer::Duration;
     use std::collections::HashMap;
 
     use selectors::matching::TimingStats;
@@ -284,7 +288,7 @@ mod samples {
                 value
                     .timing_stats
                     .iter()
-                    .map(|sample| project(sample).as_nanos())
+                    .map(|sample| super::to_std_duration(project(sample)).as_nanos())
                     .collect()
             };
             Self {
