@@ -808,6 +808,7 @@ dependencies = [
  "test-log",
  "thiserror",
  "time",
+ "tsc-timer",
  "url",
 ]
 
@@ -1248,6 +1249,7 @@ dependencies = [
  "smallvec",
  "to_shmem",
  "to_shmem_derive",
+ "tsc-timer",
 ]
 
 [[package]]
@@ -1447,6 +1449,7 @@ dependencies = [
  "thin-vec",
  "to_shmem",
  "to_shmem_derive",
+ "tsc-timer",
  "uluru",
  "url",
  "void",

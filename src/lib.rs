@@ -38,7 +38,6 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::Path;
-use std::time::Instant;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
@@ -54,6 +53,7 @@ use style::sharing::StyleSharingTarget;
 use style::stylesheets::Origin;
 use style::thread_state::{self, ThreadState};
 use smallvec::SmallVec;
+use tsc_timer::Start;
 
 mod stylo_interface;
 pub mod parse;
@@ -480,12 +480,12 @@ pub fn match_selectors_with_style_sharing(
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
         // 1.2: update the bloom filter with the current element
-        let start = Instant::now();
+        let start = tsc_timer::Start::now();
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
         stats.times.updating_bloom_filter += start.elapsed();
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
-        let start = Instant::now();
+        let start = Start::now();
         let style_sharing_result = target.share_style_if_possible(context);
         stats.times.checking_style_sharing += start.elapsed();
         match style_sharing_result {
@@ -564,7 +564,7 @@ pub fn match_selectors_with_style_sharing(
                     )
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                let start = Instant::now();
+                let start = Start::now();
                 context.thread_local.sharing_cache.insert_if_possible(
                     &element ,
                     &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
