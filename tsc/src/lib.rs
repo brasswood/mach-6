@@ -231,6 +231,23 @@ impl ops::Sub<Duration> for Duration {
     }
 }
 
+impl ops::Add for Duration {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        if cfg!(debug_assertions) {
+            Duration(self.0.checked_add(other.0).expect("adding durations overflows"))
+        } else {
+            Duration(self.0 + other.0)
+        }
+    }
+}
+
+impl ops::AddAssign for Duration {
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other;
+    }
+}
+
 /* NIGHTLY
 #[cfg(test)]
 mod tests {
