@@ -335,6 +335,8 @@ fn to_std_duration(cycles: tsc_timer::Duration) -> std::time::Duration {
     )
 }
 
+const NUM_SAMPLES: u64 = 25;
+
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let time_start = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
@@ -347,11 +349,13 @@ fn main() {
           substrings_from_selectors(w.selectors().iter());
         let indexing_results = bench_function(
           &format!("{} indexing", w.name),
-          || { build_substr_selector_index(&w.document, substrings.clone()); }
+          || { build_substr_selector_index(&w.document, substrings.clone()); },
+          NUM_SAMPLES,
         );
         let overall_preprocessing_results = bench_function(
           &format!("{} preprocessing", w.name),
-          || { convert_to_is_selectors(&w.document, &w.selectors()); }
+          || { convert_to_is_selectors(&w.document, &w.selectors()); },
+          NUM_SAMPLES,
         );
         let preprocessed_selectors = convert_to_is_selectors(&w.document, &w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
@@ -416,6 +420,7 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
                 );
             overall_stats
         },
+        NUM_SAMPLES,
     );
     let per_match_stats = bench_function(
         &format!("{benchmark_name} (with selector stats)"),
@@ -429,6 +434,7 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
             );
             per_match_stats
         },
+        1,
     );
     MatchBenchResult::new(overall_stats, per_match_stats)
 }
@@ -470,22 +476,21 @@ fn get_documents(website_filter: Option<&str>) -> Box<dyn Iterator<Item = Parsed
     }
 }
 
-fn bench_function<F, R>(name: &str, func: F) -> TimedResults<R>
+fn bench_function<F, R>(name: &str, func: F, num_samples: u64) -> TimedResults<R>
 where
     F: Fn() -> R,
 {
-    const NUM_SAMPLES: u64 = 25;
     const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_secs(5);
-    let mut samples_vec = Vec::with_capacity(NUM_SAMPLES as usize);
+    let mut samples_vec = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
     warm_up(&WARM_UP_TIME, &func);
-    eprint!("measuring {NUM_SAMPLES} samples...");
+    eprint!("measuring {num_samples} samples...");
     let start = tsc_timer::Start::now();
-    for _ in 0..NUM_SAMPLES {
+    for _ in 0..num_samples {
       samples_vec.push(func());
     }
     let total_duration = start.elapsed();
-    eprintln!("done. ({}, {} total)", format_duration(total_duration / NUM_SAMPLES), format_duration(total_duration));
+    eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
     TimedResults {
         total_duration,
         samples: Samples(samples_vec),
