@@ -115,6 +115,7 @@ interface BarView {
 
 interface WebsiteView {
   name: string;
+  isAggregate: boolean;
   bars: BarView[];
   totalSortKeyNs: bigint;
   slowRejectSortKeyNs: bigint;
@@ -441,7 +442,7 @@ function renderSingleReportList(
   report: ReportJson,
   label: string | null
 ): void {
-  const websites = report.websites.map(buildWebsiteView);
+  const websites = buildReportWebsiteViews(report);
   const pageMaxBarLengthNs = getPageMaxBarLengthNs(websites);
   const headerHtml = label === null
     ? ""
@@ -646,7 +647,7 @@ function buildBar(
   };
 }
 
-function buildWebsiteView(website: WebsiteJson): WebsiteView {
+function buildWebsiteView(website: WebsiteJson, isAggregate = false): WebsiteView {
   const bars = [
     buildBar("Before Preprocessing", website.summary.before_preprocessing, website.selector_slow_rejects_summary.before_preprocessing, null),
     buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
@@ -667,11 +668,112 @@ function buildWebsiteView(website: WebsiteJson): WebsiteView {
 
   return {
     name: website.website,
+    isAggregate,
     bars,
     totalSortKeyNs,
     slowRejectSortKeyNs,
     legendKinds: [...legendKinds]
   };
+}
+
+function sumNumbers(values: number[]): number {
+  return values.reduce((sum, value) => {
+    return sum + value;
+  }, 0);
+}
+
+function combineStddevs(values: number[]): number {
+  return Math.round(Math.sqrt(values.reduce((sum, value) => {
+    return sum + (value * value);
+  }, 0)));
+}
+
+function sumRecordValues(records: Record<string, number>[]): Record<string, number> {
+  const summed: Record<string, number> = {};
+  for (const record of records) {
+    for (const [key, value] of Object.entries(record)) {
+      summed[key] = (summed[key] ?? 0) + value;
+    }
+  }
+  return summed;
+}
+
+function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): BenchmarkRunSummaryJson {
+  return {
+    mean_duration_ns: sumNumbers(summaries.map((summary) => summary.mean_duration_ns)),
+    counts: {
+      sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
+      selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
+      fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
+      slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
+      slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts))
+    },
+    times: {
+      means: {
+        updating_bloom_filter_ns: sumNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_ns)),
+        slow_rejecting_ns: sumNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_ns)),
+        slow_accepting_ns: sumNumbers(summaries.map((summary) => summary.times.means.slow_accepting_ns)),
+        fast_rejecting_ns: sumNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_ns)),
+        checking_style_sharing_ns: sumNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_ns)),
+        inserting_into_sharing_cache_ns: sumNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_ns)),
+        querying_selector_map_ns: sumNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_ns))
+      },
+      stddevs: {
+        updating_bloom_filter_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_ns)),
+        slow_rejecting_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_ns)),
+        slow_accepting_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_ns)),
+        fast_rejecting_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_ns)),
+        checking_style_sharing_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_ns)),
+        inserting_into_sharing_cache_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_ns)),
+        querying_selector_map_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_ns))
+      }
+    }
+  };
+}
+
+function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
+  const selectorKeys = new Set<string>();
+  for (const entry of stats) {
+    for (const key of Object.keys(entry.stddevs_ns)) {
+      selectorKeys.add(key);
+    }
+  }
+
+  const stddevsNs: Record<string, number> = {};
+  for (const key of selectorKeys) {
+    stddevsNs[key] = combineStddevs(stats.map((entry) => entry.stddevs_ns[key] ?? 0));
+  }
+
+  return {
+    means_ns: sumRecordValues(stats.map((entry) => entry.means_ns)),
+    stddevs_ns: stddevsNs
+  };
+}
+
+function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
+  return {
+    website: "All Websites (" + websites.length.toString() + ")",
+    summary: {
+      before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
+      preprocessing: {
+        mean_indexing_duration_ns: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_indexing_duration_ns)),
+        mean_overall_duration_ns: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_overall_duration_ns))
+      },
+      after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
+    },
+    selector_slow_rejects_summary: {
+      before_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.before_preprocessing)),
+      after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
+    }
+  };
+}
+
+function buildReportWebsiteViews(report: ReportJson): WebsiteView[] {
+  const aggregateWebsite = buildAggregateWebsiteJson(report.websites);
+  return [
+    buildWebsiteView(aggregateWebsite, true),
+    ...report.websites.map((website) => buildWebsiteView(website))
+  ];
 }
 
 function pct(numerator: bigint, denominator: bigint): string {
@@ -770,7 +872,9 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string
     '<summary>',
     '<div class="row">',
     '<div class="chevron" aria-hidden="true"></div>',
-    '<div class="name">' + escapeHtml(website.name) + '</div>',
+    '<div class="name">' + (website.isAggregate
+      ? '<span class="aggregate-label">' + escapeHtml(website.name) + '</span>'
+      : escapeHtml(website.name)) + '</div>',
     '<div class="summary-variants">' + website.bars.map((bar) => {
       return renderSummaryBar(bar, pageMaxBarLengthNs);
     }).join("") + '</div>',
@@ -788,6 +892,8 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string
 
 function buildWebsiteMap(websites: WebsiteJson[]): Map<string, WebsiteView> {
   const websiteMap = new Map<string, WebsiteView>();
+  const aggregateWebsite = buildAggregateWebsiteJson(websites);
+  websiteMap.set(aggregateWebsite.website, buildWebsiteView(aggregateWebsite, true));
   for (const website of websites) {
     websiteMap.set(website.website, buildWebsiteView(website));
   }
