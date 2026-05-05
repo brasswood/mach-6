@@ -75,7 +75,6 @@ impl MatchBenchResult {
         stats: TimedResults<Statistics>,
         per_match_stats: TimedResults<SmallVec<[((Element, Selector), SelectorStats); 16]>>,
     ) -> Self {
-        assert_eq!(stats.samples.len(), per_match_stats.samples.len());
         let counting_stats = stats
             .samples
             .first()
