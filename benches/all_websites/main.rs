@@ -17,78 +17,10 @@ use cssparser::ToCss as _;
 use time::OffsetDateTime;
 
 use crate::json::{ReportJson, ReportMetadataJson, WebsiteJson};
+use crate::stats::Samples;
 
 mod json;
-
-#[derive(Clone, Debug, Default)]
-struct Samples<T>(Vec<T>); 
-
-impl<T> Samples<T> {
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    fn mean(&self) -> <T as Mean>::Output
-    where
-        T: Mean,
-    {
-        T::mean(self.as_slice())
-    }
-
-    fn stddev(&self) -> <T as StdDev>::Output
-    where
-        T: Mean + StdDev,
-    {
-        let mean = self.mean();
-        T::stddev(self.as_slice(), &mean)
-    }
-
-    fn iter(&self) -> std::slice::Iter<'_, T> {
-        self.0.iter()
-    }
-
-    fn into_iter(self) -> std::vec::IntoIter<T> {
-        self.0.into_iter()
-    }
-
-    fn as_slice(&self) -> &[T] {
-        &self.0
-    }
-
-    fn first(&self) -> Option<&T> {
-        self.0.first()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct OnlineDurationStats {
-    num_samples: usize,
-    mean_cycles: f64,
-    /// The running sum of squared deviations from the mean
-    m2_cycles: f64,
-}
-
-impl OnlineDurationStats {
-    fn push(&mut self, sample: tsc_timer::Duration) {
-        let x = sample.cycles() as f64;
-        self.num_samples += 1;
-        let delta = x - self.mean_cycles;
-        self.mean_cycles += delta / self.num_samples as f64;
-        let delta2 = x - self.mean_cycles;
-        self.m2_cycles += delta * delta2;
-    }
-
-    fn mean(&self) -> tsc_timer::Duration {
-        assert!(self.num_samples != 0, "tried to compute online mean with no samples");
-        tsc_timer::Duration::from_cycles(self.mean_cycles.round() as u64)
-    }
-
-    fn stddev(&self) -> tsc_timer::Duration {
-        assert!(self.num_samples != 0, "tried to compute online stddev with no samples");
-        let variance = self.m2_cycles / self.num_samples as f64;
-        tsc_timer::Duration::from_cycles(variance.sqrt().round() as u64)
-    }
-}
+mod stats;
 
 struct TimedResults<R> {
     total_duration: tsc_timer::Duration,
@@ -99,99 +31,6 @@ impl<R> TimedResults<R> {
     fn overall_mean(&self) -> tsc_timer::Duration {
         assert!(self.samples.len() != 0, "tried to compute overall mean on result with no samples");
         self.total_duration / u64::try_from(self.samples.len()).unwrap()
-    }
-}
-
-trait Mean {
-    type Output;
-
-    fn mean(samples: &[Self]) -> Self::Output
-    where
-        Self: Sized;
-}
-
-trait StdDev: Mean {
-    type Output;
-
-    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> <Self as StdDev>::Output
-    where
-        Self: Sized;
-}
-
-impl Mean for tsc_timer::Duration {
-    type Output = tsc_timer::Duration;
-
-    fn mean(samples: &[Self]) -> Self::Output {
-        assert!(!samples.is_empty(), "tried to compute mean of empty sample set");
-        let total: tsc_timer::Duration = samples.iter().copied().fold(tsc_timer::Duration::default(), |acc, d| acc + d);
-        total / samples.len() as u64
-    }
-}
-
-impl StdDev for tsc_timer::Duration {
-    type Output = tsc_timer::Duration;
-
-    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> <Self as StdDev>::Output {
-        assert!(
-            !samples.is_empty(),
-            "tried to compute standard deviation of empty sample set"
-        );
-        let variance = samples
-            .iter()
-            .map(|sample| {
-                let delta = sample.cycles() as f64 - mean.cycles() as f64;
-                delta * delta
-            })
-            .sum::<f64>()
-            / samples.len() as f64;
-        tsc_timer::Duration::from_cycles(variance.sqrt().round() as u64)
-    }
-}
-
-impl Mean for TimingStats {
-    type Output = TimingStats;
-
-    fn mean(samples: &[Self]) -> Self::Output {
-        assert!(!samples.is_empty(), "tried to compute mean of empty sample set");
-        let iter = samples.iter().copied();
-        let sum = iter
-            .reduce(|l, r| l + r)
-            .expect("tried to compute mean of empty sample set");
-        sum / samples.len() as u64
-    }
-}
-
-impl StdDev for TimingStats {
-    type Output = TimingStats;
-
-    fn stddev(samples: &[Self], mean: &<Self as Mean>::Output) -> <Self as StdDev>::Output {
-        assert!(
-            !samples.is_empty(),
-            "tried to compute standard deviation of empty sample set"
-        );
-
-        let stddev = |project: fn(&TimingStats) -> tsc_timer::Duration| {
-            let variance = samples
-                .iter()
-                .map(|sample| {
-                    let delta = project(sample).cycles() as f64 - project(mean).cycles() as f64;
-                    delta * delta
-                })
-                .sum::<f64>()
-                / samples.len() as f64;
-            tsc_timer::Duration::from_cycles(variance.sqrt().round() as u64)
-        };
-
-        TimingStats {
-            updating_bloom_filter: stddev(|sample| sample.updating_bloom_filter),
-            checking_style_sharing: stddev(|sample| sample.checking_style_sharing),
-            querying_selector_map: stddev(|sample| sample.querying_selector_map),
-            fast_rejecting: stddev(|sample| sample.fast_rejecting),
-            slow_rejecting: stddev(|sample| sample.slow_rejecting),
-            slow_accepting: stddev(|sample| sample.slow_accepting),
-            inserting_into_sharing_cache: stddev(|sample| sample.inserting_into_sharing_cache),
-            _time_inside_buckets: stddev(|sample| sample._time_inside_buckets),
-        }
     }
 }
 
@@ -245,7 +84,7 @@ impl MatchBenchResult {
 
         let timing_stats = stats
             .samples
-            .0
+            .as_slice()
             .iter()
             .map(|stats| stats.times)
             .collect();
@@ -274,13 +113,13 @@ impl MatchBenchResult {
         }
 
         let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)|
-            SelectorSlowRejectSamples { selector, aggregate_durations: Samples(durations) }
+            SelectorSlowRejectSamples { selector, aggregate_durations: Samples::from_vec(durations) }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
         MatchBenchResult {
             total_duration: stats.total_duration,
             counting_stats,
-            timing_stats: Samples(timing_stats),
+            timing_stats: Samples::from_vec(timing_stats),
             selector_slow_reject_times: sorted,
         }
     }
@@ -493,7 +332,7 @@ where
     eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
     TimedResults {
         total_duration,
-        samples: Samples(samples_vec),
+        samples: Samples::from_vec(samples_vec),
     }
 }
 
