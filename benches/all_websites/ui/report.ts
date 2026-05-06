@@ -10,7 +10,7 @@ type SegmentKind =
   | "insertingIntoSharingCache"
   | "other";
 
-type SortDatasetKey = "totalNs" | "slowRejectNs";
+type SortDatasetKey = "totalCycles" | "slowRejectCycles";
 type CompareSide = "left" | "right";
 
 interface ReportJson {
@@ -43,12 +43,12 @@ interface SummaryJson {
 }
 
 interface PreprocessingSummaryJson {
-  mean_indexing_duration_ns: number;
-  mean_overall_duration_ns: number;
+  mean_indexing_cycles: number;
+  mean_overall_cycles: number;
 }
 
 interface BenchmarkRunSummaryJson {
-  mean_duration_ns: number;
+  mean_cycles: number;
   counts: CountingStatsJson;
   times: TimingStatsJson;
 }
@@ -67,13 +67,13 @@ interface TimingStatsJson {
 }
 
 interface TimingsJsonBody {
-  updating_bloom_filter_ns: number;
-  slow_rejecting_ns: number;
-  slow_accepting_ns: number;
-  fast_rejecting_ns: number;
-  checking_style_sharing_ns: number;
-  inserting_into_sharing_cache_ns: number;
-  querying_selector_map_ns: number;
+  updating_bloom_filter_cycles: number;
+  slow_rejecting_cycles: number;
+  slow_accepting_cycles: number;
+  fast_rejecting_cycles: number;
+  checking_style_sharing_cycles: number;
+  inserting_into_sharing_cache_cycles: number;
+  querying_selector_map_cycles: number;
 }
 
 interface SelectorsSummaryJson {
@@ -82,8 +82,8 @@ interface SelectorsSummaryJson {
 }
 
 interface SelectorStatsJson {
-  means_ns: Record<string, number>;
-  stddevs_ns: Record<string, number>;
+  means_cycles: Record<string, number>;
+  stddevs_cycles: Record<string, number>;
 }
 
 interface SegmentInfo {
@@ -93,22 +93,22 @@ interface SegmentInfo {
 
 interface SelectorRow {
   selector: string;
-  meanNs: bigint;
-  stddevNs: bigint;
+  meanCycles: bigint;
+  stddevCycles: bigint;
 }
 
 interface SegmentView {
   kind: SegmentKind;
-  meanNs: bigint;
-  stddevNs: bigint | null;
+  meanCycles: bigint;
+  stddevCycles: bigint | null;
 }
 
 interface BarView {
   label: string;
   segments: SegmentView[];
-  totalDurationNs: bigint;
-  totalLengthNs: bigint;
-  slowRejectNs: bigint;
+  totalCycles: bigint;
+  totalLengthCycles: bigint;
+  slowRejectCycles: bigint;
   counts: CountingStatsJson;
   topSlowRejectSelectors: SelectorRow[];
 }
@@ -117,8 +117,8 @@ interface WebsiteView {
   name: string;
   isAggregate: boolean;
   bars: BarView[];
-  totalSortKeyNs: bigint;
-  slowRejectSortKeyNs: bigint;
+  totalSortKeyCycles: bigint;
+  slowRejectSortKeyCycles: bigint;
   legendKinds: SegmentKind[];
 }
 
@@ -166,19 +166,22 @@ function toBigInt(value: number): bigint {
   return BigInt(value);
 }
 
-function formatDuration(ns: bigint): string {
-  const value = Number(ns);
+function formatCycles(cycles: bigint): string {
+  const value = Number(cycles);
+  if (value >= 1_000_000_000) {
+    return (value / 1_000_000_000).toFixed(3) + "B cycles";
+  }
   if (value >= 1_000_000) {
-    return (value / 1_000_000).toFixed(3) + " ms";
+    return (value / 1_000_000).toFixed(3) + "M cycles";
   }
   if (value >= 1_000) {
-    return (value / 1_000).toFixed(3) + " us";
+    return (value / 1_000).toFixed(3) + "K cycles";
   }
-  return value.toString() + " ns";
+  return value.toString() + " cycles";
 }
 
-function formatSignedDuration(ns: bigint): string {
-  return ns < 0n ? "-" + formatDuration(-ns) : formatDuration(ns);
+function formatSignedCycles(cycles: bigint): string {
+  return cycles < 0n ? "-" + formatCycles(-cycles) : formatCycles(cycles);
 }
 
 function escapeHtml(value: string): string {
@@ -190,8 +193,8 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function meanWithStddev(meanNs: bigint, stddevNs: bigint): string {
-  return formatDuration(meanNs) + " \u00B1 " + formatDuration(stddevNs);
+function meanWithStddev(meanCycles: bigint, stddevCycles: bigint): string {
+  return formatCycles(meanCycles) + " \u00B1 " + formatCycles(stddevCycles);
 }
 
 function buildPageTitle(metadata: ReportMetadataJson): string {
@@ -443,7 +446,7 @@ function renderSingleReportList(
   label: string | null
 ): void {
   const websites = buildReportWebsiteViews(report);
-  const pageMaxBarLengthNs = getPageMaxBarLengthNs(websites);
+  const pageMaxBarLengthCycles = getPageMaxBarLengthCycles(websites);
   const headerHtml = label === null
     ? ""
     : '<h3 class="compare-column-header">' + renderCompareHeaderHtml(report.metadata, label) + '</h3>';
@@ -451,7 +454,7 @@ function renderSingleReportList(
   list.innerHTML = [
     headerHtml,
     websites.map((website) => {
-      return renderWebsite(website, pageMaxBarLengthNs);
+      return renderWebsite(website, pageMaxBarLengthCycles);
     }).join(""),
   ].join("");
 }
@@ -463,7 +466,7 @@ function renderDefaultReportList(
   report: ReportJson
 ): void {
   renderSingleReportList(list, report, null);
-  sortBy("totalNs", byTotal, list, byTotal, bySlow);
+  sortBy("totalCycles", byTotal, list, byTotal, bySlow);
 }
 
 function hideCompareResults(compareResults: HTMLElement): void {
@@ -503,10 +506,10 @@ function installCompareHandler(
     renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
     installCompareSortHandlers(compareResults);
     const defaultSortButton = compareResults.querySelector<HTMLButtonElement>(
-      '.compare-sort-controls button[data-compare-side="left"][data-sort-key="totalNs"]'
+      '.compare-sort-controls button[data-compare-side="left"][data-sort-key="totalCycles"]'
     );
     if (defaultSortButton) {
-      sortCompareRows(compareResults, "left", "totalNs", defaultSortButton);
+      sortCompareRows(compareResults, "left", "totalCycles", defaultSortButton);
     }
     syncCompareDetails(compareResults);
     list.hidden = true;
@@ -529,7 +532,7 @@ function installCompareHandler(
     list.hidden = false;
     sortControls.hidden = false;
     document.body.classList.remove("compare-active");
-    sortBy("totalNs", byTotal, list, byTotal, bySlow);
+    sortBy("totalCycles", byTotal, list, byTotal, bySlow);
     setCompareStatus(
       compareStatus,
       "Showing " + (side === "left" ? "left" : "right") + " report only for "
@@ -570,22 +573,22 @@ function installCompareHandler(
 }
 
 function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
-  const rows = Object.entries(stats.means_ns).map(([selector, meanNs]) => {
-    const stddevNs = stats.stddevs_ns[selector];
-    if (stddevNs === undefined) {
+  const rows = Object.entries(stats.means_cycles).map(([selector, meanCycles]) => {
+    const stddevCycles = stats.stddevs_cycles[selector];
+    if (stddevCycles === undefined) {
       throw new Error("Missing stddev for selector: " + selector);
     }
     return {
       selector,
-      meanNs: toBigInt(meanNs),
-      stddevNs: toBigInt(stddevNs)
+      meanCycles: toBigInt(meanCycles),
+      stddevCycles: toBigInt(stddevCycles)
     };
   });
   rows.sort((left, right) => {
-    if (left.meanNs === right.meanNs) {
+    if (left.meanCycles === right.meanCycles) {
       return left.selector.localeCompare(right.selector);
     }
-    return left.meanNs > right.meanNs ? -1 : 1;
+    return left.meanCycles > right.meanCycles ? -1 : 1;
   });
   return rows.slice(0, MAX_SLOW_REJECT_ROWS);
 }
@@ -599,37 +602,37 @@ function buildBar(
   const means = summary.times.means;
   const stddevs = summary.times.stddevs;
   const measuredMatchDurations: SegmentView[] = [
-    { kind: "updatingBloomFilter", meanNs: toBigInt(means.updating_bloom_filter_ns), stddevNs: toBigInt(stddevs.updating_bloom_filter_ns) },
-    { kind: "checkingStyleSharing", meanNs: toBigInt(means.checking_style_sharing_ns), stddevNs: toBigInt(stddevs.checking_style_sharing_ns) },
-    { kind: "queryingSelectorMap", meanNs: toBigInt(means.querying_selector_map_ns), stddevNs: toBigInt(stddevs.querying_selector_map_ns) },
-    { kind: "fastRejecting", meanNs: toBigInt(means.fast_rejecting_ns), stddevNs: toBigInt(stddevs.fast_rejecting_ns) },
-    { kind: "slowRejecting", meanNs: toBigInt(means.slow_rejecting_ns), stddevNs: toBigInt(stddevs.slow_rejecting_ns) },
-    { kind: "slowAccepting", meanNs: toBigInt(means.slow_accepting_ns), stddevNs: toBigInt(stddevs.slow_accepting_ns) },
-    { kind: "insertingIntoSharingCache", meanNs: toBigInt(means.inserting_into_sharing_cache_ns), stddevNs: toBigInt(stddevs.inserting_into_sharing_cache_ns) }
+    { kind: "updatingBloomFilter", meanCycles: toBigInt(means.updating_bloom_filter_cycles), stddevCycles: toBigInt(stddevs.updating_bloom_filter_cycles) },
+    { kind: "checkingStyleSharing", meanCycles: toBigInt(means.checking_style_sharing_cycles), stddevCycles: toBigInt(stddevs.checking_style_sharing_cycles) },
+    { kind: "queryingSelectorMap", meanCycles: toBigInt(means.querying_selector_map_cycles), stddevCycles: toBigInt(stddevs.querying_selector_map_cycles) },
+    { kind: "fastRejecting", meanCycles: toBigInt(means.fast_rejecting_cycles), stddevCycles: toBigInt(stddevs.fast_rejecting_cycles) },
+    { kind: "slowRejecting", meanCycles: toBigInt(means.slow_rejecting_cycles), stddevCycles: toBigInt(stddevs.slow_rejecting_cycles) },
+    { kind: "slowAccepting", meanCycles: toBigInt(means.slow_accepting_cycles), stddevCycles: toBigInt(stddevs.slow_accepting_cycles) },
+    { kind: "insertingIntoSharingCache", meanCycles: toBigInt(means.inserting_into_sharing_cache_cycles), stddevCycles: toBigInt(stddevs.inserting_into_sharing_cache_cycles) }
   ];
   const measuredMatchSum = measuredMatchDurations.reduce((sum, segment) => {
-    return sum + segment.meanNs;
+    return sum + segment.meanCycles;
   }, 0n);
   measuredMatchDurations.push({
     kind: "other",
-    meanNs: toBigInt(summary.mean_duration_ns) - measuredMatchSum,
-    stddevNs: null
+    meanCycles: toBigInt(summary.mean_cycles) - measuredMatchSum,
+    stddevCycles: null
   });
 
   const segments: SegmentView[] = [];
   if (includePreprocessing) {
-    const indexingNs = toBigInt(includePreprocessing.mean_indexing_duration_ns);
-    const overallNs = toBigInt(includePreprocessing.mean_overall_duration_ns);
-    segments.push({ kind: "indexing", meanNs: indexingNs, stddevNs: null });
-    segments.push({ kind: "otherPreprocessing", meanNs: overallNs - indexingNs, stddevNs: null });
+    const indexingCycles = toBigInt(includePreprocessing.mean_indexing_cycles);
+    const overallCycles = toBigInt(includePreprocessing.mean_overall_cycles);
+    segments.push({ kind: "indexing", meanCycles: indexingCycles, stddevCycles: null });
+    segments.push({ kind: "otherPreprocessing", meanCycles: overallCycles - indexingCycles, stddevCycles: null });
   }
   segments.push(...measuredMatchDurations);
 
-  const totalDurationNs = segments.reduce((sum, segment) => {
-    return sum + segment.meanNs;
+  const totalCycles = segments.reduce((sum, segment) => {
+    return sum + segment.meanCycles;
   }, 0n);
-  const totalLengthNs = segments.reduce((sum, segment) => {
-    return sum + (segment.meanNs > 0n ? segment.meanNs : 0n);
+  const totalLengthCycles = segments.reduce((sum, segment) => {
+    return sum + (segment.meanCycles > 0n ? segment.meanCycles : 0n);
   }, 0n);
   const slowRejectSegment = segments.find((segment) => segment.kind === "slowRejecting");
   if (!slowRejectSegment) {
@@ -639,9 +642,9 @@ function buildBar(
   return {
     label,
     segments,
-    totalDurationNs,
-    totalLengthNs,
-    slowRejectNs: slowRejectSegment.meanNs,
+    totalCycles,
+    totalLengthCycles,
+    slowRejectCycles: slowRejectSegment.meanCycles,
     counts: summary.counts,
     topSlowRejectSelectors: buildSelectorRows(selectorsSummary)
   };
@@ -653,11 +656,11 @@ function buildWebsiteView(website: WebsiteJson, isAggregate = false): WebsiteVie
     buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
   ];
 
-  const totalSortKeyNs = bars.reduce((max, bar) => {
-    return bar.totalDurationNs > max ? bar.totalDurationNs : max;
+  const totalSortKeyCycles = bars.reduce((max, bar) => {
+    return bar.totalCycles > max ? bar.totalCycles : max;
   }, 0n);
-  const slowRejectSortKeyNs = bars.reduce((max, bar) => {
-    return bar.slowRejectNs > max ? bar.slowRejectNs : max;
+  const slowRejectSortKeyCycles = bars.reduce((max, bar) => {
+    return bar.slowRejectCycles > max ? bar.slowRejectCycles : max;
   }, 0n);
 
   const legendKinds = SEGMENT_ORDER.filter((kind) => {
@@ -670,8 +673,8 @@ function buildWebsiteView(website: WebsiteJson, isAggregate = false): WebsiteVie
     name: website.website,
     isAggregate,
     bars,
-    totalSortKeyNs,
-    slowRejectSortKeyNs,
+    totalSortKeyCycles,
+    slowRejectSortKeyCycles,
     legendKinds: [...legendKinds]
   };
 }
@@ -700,7 +703,7 @@ function sumRecordValues(records: Record<string, number>[]): Record<string, numb
 
 function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): BenchmarkRunSummaryJson {
   return {
-    mean_duration_ns: sumNumbers(summaries.map((summary) => summary.mean_duration_ns)),
+    mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
     counts: {
       sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
@@ -710,22 +713,22 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
     },
     times: {
       means: {
-        updating_bloom_filter_ns: sumNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_ns)),
-        slow_rejecting_ns: sumNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_ns)),
-        slow_accepting_ns: sumNumbers(summaries.map((summary) => summary.times.means.slow_accepting_ns)),
-        fast_rejecting_ns: sumNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_ns)),
-        checking_style_sharing_ns: sumNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_ns)),
-        inserting_into_sharing_cache_ns: sumNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_ns)),
-        querying_selector_map_ns: sumNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_ns))
+        updating_bloom_filter_cycles: sumNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
+        slow_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
+        slow_accepting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
+        fast_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_cycles)),
+        checking_style_sharing_cycles: sumNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_cycles)),
+        inserting_into_sharing_cache_cycles: sumNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_cycles)),
+        querying_selector_map_cycles: sumNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles))
       },
       stddevs: {
-        updating_bloom_filter_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_ns)),
-        slow_rejecting_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_ns)),
-        slow_accepting_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_ns)),
-        fast_rejecting_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_ns)),
-        checking_style_sharing_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_ns)),
-        inserting_into_sharing_cache_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_ns)),
-        querying_selector_map_ns: combineStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_ns))
+        updating_bloom_filter_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
+        slow_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
+        slow_accepting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
+        fast_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_cycles)),
+        checking_style_sharing_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_cycles)),
+        inserting_into_sharing_cache_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_cycles)),
+        querying_selector_map_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_cycles))
       }
     }
   };
@@ -734,19 +737,19 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
 function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
   const selectorKeys = new Set<string>();
   for (const entry of stats) {
-    for (const key of Object.keys(entry.stddevs_ns)) {
+    for (const key of Object.keys(entry.stddevs_cycles)) {
       selectorKeys.add(key);
     }
   }
 
-  const stddevsNs: Record<string, number> = {};
+  const stddevsCycles: Record<string, number> = {};
   for (const key of selectorKeys) {
-    stddevsNs[key] = combineStddevs(stats.map((entry) => entry.stddevs_ns[key] ?? 0));
+    stddevsCycles[key] = combineStddevs(stats.map((entry) => entry.stddevs_cycles[key] ?? 0));
   }
 
   return {
-    means_ns: sumRecordValues(stats.map((entry) => entry.means_ns)),
-    stddevs_ns: stddevsNs
+    means_cycles: sumRecordValues(stats.map((entry) => entry.means_cycles)),
+    stddevs_cycles: stddevsCycles
   };
 }
 
@@ -756,8 +759,8 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
     summary: {
       before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
       preprocessing: {
-        mean_indexing_duration_ns: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_indexing_duration_ns)),
-        mean_overall_duration_ns: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_overall_duration_ns))
+        mean_indexing_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_indexing_cycles)),
+        mean_overall_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_overall_cycles))
       },
       after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
     },
@@ -788,39 +791,39 @@ function renderSegmentSwatch(kind: SegmentKind): string {
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
 }
 
-function renderSummaryBar(bar: BarView, pageMaxBarLengthNs: bigint): string {
+function renderSummaryBar(bar: BarView, pageMaxBarLengthCycles: bigint): string {
   const segmentsHtml = bar.segments.map((segment) => {
-    return '<div class="bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanNs > 0n ? segment.meanNs : 0n, bar.totalLengthNs) + '%"></div>';
+    return '<div class="bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
-  const warningClass = bar.totalLengthNs !== bar.totalDurationNs ? " warning" : "";
-  const displayNote = bar.totalLengthNs !== bar.totalDurationNs
-    ? '<div class="time-display-note">Displayed: ' + escapeHtml(formatDuration(bar.totalLengthNs)) + '</div>'
+  const warningClass = bar.totalLengthCycles !== bar.totalCycles ? " warning" : "";
+  const displayNote = bar.totalLengthCycles !== bar.totalCycles
+    ? '<div class="time-display-note">Displayed: ' + escapeHtml(formatCycles(bar.totalLengthCycles)) + '</div>'
     : "";
 
   return [
     '<div class="variant-summary">',
     '<div class="variant-label">' + escapeHtml(bar.label) + '</div>',
-    '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthNs, pageMaxBarLengthNs) + '%">' + segmentsHtml + '</div></div>',
-    '<div class="time"><div class="time-value' + warningClass + '">' + escapeHtml(formatDuration(bar.totalDurationNs)) + '</div>' + displayNote + '</div>',
+    '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, pageMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
+    '<div class="time"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles)) + '</div>' + displayNote + '</div>',
     '</div>'
   ].join("");
 }
 
 function renderExpandedBar(bar: BarView): string {
   const segmentsHtml = bar.segments.map((segment) => {
-    return '<div class="expanded-bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanNs > 0n ? segment.meanNs : 0n, bar.totalLengthNs) + '%"></div>';
+    return '<div class="expanded-bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
   const legendHtml = bar.segments.map((segment) => {
-    const warningClass = segment.meanNs < 0n ? "legend-warning" : "";
-    const value = segment.stddevNs === null
-      ? formatSignedDuration(segment.meanNs)
-      : formatSignedDuration(segment.meanNs) + " \u00B1 " + formatDuration(segment.stddevNs);
+    const warningClass = segment.meanCycles < 0n ? "legend-warning" : "";
+    const value = segment.stddevCycles === null
+      ? formatSignedCycles(segment.meanCycles)
+      : formatSignedCycles(segment.meanCycles) + " \u00B1 " + formatCycles(segment.stddevCycles);
     return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + escapeHtml(value) + '</span>';
-  }).join("") + '<span>Total: ' + escapeHtml(formatDuration(bar.totalDurationNs)) + '</span>';
+  }).join("") + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles)) + '</span>';
 
   return [
     '<section class="expanded-chart">',
-    '<h5>Timing Breakdown</h5>',
+    '<h5>Cycle Breakdown</h5>',
     '<div class="expanded-bar-wrap"><div class="expanded-bar-total">' + segmentsHtml + '</div></div>',
     '<div class="expanded-legend">' + legendHtml + '</div>',
     '</section>'
@@ -835,7 +838,7 @@ function renderSelectorRows(rows: SelectorRow[]): string {
     return [
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
-      '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanNs, row.stddevNs)) + '</div></td>',
+      '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles)) + '</div></td>',
       '</tr>'
     ].join("");
   }).join("");
@@ -854,10 +857,10 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     '</tbody></table>',
     '<details class="selector-breakdown">',
-    '<summary>Slow-Reject Timings Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+    '<summary>Slow-Reject Cycles Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
     '<div class="selector-breakdown-inner">',
     '<table class="selector-breakdown-table">',
-    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Time</th></tr></thead>',
+    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th></tr></thead>',
     '<tbody>' + renderSelectorRows(bar.topSlowRejectSelectors) + '</tbody>',
     '</table>',
     '</div>',
@@ -866,9 +869,9 @@ function renderVariantDetails(bar: BarView): string {
   ].join("");
 }
 
-function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string {
+function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): string {
   return [
-    '<details class="site" data-total-ns="' + website.totalSortKeyNs.toString() + '" data-slow-reject-ns="' + website.slowRejectSortKeyNs.toString() + '">',
+    '<details class="site" data-total-cycles="' + website.totalSortKeyCycles.toString() + '" data-slow-reject-cycles="' + website.slowRejectSortKeyCycles.toString() + '">',
     '<summary>',
     '<div class="row">',
     '<div class="chevron" aria-hidden="true"></div>',
@@ -876,7 +879,7 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthNs: bigint): string
       ? '<span class="aggregate-label">' + escapeHtml(website.name) + '</span>'
       : escapeHtml(website.name)) + '</div>',
     '<div class="summary-variants">' + website.bars.map((bar) => {
-      return renderSummaryBar(bar, pageMaxBarLengthNs);
+      return renderSummaryBar(bar, pageMaxBarLengthCycles);
     }).join("") + '</div>',
     '</div>',
     '<div class="bar-legend">' + website.legendKinds.map((kind) => {
@@ -900,10 +903,10 @@ function buildWebsiteMap(websites: WebsiteJson[]): Map<string, WebsiteView> {
   return websiteMap;
 }
 
-function getPageMaxBarLengthNs(websites: WebsiteView[]): bigint {
+function getPageMaxBarLengthCycles(websites: WebsiteView[]): bigint {
   return websites.reduce((max, website) => {
     return website.bars.reduce((innerMax, bar) => {
-      return bar.totalLengthNs > innerMax ? bar.totalLengthNs : innerMax;
+      return bar.totalLengthCycles > innerMax ? bar.totalLengthCycles : innerMax;
     }, max);
   }, 0n);
 }
@@ -932,13 +935,13 @@ function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): 
 
 function renderCompareCell(
   website: WebsiteView | null,
-  pageMaxBarLengthNs: bigint,
+  pageMaxBarLengthCycles: bigint,
   missingLabel: string
 ): string {
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsite(website, pageMaxBarLengthNs);
+  return renderWebsite(website, pageMaxBarLengthCycles);
 }
 
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
@@ -969,8 +972,8 @@ function renderCompareSortControls(side: CompareSide): string {
   const sideLabel = side === "left" ? "left" : "right";
   return [
     '<div class="compare-sort-controls" role="group" aria-label="Sort websites by ' + sideLabel + ' report">',
-    '<button class="sort-btn active" type="button" data-compare-side="' + side + '" data-sort-key="totalNs">Sort by Overall Time</button>',
-    '<button class="sort-btn" type="button" data-compare-side="' + side + '" data-sort-key="slowRejectNs">Sort by Slow-Reject Time</button>',
+    '<button class="sort-btn active" type="button" data-compare-side="' + side + '" data-sort-key="totalCycles">Sort by Overall Cycles</button>',
+    '<button class="sort-btn" type="button" data-compare-side="' + side + '" data-sort-key="slowRejectCycles">Sort by Slow-Reject Cycles</button>',
     '</div>'
   ].join("");
 }
@@ -989,8 +992,8 @@ function renderCompareResults(
   const rightWebsites = compareWebsites.flatMap((website) => {
     return website.right === null ? [] : [website.right];
   });
-  const leftPageMaxBarLengthNs = getPageMaxBarLengthNs(leftWebsites);
-  const rightPageMaxBarLengthNs = getPageMaxBarLengthNs(rightWebsites);
+  const leftPageMaxBarLengthCycles = getPageMaxBarLengthCycles(leftWebsites);
+  const rightPageMaxBarLengthCycles = getPageMaxBarLengthCycles(rightWebsites);
 
   const headerHtml = [
     '<section class="compare-sort-row">',
@@ -1009,10 +1012,10 @@ function renderCompareResults(
     return [
       '<section class="compare-row" data-website-name="' + escapeHtml(website.name) + '">',
       '<div class="compare-column">',
-      renderCompareCell(website.left, leftPageMaxBarLengthNs, "Not present in left report."),
+      renderCompareCell(website.left, leftPageMaxBarLengthCycles, "Not present in left report."),
       '</div>',
       '<div class="compare-column">',
-      renderCompareCell(website.right, rightPageMaxBarLengthNs, "Not present in right report."),
+      renderCompareCell(website.right, rightPageMaxBarLengthCycles, "Not present in right report."),
       '</div>',
       '</section>'
     ].join("");
@@ -1065,7 +1068,7 @@ function installCompareSortHandlers(compareResults: HTMLElement): void {
     button.addEventListener("click", () => {
       const side = button.dataset.compareSide;
       const sortKey = button.dataset.sortKey;
-      if ((side !== "left" && side !== "right") || (sortKey !== "totalNs" && sortKey !== "slowRejectNs")) {
+      if ((side !== "left" && side !== "right") || (sortKey !== "totalCycles" && sortKey !== "slowRejectCycles")) {
         return;
       }
       sortCompareRows(compareResults, side, sortKey, button);
@@ -1186,10 +1189,10 @@ async function main(): Promise<void> {
   }
 
   byTotal.addEventListener("click", () => {
-    sortBy("totalNs", byTotal, list, byTotal, bySlow);
+    sortBy("totalCycles", byTotal, list, byTotal, bySlow);
   });
   bySlow.addEventListener("click", () => {
-    sortBy("slowRejectNs", bySlow, list, byTotal, bySlow);
+    sortBy("slowRejectCycles", bySlow, list, byTotal, bySlow);
   });
 
   try {
