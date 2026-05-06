@@ -168,6 +168,9 @@ function toBigInt(value: number): bigint {
 
 function formatCycles(cycles: bigint): string {
   const value = Number(cycles);
+  if (value >= 1_000_000_000_000) {
+    return (value / 1_000_000_000_000).toFixed(3) + "T cycles";
+  }
   if (value >= 1_000_000_000) {
     return (value / 1_000_000_000).toFixed(3) + "B cycles";
   }

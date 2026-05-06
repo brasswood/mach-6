@@ -336,7 +336,9 @@ where
 }
 
 fn format_duration(duration: tsc_timer::Duration) -> String {
-    let (multiplier, divisor) = if duration.cycles() >= 1_000_000_000 {
+    let (multiplier, divisor) = if duration.cycles() >= 1_000_000_000_000 {
+        ("T", 1_000_000_000_000.0)
+    } else if duration.cycles() >= 1_000_000_000 {
         ("B", 1_000_000_000.0)
     } else if duration.cycles() >= 1_000_000 {
         ("M", 1_000_000.0)
