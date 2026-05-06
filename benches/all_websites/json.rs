@@ -16,10 +16,6 @@ const FORMAT: Iso8601<CONFIG> = Iso8601::<CONFIG>;
 
 time::serde::format_description!(rfc3339_nodecimal, OffsetDateTime, FORMAT);
 
-fn nanos(cycles: tsc_timer::Duration) -> u128 {
-    to_std_duration(cycles).as_nanos()
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
     #[serde(with = "rfc3339_nodecimal")]
@@ -86,7 +82,7 @@ mod overall_summary {
 
     use crate::WebsiteResult;
 
-    use super::{CountingStats, MatchBenchResult, nanos, PreprocessingResult, Samples, TimingStats};
+    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
@@ -107,22 +103,22 @@ mod overall_summary {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct PreprocessingSummaryJson {
-        pub(crate) mean_indexing_duration_ns: u128,
-        pub(crate) mean_overall_duration_ns: u128,
+        pub(crate) mean_indexing_cycles: u64,
+        pub(crate) mean_overall_cycles: u64,
     }
 
     impl From<&PreprocessingResult> for PreprocessingSummaryJson {
         fn from(value: &PreprocessingResult) -> Self {
             Self {
-                mean_indexing_duration_ns: nanos(value.mean_indexing()),
-                mean_overall_duration_ns: nanos(value.mean_overall()),
+                mean_indexing_cycles: value.mean_indexing().cycles(),
+                mean_overall_cycles: value.mean_overall().cycles(),
             }
         }
     }
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct BenchmarkRunSummaryJson {
-        pub(crate) mean_duration_ns: u128,
+        pub(crate) mean_cycles: u64,
         pub(crate) counts: CountingStatsJson,
         pub(crate) times: TimingStatsJson,
     }
@@ -130,7 +126,7 @@ mod overall_summary {
     impl From<&MatchBenchResult> for BenchmarkRunSummaryJson {
         fn from(value: &MatchBenchResult) -> Self {
             Self {
-                mean_duration_ns: nanos(value.mean_duration()),
+                mean_cycles: value.mean_duration().cycles(),
                 counts: CountingStatsJson::from(value.counting_stats),
                 times: TimingStatsJson::from(&value.timing_stats),
             }
@@ -175,25 +171,25 @@ mod overall_summary {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsJsonBody {
-        pub(crate) updating_bloom_filter_ns: u128,
-        pub(crate) slow_rejecting_ns: u128,
-        pub(crate) slow_accepting_ns: u128,
-        pub(crate) fast_rejecting_ns: u128,
-        pub(crate) checking_style_sharing_ns: u128,
-        pub(crate) inserting_into_sharing_cache_ns: u128,
-        pub(crate) querying_selector_map_ns: u128,
+        pub(crate) updating_bloom_filter_cycles: u64,
+        pub(crate) slow_rejecting_cycles: u64,
+        pub(crate) slow_accepting_cycles: u64,
+        pub(crate) fast_rejecting_cycles: u64,
+        pub(crate) checking_style_sharing_cycles: u64,
+        pub(crate) inserting_into_sharing_cache_cycles: u64,
+        pub(crate) querying_selector_map_cycles: u64,
     }
 
     impl From<TimingStats> for TimingsJsonBody {
         fn from(value: TimingStats) -> Self {
             Self {
-                updating_bloom_filter_ns: nanos(value.updating_bloom_filter),
-                slow_rejecting_ns: nanos(value.slow_rejecting),
-                slow_accepting_ns: nanos(value.slow_accepting),
-                fast_rejecting_ns: nanos(value.fast_rejecting),
-                checking_style_sharing_ns: nanos(value.checking_style_sharing),
-                inserting_into_sharing_cache_ns: nanos(value.inserting_into_sharing_cache),
-                querying_selector_map_ns: nanos(value.querying_selector_map),
+                updating_bloom_filter_cycles: value.updating_bloom_filter.cycles(),
+                slow_rejecting_cycles: value.slow_rejecting.cycles(),
+                slow_accepting_cycles: value.slow_accepting.cycles(),
+                fast_rejecting_cycles: value.fast_rejecting.cycles(),
+                checking_style_sharing_cycles: value.checking_style_sharing.cycles(),
+                inserting_into_sharing_cache_cycles: value.inserting_into_sharing_cache.cycles(),
+                querying_selector_map_cycles: value.querying_selector_map.cycles(),
             }
         }
     }
@@ -206,7 +202,7 @@ mod selector_summary {
 
     use crate::WebsiteResult;
 
-    use super::{nanos, SelectorSlowRejectSamples, SelectorString};
+    use super::{SelectorSlowRejectSamples, SelectorString};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
@@ -225,20 +221,20 @@ mod selector_summary {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorStatsJson {
-        pub(crate) means_ns: HashMap<SelectorString, u128>,
-        pub(crate) stddevs_ns: HashMap<SelectorString, u128>,
+        pub(crate) means_cycles: HashMap<SelectorString, u64>,
+        pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
     }
 
     impl From<&[SelectorSlowRejectSamples]> for SelectorStatsJson {
         fn from(value: &[SelectorSlowRejectSamples]) -> Self {
             Self {
-                means_ns: value
+                means_cycles: value
                     .iter()
-                    .map(|row| (row.selector.clone(), nanos(row.aggregate_durations.mean())))
+                    .map(|row| (row.selector.clone(), row.aggregate_durations.mean().cycles()))
                     .collect(),
-                stddevs_ns: value
+                stddevs_cycles: value
                     .iter()
-                    .map(|row| (row.selector.clone(), nanos(row.aggregate_durations.stddev())))
+                    .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().cycles()))
                     .collect(),
             }
         }
@@ -271,38 +267,38 @@ mod samples {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
-        pub(crate) updating_bloom_filter_ns: Vec<u128>,
-        pub(crate) slow_rejecting_ns: Vec<u128>,
-        pub(crate) slow_accepting_ns: Vec<u128>,
-        pub(crate) fast_rejecting_ns: Vec<u128>,
-        pub(crate) checking_style_sharing_ns: Vec<u128>,
-        pub(crate) inserting_into_sharing_cache_ns: Vec<u128>,
-        pub(crate) querying_selector_map_ns: Vec<u128>,
-        pub(crate) selector_slow_rejects_ns: Option<HashMap<SelectorString, Vec<u128>>>,
+        pub(crate) updating_bloom_filter_cycles: Vec<u64>,
+        pub(crate) slow_rejecting_cycles: Vec<u64>,
+        pub(crate) slow_accepting_cycles: Vec<u64>,
+        pub(crate) fast_rejecting_cycles: Vec<u64>,
+        pub(crate) checking_style_sharing_cycles: Vec<u64>,
+        pub(crate) inserting_into_sharing_cache_cycles: Vec<u64>,
+        pub(crate) querying_selector_map_cycles: Vec<u64>,
+        pub(crate) selector_slow_rejects_cycles: Option<HashMap<SelectorString, Vec<u64>>>,
     }
 
     impl From<&MatchBenchResult> for TimingsSamplesJson {
         fn from(value: &MatchBenchResult) -> Self {
             // Codex taught me this `project` trick!
-            let get_ns_samples = |project: fn(&TimingStats) -> Duration| -> Vec<u128> {
+            let get_cycles_samples = |project: fn(&TimingStats) -> Duration| -> Vec<u64> {
                 value
                     .timing_stats
                     .iter()
-                    .map(|sample| super::to_std_duration(project(sample)).as_nanos())
+                    .map(|sample| project(sample).cycles())
                     .collect()
             };
             Self {
-                updating_bloom_filter_ns: get_ns_samples(|timing_stats| timing_stats.updating_bloom_filter),
-                slow_rejecting_ns: get_ns_samples(|timing_stats| timing_stats.slow_rejecting),
-                slow_accepting_ns: get_ns_samples(|timing_stats| timing_stats.slow_accepting),
-                fast_rejecting_ns: get_ns_samples(|timing_stats| timing_stats.fast_rejecting),
-                checking_style_sharing_ns: get_ns_samples(|timing_stats| timing_stats.checking_style_sharing),
-                inserting_into_sharing_cache_ns: get_ns_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
-                querying_selector_map_ns: get_ns_samples(|timing_stats| timing_stats.querying_selector_map),
+                updating_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.updating_bloom_filter),
+                slow_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
+                slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
+                fast_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
+                checking_style_sharing_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
+                inserting_into_sharing_cache_cycles: get_cycles_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
+                querying_selector_map_cycles: get_cycles_samples(|timing_stats| timing_stats.querying_selector_map),
                 #[cfg(not(feature = "serialize_selector_samples"))]
-                selector_slow_rejects_ns: None,
+                selector_slow_rejects_cycles: None,
                 #[cfg(feature = "serialize_selector_samples")]
-                selector_slow_rejects_ns: Some(value
+                selector_slow_rejects_cycles: Some(value
                     .selector_slow_reject_times
                     .iter()
                     .map(|row| {
@@ -310,7 +306,7 @@ mod samples {
                             row.selector.clone(),
                             row.aggregate_durations
                                 .iter()
-                                .map(Duration::as_nanos)
+                                .map(Duration::cycles)
                                 .collect(),
                         )
                     })

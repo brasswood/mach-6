@@ -163,16 +163,6 @@ struct WebsiteResult {
     after_preprocessing: MatchBenchResult,
 }
 
-fn frequency() -> tsc_timer::Frequency {
-    tsc_timer::Frequency::from_hz(4_000_000_000)
-}
-
-fn to_std_duration(cycles: tsc_timer::Duration) -> std::time::Duration {
-    cycles.checked_to_std(frequency()).unwrap_or_else(|| 
-        panic!("Couldn't convert {} cycles using frequency {}Hz.", cycles.cycles(), frequency().hz())
-    )
-}
-
 const NUM_SAMPLES: u64 = 25;
 
 fn main() {
@@ -346,14 +336,16 @@ where
 }
 
 fn format_duration(duration: tsc_timer::Duration) -> String {
-    let duration = to_std_duration(duration);
-    if duration >= std::time::Duration::from_millis(1) {
-        format!("{:.3} ms", duration.as_secs_f64() * 1_000.0)
-    } else if duration >= std::time::Duration::from_micros(1) {
-        format!("{:.3} us", duration.as_secs_f64() * 1_000_000.0)
+    let (multiplier, divisor) = if duration.cycles() >= 1_000_000_000 {
+        ("B", 1_000_000_000.0)
+    } else if duration.cycles() >= 1_000_000 {
+        ("M", 1_000_000.0)
+    } else if duration.cycles() >= 1_000 {
+        ("K", 1_000.0)
     } else {
-        format!("{} ns", duration.as_nanos())
-    }
+        ("", 1.0)
+    };
+    format!("{}{} cycles", duration.cycles() as f64 / divisor, multiplier)
 }
 
 fn report_dir() -> PathBuf {
