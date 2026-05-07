@@ -168,9 +168,11 @@ const NUM_SAMPLES: u64 = 25;
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let time_start = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
-    let website_filter = std::env::args().nth(1).unwrap(); // will either be a website filter or --bench
-    let website_filter = if website_filter == "--bench" {None} else {Some(website_filter)};
-    let websites = get_documents(website_filter.as_deref());
+    let website_filter: Vec<String> = std::env::args()
+        .skip(1) // the executable name
+        .filter(|a| !a.starts_with("--"))
+        .collect();
+    let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
         let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document, &w.stylist(), &w.stylesheet_lock);
         let substrings =
@@ -267,21 +269,24 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
     MatchBenchResult::new(overall_stats, per_match_stats)
 }
 
-fn get_documents(website_filter: Option<&str>) -> Box<dyn Iterator<Item = ParsedWebsite>> {
-    if let Some(website_filter) = website_filter {
-        let website_location = websites_path().join(website_filter);
-        let website = match get_document_and_selectors(&website_location) {
-            Ok(Some(website)) => website,
-            Ok(None) => {
-                eprintln!("{} is not a directory or contains no html files.", website_location.display());
-                std::process::exit(1);
-            },
-            Err(e) => {
-                error!("Could not parse website at {}: {}", website_location.display(), e);
-                std::process::exit(1);
-            },
-        };
-        Box::new(std::iter::once(website))
+fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
+    let mut website_filter = website_filter.peekable();
+    if website_filter.peek().is_some() {
+        let websites = website_filter.map(|website_name| {
+            let website_location = websites_path().join(website_name);
+            match get_document_and_selectors(&website_location) {
+                Ok(Some(website)) => website,
+                Ok(None) => {
+                    eprintln!("{} is not a directory or contains no html files.", website_location.display());
+                    std::process::exit(1);
+                },
+                Err(e) => {
+                    error!("Could not parse website at {}: {}", website_location.display(), e);
+                    std::process::exit(1);
+                },
+            }
+        });
+        Box::new(websites)
     } else {
         let res = match get_all_documents_and_selectors(&websites_path()) {
             Ok(websites) => {
