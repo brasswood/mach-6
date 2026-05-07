@@ -352,7 +352,7 @@ fn format_duration(duration: tsc_timer::Duration) -> String {
     } else {
         ("", 1.0)
     };
-    format!("{}{} cycles", duration.cycles() as f64 / divisor, multiplier)
+    format!("{:.3}{} cycles", duration.cycles() as f64 / divisor, multiplier)
 }
 
 fn report_dir() -> PathBuf {
