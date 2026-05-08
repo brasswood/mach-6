@@ -323,42 +323,47 @@ pub fn convert_to_is_selectors(
         
     // Helper function which takes a Component; if it's an attribute selector
     // with "class*=", look it up in the map and convert it to an equivalent
-    // `is()` selector. Otherwise, just clone the component and return it.
+    // `is()` selector. Otherwise, return None.
     fn convert_to_is_component(
         map: &HashMap<&AtomString, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
         component: &Component<style::selector_parser::SelectorImpl>,
-    ) -> Component<style::selector_parser::SelectorImpl>{
-        match optimizable_substring_from_component(component) {
-            Some(substring) => Component::Is(
+    ) -> Option<Component<style::selector_parser::SelectorImpl>>{
+        optimizable_substring_from_component(component).map(|substring| {
+            Component::Is(
                 match map.get(substring) {
                     Some(set) =>
                         create_class_selector_list(set.iter().copied().cloned()),
                     None => create_class_selector_list(std::iter::empty()),
                 }
-            ),
-            None => component.clone()
-        }
+            )
+        })
     }
 
     let substr_to_classes  =
         build_substr_selector_index(document, substrings_from_selectors(selectors.iter()));
     selectors.into_iter().map(|selector| {
         let mut builder = SelectorBuilder::default();
+        let mut can_clone_selector = true;
         for component in selector.iter_raw_parse_order_from(0) {
             if let Some(combinator) = component.as_combinator() {
                 builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
                 builder.push_combinator(combinator);
             } else {
-                builder.push_simple_selector(
-                    convert_to_is_component(
-                        &substr_to_classes,
-                        component,
-                    )
-                );
+                if let Some(new_component) = convert_to_is_component(&substr_to_classes, component) {
+                    builder.push_simple_selector(new_component);
+                    can_clone_selector = false;
+                } else {
+                    builder.push_simple_selector(component.clone());
+                }
             }
         }
-        builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
-        builder.build_selector(selectors::parser::ParseRelative::No)
+        if can_clone_selector {
+            // Fast path: `SelectorBuilder::build_selector` appears to be expensive.
+            selector.clone()
+        } else {
+            builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
+            builder.build_selector(selectors::parser::ParseRelative::No)
+        }
     }).collect()
 }
 
