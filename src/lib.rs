@@ -123,15 +123,15 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
 pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: Option<&DocumentMatches>) -> (String, SetDocumentMatches, Statistics){
     let (matches, stats) = match algorithm {
         Algorithm::Naive => (
-            OwnedDocumentMatches::from(&match_selectors(&website.document, website.selectors())),
+            OwnedDocumentMatches::from(&match_selectors(&website.document(), website.selectors())),
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
-            match_selectors_with_style_sharing(&website.document, website.stylist(), &website.stylesheet_lock, None)
+            match_selectors_with_style_sharing(&website.document(), website.stylist(), &website.stylesheet_lock(), None)
         },
         Algorithm::WithPreprocessing => {
             let preprocessed_selectors =
-                convert_to_is_selectors( &website.document, website.selectors());
+                convert_to_is_selectors( &website.document(), website.selectors());
             let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
                 .iter()
                 .zip(website.selectors().iter())
@@ -139,7 +139,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 .collect();
             let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
             let mut result = match_selectors_with_style_sharing(
-                &website.document,
+                &website.document(),
                 &preprocessed_stylist,
                 &preprocessed_lock,
                 None,
@@ -169,7 +169,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     Statistics::default()
                 )
             } else {
-                let document_matches = match_selectors(&website.document, website.selectors());
+                let document_matches = match_selectors(&website.document(), website.selectors());
                 (
                     OwnedDocumentMatches::from(&mach_7(&document_matches)),
                     Statistics::default()
@@ -719,7 +719,7 @@ mod tests {
             &websites_path().join("is_conversion_test")
         )?.unwrap();
         let converted: Vec<_> =
-            convert_to_is_selectors(&website.document, website.selectors())
+            convert_to_is_selectors(&website.document(), website.selectors())
                 .iter()
                 .map(Selector::to_css_string)
                 .collect();

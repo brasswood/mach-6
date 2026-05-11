@@ -29,14 +29,22 @@ pub fn websites_path() -> PathBuf {
 
 pub struct ParsedWebsite {
     pub name: String,
-    pub document: Html,
-    pub stylesheet_lock: SharedRwLock,
-    pub stylesheets: Vec<DocumentStyleSheet>,
+    document: Html,
+    stylesheet_lock: SharedRwLock,
+    stylesheets: Vec<DocumentStyleSheet>,
     stylist: OnceLock<Stylist>,
     selectors: OnceLock<Vec<Selector>>,
 }
 
 impl ParsedWebsite {
+    pub fn document(&self) -> &Html {
+        &self.document
+    }
+
+    pub fn stylesheet_lock(&self) -> &SharedRwLock {
+        &self.stylesheet_lock
+    }
+
     pub fn stylist(&self) -> &Stylist {
         self.stylist.get_or_init(|| stylist_from_stylesheets(self.stylesheets.iter(), &self.stylesheet_lock.read()))
     }
