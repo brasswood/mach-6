@@ -12,7 +12,6 @@ use std::ffi::OsStr;
 use std::fs::{self, DirEntry};
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 use serde::Serialize;
 use style::context::QuirksMode;
 use style::media_queries::MediaList;
@@ -31,12 +30,28 @@ pub struct ParsedWebsite {
     pub name: String,
     document: Html,
     stylesheet_lock: SharedRwLock,
-    stylesheets: Vec<DocumentStyleSheet>,
-    stylist: OnceLock<Stylist>,
-    selectors: OnceLock<Vec<Selector>>,
+    stylist: Stylist,
+    selectors: Vec<Selector>,
 }
 
 impl ParsedWebsite {
+    pub fn new(
+        name: String,
+        document: Html,
+        stylesheets: Vec<DocumentStyleSheet>,
+        stylesheet_lock: SharedRwLock
+    ) -> Self {
+        let stylist = stylist_from_stylesheets(stylesheets.iter(), &stylesheet_lock.read());
+        let selectors = selectors_from_stylist(&stylist);
+        Self {
+            name,
+            document,
+            stylesheet_lock,
+            stylist,
+            selectors,
+        }
+    }
+
     pub fn document(&self) -> &Html {
         &self.document
     }
@@ -46,11 +61,11 @@ impl ParsedWebsite {
     }
 
     pub fn stylist(&self) -> &Stylist {
-        self.stylist.get_or_init(|| stylist_from_stylesheets(self.stylesheets.iter(), &self.stylesheet_lock.read()))
+        &self.stylist
     }
 
     pub fn selectors(&self) -> &[Selector] {
-        self.selectors.get_or_init(|| selectors_from_stylist(self.stylist()))
+        &self.selectors
     }
 }
 
@@ -113,14 +128,12 @@ pub fn get_document_and_selectors(
         .and_then(OsStr::to_str)
         .unwrap()
         .to_owned();
-    Ok(Some(ParsedWebsite {
-        name: website_name,
+    Ok(Some(ParsedWebsite::new(
+        website_name,
         document,
-        stylesheet_lock,
         stylesheets,
-        stylist: OnceLock::new(),
-        selectors: OnceLock::new(),
-    }))
+        stylesheet_lock,
+    )))
 }
 
 pub fn get_websites_dirs(websites_path: &Path) -> Result<impl Iterator<Item = Result<PathBuf>> + use<>> {
