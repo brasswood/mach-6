@@ -187,6 +187,9 @@ fn main() {
           || { convert_to_is_selectors(w.document(), w.selectors()); },
           NUM_SAMPLES,
         );
+        eprint!("running function for samply...");
+        sample_here(5000, || { convert_to_is_selectors(w.document(), w.selectors()); });
+        eprintln!("done.");
         let preprocessed_selectors = convert_to_is_selectors(w.document(), w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
@@ -341,6 +344,15 @@ where
         num_iterations += 1;
     }
     num_iterations
+}
+
+fn sample_here<F, R>(num_iterations: usize, func: F)
+where
+    F: Fn() -> R
+{
+    for _ in 0..num_iterations {
+        func();
+    }
 }
 
 fn format_duration(duration: tsc_timer::Duration) -> String {
