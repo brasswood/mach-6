@@ -174,23 +174,23 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), &w.document(), &w.stylist(), &w.stylesheet_lock());
+        let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), w.document(), w.stylist(), w.stylesheet_lock());
         let substrings =
           substrings_from_selectors(w.selectors().iter());
         let indexing_results = bench_function(
           &format!("{} indexing", w.name),
-          || { build_substr_selector_index(&w.document(), substrings.clone()); },
+          || { build_substr_selector_index(w.document(), substrings.clone()); },
           NUM_SAMPLES,
         );
         let overall_preprocessing_results = bench_function(
           &format!("{} preprocessing", w.name),
-          || { convert_to_is_selectors(&w.document(), &w.selectors()); },
+          || { convert_to_is_selectors(w.document(), w.selectors()); },
           NUM_SAMPLES,
         );
-        let preprocessed_selectors = convert_to_is_selectors(&w.document(), &w.selectors());
+        let preprocessed_selectors = convert_to_is_selectors(w.document(), w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
-        let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), &w.document(), &preprocessed_stylist, &preprocessed_lock);
+        let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), w.document(), &preprocessed_stylist, &preprocessed_lock);
         let result = WebsiteResult {
             website: w.name,
             before_preprocessing,
