@@ -316,8 +316,8 @@ where
     const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_secs(5);
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
-    warm_up(&WARM_UP_TIME, &func);
-    eprint!("measuring {num_samples} samples...");
+    let num_warmup_iterations = warm_up(&WARM_UP_TIME, &func);
+    eprint!("done ({num_warmup_iterations} iterations), measuring {num_samples} samples...");
     let start = tsc_timer::Start::now();
     for _ in 0..num_samples {
       samples_vec.push(func());
@@ -330,14 +330,17 @@ where
     }
 }
 
-fn warm_up<F, R>(warm_up_time: &std::time::Duration, func: &F)
+fn warm_up<F, R>(warm_up_time: &std::time::Duration, func: &F) -> usize
 where
     F: Fn() -> R
 {
+    let mut num_iterations = 0;
     let start = std::time::Instant::now();
     while start.elapsed() < *warm_up_time {
         func();
+        num_iterations += 1;
     }
+    num_iterations
 }
 
 fn format_duration(duration: tsc_timer::Duration) -> String {
