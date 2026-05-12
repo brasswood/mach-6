@@ -330,7 +330,7 @@ where
     }
 }
 
-fn warm_up<F, R>(warm_up_time: &std::time::Duration, func: &F) -> usize
+fn warm_up<F, R>(warm_up_time: &std::time::Duration, func: F) -> usize
 where
     F: Fn() -> R
 {
