@@ -342,25 +342,29 @@ pub fn convert_to_is_selectors(
     let substr_to_classes  =
         build_substr_selector_index(document, substrings_from_selectors(selectors.iter()));
     selectors.into_iter().map(|selector| {
-        let mut builder = SelectorBuilder::default();
-        let mut can_clone_selector = true;
-        for component in selector.iter_raw_parse_order_from(0) {
-            if let Some(combinator) = component.as_combinator() {
-                builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
-                builder.push_combinator(combinator);
-            } else {
-                if let Some(new_component) = convert_to_is_component(&substr_to_classes, component) {
-                    builder.push_simple_selector(new_component);
-                    can_clone_selector = false;
+        // Pass 1: check if we will need to create a SelectorBuilder, because it's expensive.
+        let should_convert_selector = selector.iter_raw_match_order().any(|component| 
+            optimizable_substring_from_component(component).is_some() // saves us a hash map lookup compared to convert_to_is_component
+        );
+        if !should_convert_selector {
+            // Fast path: the selector doesn't need to be converted. Skip the expensive SelectorBuilder and just clone.
+            selector.clone()
+        }
+        else {
+            // Pass 2: feed all the components into a SelectorBuilder
+            let mut builder = SelectorBuilder::default();
+            for component in selector.iter_raw_parse_order_from(0) {
+                if let Some(combinator) = component.as_combinator() {
+                    builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
+                    builder.push_combinator(combinator);
                 } else {
-                    builder.push_simple_selector(component.clone());
+                    if let Some(new_component) = convert_to_is_component(&substr_to_classes, component) {
+                        builder.push_simple_selector(new_component);
+                    } else {
+                        builder.push_simple_selector(component.clone());
+                    }
                 }
             }
-        }
-        if can_clone_selector {
-            // Fast path: `SelectorBuilder::build_selector` appears to be expensive.
-            selector.clone()
-        } else {
             builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
             builder.build_selector(selectors::parser::ParseRelative::No)
         }
