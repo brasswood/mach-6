@@ -279,6 +279,20 @@ pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selecto
         .filter_map(optimizable_substring_from_component)
 }
 
+fn may_be_optimizable_attr_selector(
+    component: &Component<style::selector_parser::SelectorImpl>,
+) -> bool {
+    matches!(
+        component,
+        Component::AttributeInNoNamespace {
+            local_name: _,
+            operator: AttrSelectorOperator::Substring,
+            value: _,
+            ..
+        } | Component::AttributeOther(_)
+    )
+}
+
 fn optimizable_substring_from_component(
     component: &Component<style::selector_parser::SelectorImpl>
 ) -> Option<&AtomString> {
@@ -343,10 +357,8 @@ pub fn convert_to_is_selectors(
         build_substr_selector_index(document, substrings_from_selectors(selectors.iter()));
     selectors.into_iter().map(|selector| {
         // Pass 1: check if we will need to create a SelectorBuilder, because it's expensive.
-        let should_convert_selector = selector.iter_raw_match_order().any(|component| 
-            optimizable_substring_from_component(component).is_some() // saves us a hash map lookup compared to convert_to_is_component
-        );
-        if !should_convert_selector {
+        let maybe_should_convert_selector = selector.iter_raw_match_order().any(may_be_optimizable_attr_selector);
+        if !maybe_should_convert_selector {
             // Fast path: the selector doesn't need to be converted. Skip the expensive SelectorBuilder and just clone.
             selector.clone()
         }
