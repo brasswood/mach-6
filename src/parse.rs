@@ -99,8 +99,9 @@ pub fn get_document_and_selectors(
     let style_tag_selector = scraper::Selector::parse("style").unwrap();
     let style_tags = document.select(&style_tag_selector);
     let stylesheets_from_style_tags = style_tags.filter_map(|elt| {
+        let css = elt.text().collect::<String>();
         match parse_stylesheet(
-            &elt.inner_html(),
+            &css,
             UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
             &stylesheet_lock,
         ) {
@@ -229,8 +230,9 @@ pub(crate) fn parse_stylesheet(
 mod tests {
     use std::fmt::Write as _;
     use std::{fs, path::PathBuf};
+    use crate::Selector;
     use crate::result::IntoResultExt;
-    use crate::parse::{CssFile, get_main_html, get_stylesheet_paths, parse_css_file, parse_main_html};
+    use crate::parse::{CssFile, get_document_and_selectors, get_main_html, get_stylesheet_paths, parse_css_file, parse_main_html};
     use cssparser::ToCss as _;
     use style::shared_lock::SharedRwLock;
     use test_log::test;
@@ -341,4 +343,26 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn preserves_child_combinators_in_inline_style_tags() -> super::Result<()> {
+        let website_dir = tempfile::tempdir().into_result(None)?;
+        let website_path = website_dir.path();
+        let index_html_path = website_path.join("index.html");
+        fs::write(
+            &index_html_path,
+            r#"<html><head><style>:is(.foo > :not(.bar)) { color: red; }</style></head><body></body></html>"#,
+        ).into_result(Some(index_html_path))?;
+
+        let website = get_document_and_selectors(website_path)?
+            .expect("expected parsed website");
+        let selectors: Vec<_> = website
+            .selectors()
+            .iter()
+            .map(Selector::to_css_string)
+            .collect();
+
+        assert!(selectors.iter().any(|selector| selector.contains(">")));
+        assert!(selectors.iter().all(|selector| !selector.contains("&gt;")));
+        Ok(())
+    }
 }
