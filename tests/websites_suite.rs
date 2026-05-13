@@ -65,7 +65,7 @@ fn compare_with_naive(
         let website_folder = equality_failures_alg_path.join(website_name);
         std::fs::create_dir_all(&website_folder).into_result(Some(website_folder.clone()))?;
         let annotated_html_path = website_folder.join(format!("{website_name}.debug.html"));
-        std::fs::write(&annotated_html_path, annotated_html(&input.document))
+        std::fs::write(&annotated_html_path, annotated_html(input.document()))
             .into_result(Some(annotated_html_path))?;
         for (algorithm, ser_result, debug_result) in [(Algorithm::Naive, ser_naive_result, debug_naive_result), (algorithm, &ser_result, &DebugSerDocumentMatches::from(&result))] {
             let yaml_path = website_folder.join(format!("{website_name}.{algorithm}.yaml"));
@@ -106,7 +106,7 @@ fn all_algorithms_correct() -> Result<()> {
         .map(|path| {
             // 1.1. Compute naive result
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            let naive_result = match_selectors(&website.document, website.selectors());
+            let naive_result = match_selectors(website.document(), website.selectors());
             let set_naive_result = SetDocumentMatches::from(OwnedDocumentMatches::from(&naive_result));
             let ser_naive_result = SerDocumentMatches::from(&set_naive_result);
             let debug_naive_result = DebugSerDocumentMatches::from(&set_naive_result);
