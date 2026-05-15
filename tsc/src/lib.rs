@@ -157,7 +157,7 @@ impl Start {
     /// Start measurement
     pub fn now() -> Self {
         unsafe {
-            let _ = arch::__cpuid(0);
+            // let _ = arch::__cpuid(0); // too slow
             Start(core::mem::transmute(arch::_rdtsc()))
         }
     }
@@ -178,7 +178,7 @@ impl Stop {
         unsafe {
             let mut core: u32 = 0;
             let r = arch::__rdtscp(&mut core as *mut _) as u64;
-            let _ = arch::__cpuid(0);
+            // let _ = arch::__cpuid(0); // too slow
             Stop(r)
         }
     }
