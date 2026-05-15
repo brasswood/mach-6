@@ -13,11 +13,97 @@ use selectors::attr::ParsedAttrSelectorOperation;
 use selectors::builder::SelectorBuilder;
 use selectors::parser::Component;
 use selectors::SelectorList;
+use style::selector_parser::SelectorImpl;
 use std::collections::HashMap;
+use std::iter::FlatMap;
 use style::values::AtomIdent;
 use style::values::AtomString;
 
 use crate::Selector;
+
+#[derive(Clone)]
+enum InnerSelectors<'a> {
+    Empty(std::iter::Empty<&'a Selector>),
+    Once(std::iter::Once<&'a Selector>),
+    Slice(std::slice::Iter<'a, Selector>),
+}
+
+impl<'a> Iterator for InnerSelectors<'a> {
+    type Item = &'a Selector;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Empty(e) => e.next(),
+            Self::Once(o) => o.next(),
+            Self::Slice(s) => s.next(),
+        }
+    }
+}
+
+fn get_inner_selectors<'component>(component: &'component Component<SelectorImpl>) -> Option<InnerSelectors<'component>> {
+    match component {
+        Component::Negation(l) => Some(InnerSelectors::Slice(l.slice().iter())),
+        Component::Slotted(s) => Some(InnerSelectors::Once(std::iter::once(s))),
+        Component::Host(s) => Some(if let Some(s) = s { InnerSelectors::Once(std::iter::once(s)) } else { InnerSelectors::Empty(std::iter::empty()) }),
+        Component::Where(l) | Component::Is(l) => Some(InnerSelectors::Slice(l.slice().iter())),
+        _ => None,
+    }
+}
+
+
+#[derive(Clone)]
+pub struct FlattenedSelectors<'a, I: Iterator<Item = &'a Selector>> {
+    iter: FlatMap< I, std::iter::Rev<std::slice::Iter<'a, Component<SelectorImpl>>>, fn(&'a Selector) -> std::iter::Rev<std::slice::Iter<'a, Component<SelectorImpl>>> >,
+    stack: Vec<FlatMap< InnerSelectors<'a>, std::iter::Rev<std::slice::Iter<'a, Component<SelectorImpl>>>, fn(&'a Selector) -> std::iter::Rev<std::slice::Iter<'a, Component<SelectorImpl>>> >>,
+}
+
+impl<'a, I: Iterator<Item = &'a Selector>> FlattenedSelectors<'a, I> {
+    pub fn from_iter(iter: I) -> Self {
+        Self {
+            iter: iter.flat_map(|sel| sel.iter_raw_parse_order_from(0)),
+            stack: vec![],
+        }
+    }
+}
+
+impl<'a, I: Iterator<Item = &'a Selector>> Iterator for FlattenedSelectors<'a, I> {
+    type Item = &'a Component<SelectorImpl>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_component = match self.stack.last_mut() {
+            Some(top) => top.next(),
+            None => self.iter.next(),
+        };
+        if let Some(next_component) = next_component {
+            // if the next component is :is() or similar...
+            if let Some(new_iter) = get_inner_selectors(next_component) {
+                // ...push a new flattened component iterator to the stack.
+                self.stack.push(new_iter.flat_map(|sel| sel.iter_raw_parse_order_from(0)));
+                // re-enter. This will get the first component in our new top-of-stack, or, if there wasn't a selector in the :is(), will skip over it and just get the next component in the current top-of-stack.
+                return self.next();
+            } else {
+                // If the next component is not :is() or similar, just return it.
+                return Some(next_component);
+            }
+        }
+        // If there is no next component...
+        else {
+            //...pop an iterator off the stack.
+            if self.stack.pop().is_some() {
+                // If the stack wasn't empty, we at least have self.iter to call next() on. Re-enter.
+                return self.next();
+            } else {
+                // If the stack was empty, we were at the end of self.iter. Return None.
+                return None;
+            }
+        }
+    }
+}
+
+pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selector> + Clone) -> impl Iterator<Item = &'a AtomString> + Clone {
+    FlattenedSelectors::from_iter(selectors)
+        .filter_map(optimizable_substring_from_component)
+}
 
 pub fn build_substr_selector_index<'substr, 'class>(
     document: &'class Html,
@@ -66,14 +152,6 @@ pub fn build_substr_selector_index<'substr, 'class>(
         document.root_element(),
     );
     ret
-}
-
-pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selector> + Clone) -> impl Iterator<Item = &'a AtomString> + Clone {
-    selectors
-        .flat_map(|selector| 
-            selector.iter_raw_parse_order_from(0)
-        )
-        .filter_map(optimizable_substring_from_component)
 }
 
 fn may_be_optimizable_attr_selector(
