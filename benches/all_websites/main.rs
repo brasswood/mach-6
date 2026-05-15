@@ -188,9 +188,6 @@ fn main() {
           || { convert_to_is_selectors(w.document(), w.selectors()); },
           NUM_SAMPLES,
         );
-        eprint!("running function for samply...");
-        sample_here(5000, || { convert_to_is_selectors(w.document(), w.selectors()); });
-        eprintln!("done.");
         let preprocessed_selectors = convert_to_is_selectors(w.document(), w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
