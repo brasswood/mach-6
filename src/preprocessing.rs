@@ -209,52 +209,140 @@ pub fn convert_to_is_selectors(
         SelectorList::from_iter(selectors)
     }
 
-        
+    enum OldOrNewComponent<'component> {
+        Old(&'component Component<SelectorImpl>),
+        New(Component<SelectorImpl>),
+    }
+
+    impl<'component> OldOrNewComponent<'component> {
+        fn to_owned(self) -> Component<SelectorImpl> {
+            match self {
+                OldOrNewComponent::Old(c) => c.clone(),
+                OldOrNewComponent::New(c) => c,
+            }
+        }
+    }
+
+    enum OldOrNewSelector<'selector> {
+        Old(&'selector Selector),
+        New(Selector),
+    }
+    
+    impl<'selector> OldOrNewSelector<'selector> {
+        fn to_owned(self) -> Selector {
+            match self {
+                OldOrNewSelector::Old(s) => s.clone(),
+                OldOrNewSelector::New(s) => s,
+            }
+        }
+    }
+
     // Helper function which takes a Component; if it's an attribute selector
     // with "class*=", look it up in the map and convert it to an equivalent
     // `is()` selector. Otherwise, return None.
-    fn convert_to_is_component(
-        map: &HashMap<&AtomString, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
-        component: &Component<style::selector_parser::SelectorImpl>,
-    ) -> Option<Component<style::selector_parser::SelectorImpl>>{
-        optimizable_substring_from_component(component).map(|substring| {
-            Component::Is(
-                match map.get(substring) {
-                    Some(set) =>
-                        create_class_selector_list(set.iter().copied().cloned()),
-                    None => create_class_selector_list(std::iter::empty()),
+    fn convert_to_is_component<'component>(
+        map: &HashMap<&'component AtomString, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
+        component: &'component Component<SelectorImpl>,
+    ) -> OldOrNewComponent<'component> {
+        // Let the record show that I tried to reuse code by defining an inner function which takes a closure that wraps a cloned selector list in a new component. But it was impossible to write the type of a closure that takes a Map<Map<...>> here; I would have had to make my own custom iterator type.
+        let convert_selector = |selector| convert_to_is_selector(map, selector);
+        match component {
+            Component::Negation(l) => {
+                let converted = l.slice().iter().map(convert_selector);
+                if converted.clone().all(|selector| matches!(selector, OldOrNewSelector::Old(_))) {
+                    OldOrNewComponent::Old(component)
+                } else {
+                    let new_selectors = converted.map(OldOrNewSelector::to_owned);
+                    OldOrNewComponent::New(Component::Negation(SelectorList::from_iter(new_selectors)))
                 }
-            )
-        })
+            },
+            Component::Slotted(s) => {
+                match convert_selector(s) {
+                    OldOrNewSelector::Old(_) => OldOrNewComponent::Old(component),
+                    OldOrNewSelector::New(s) => OldOrNewComponent::New(Component::Slotted(s)),
+                }
+            },
+            Component::Host(s) => {
+                match s {
+                    Some(s) => match convert_selector(s) {
+                        OldOrNewSelector::Old(_) => OldOrNewComponent::Old(component),
+                        OldOrNewSelector::New(s) => OldOrNewComponent::New(Component::Host(Some(s))),
+                    },
+                    None => OldOrNewComponent::Old(component),
+                }
+            },
+            Component::Where(l) => {
+                let converted = l.slice().iter().map(convert_selector);
+                if converted.clone().all(|selector| matches!(selector, OldOrNewSelector::Old(_))) {
+                    OldOrNewComponent::Old(component)
+                } else {
+                    let new_selectors = converted.map(OldOrNewSelector::to_owned);
+                    OldOrNewComponent::New(Component::Where(SelectorList::from_iter(new_selectors)))
+                }
+            },
+            Component::Is(l) => {
+                let converted = l.slice().iter().map(convert_selector);
+                if converted.clone().all(|selector| matches!(selector, OldOrNewSelector::Old(_))) {
+                    OldOrNewComponent::Old(component)
+                } else {
+                    let new_selectors = converted.map(OldOrNewSelector::to_owned);
+                    OldOrNewComponent::New(Component::Is(SelectorList::from_iter(new_selectors)))
+                }
+            },
+            component => {
+                // fast reject
+                if !may_be_optimizable_attr_selector(component) {
+                    return OldOrNewComponent::Old(component);
+                }
+                match optimizable_substring_from_component(component) {
+                    Some(substring) => OldOrNewComponent::New(Component::Is(
+                        match map.get(substring) {
+                            Some(set) =>
+                                create_class_selector_list(set.iter().copied().cloned()),
+                            None => create_class_selector_list(std::iter::empty()),
+                        }
+                    )),
+                    None => OldOrNewComponent::Old(component),
+                }
+            }
+        }
+    }
+
+    fn convert_to_is_selector<'sel>(
+        map: &HashMap<&'sel AtomString, IndexSet<&AtomIdent>>,
+        selector: &'sel Selector,
+    ) -> OldOrNewSelector<'sel> { // None when no change
+        let rewritten_components = selector.iter_raw_parse_order_from(0).map(|component| convert_to_is_component(map, component));
+        if rewritten_components.clone().all(|component| matches!(component, OldOrNewComponent::Old(_))) {
+            // Fast path: the selector doesn't need to be converted. Skip the expensive SelectorBuilder and just clone.
+            OldOrNewSelector::Old(selector)
+        } else {
+            // slow path: feed all the components into a SelectorBuilder
+            let mut builder = SelectorBuilder::default();
+            for rewritten_component in rewritten_components {
+                let rewritten_component = rewritten_component.to_owned();
+                if let Some(combinator) = rewritten_component.as_combinator() {
+                    builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
+                    builder.push_combinator(combinator);
+                } else {
+                    builder.push_simple_selector(rewritten_component.clone());
+                }
+            }
+            builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
+            let new_selector = builder.build_selector(selectors::parser::ParseRelative::No);
+            OldOrNewSelector::New(new_selector)
+        }
     }
 
     let substr_to_classes  =
         build_substr_selector_index(document, substrings_from_selectors(selectors.iter()));
-    selectors.into_iter().map(|selector| {
-        // Pass 1: check if we will need to create a SelectorBuilder, because it's expensive.
-        let maybe_should_convert_selector = selector.iter_raw_match_order().any(may_be_optimizable_attr_selector);
-        if !maybe_should_convert_selector {
-            // Fast path: the selector doesn't need to be converted. Skip the expensive SelectorBuilder and just clone.
-            selector.clone()
-        }
-        else {
-            // Pass 2: feed all the components into a SelectorBuilder
-            let mut builder = SelectorBuilder::default();
-            for component in selector.iter_raw_parse_order_from(0) {
-                if let Some(combinator) = component.as_combinator() {
-                    builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
-                    builder.push_combinator(combinator);
-                } else {
-                    if let Some(new_component) = convert_to_is_component(&substr_to_classes, component) {
-                        builder.push_simple_selector(new_component);
-                    } else {
-                        builder.push_simple_selector(component.clone());
-                    }
-                }
-            }
-            builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
-            builder.build_selector(selectors::parser::ParseRelative::No)
-        }
-    }).collect()
+    let converted_selectors = selectors
+        .into_iter()
+        .map(|selector| convert_to_is_selector(&substr_to_classes, selector));
+    if converted_selectors.clone().all(|selector| matches!(selector, OldOrNewSelector::Old(_))) {
+        selectors.to_vec()
+    } else {
+        converted_selectors.map(OldOrNewSelector::to_owned).collect()
+    }
 }
 
