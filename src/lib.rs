@@ -273,6 +273,9 @@ fn collect_selectors_from_map(
     for rule in &map.root {
         push_rule(rule);
     }
+    for rule in &map.common_pseudo_classes {
+        push_rule(rule);
+    }
     for rule in &map.rare_pseudo_classes {
         push_rule(rule);
     }
