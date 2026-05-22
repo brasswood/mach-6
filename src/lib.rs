@@ -60,11 +60,7 @@ use crate::structs::{
         ElementMatches,
         SelectorsOrSharedStyles,
     },
-    owned::{
-        OwnedDocumentMatches,
-        OwnedElementMatches,
-        OwnedSelectorsOrSharedStyles,
-    },
+    owned::OwnedDocumentMatches,
     set::SetDocumentMatches,
 };
 
@@ -75,8 +71,6 @@ pub enum Algorithm {
     WithPreprocessing,
     Mach7,
 }
-
-type MatchPair = (Element, Selector);
 
 fn element_to_string(el: ElementRef<'_>) -> String {
     let name = el.value().name();
@@ -117,7 +111,9 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
-            match_selectors_with_style_sharing(&website.document(), website.stylist(), &website.stylesheet_lock(), None)
+            let (matches, stats) =
+                match_selectors_with_style_sharing(&website.document(), website.stylist(), &website.stylesheet_lock(), None);
+            (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithPreprocessing => {
             let preprocessed_selectors =
@@ -128,14 +124,14 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
                 .collect();
             let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
-            let mut result = match_selectors_with_style_sharing(
+            let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
                 &preprocessed_stylist,
                 &preprocessed_lock,
                 None,
             );
-            for oem in result.0.0.iter_mut() {
-                if let OwnedSelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
+            for oem in matches.0.iter_mut() {
+                if let SelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
                     for selector in selectors.iter_mut() {
                         *selector = reverse_map
                             .get(&selector.to_css_string())
@@ -145,12 +141,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                                     "failed to reverse preprocessed selector {}",
                                     selector.to_css_string()
                                 )
-                            })
-                            .clone();
+                            });
                     }
                 }
             }
-            result
+            (OwnedDocumentMatches::from(&matches), stats)
         }
         Algorithm::Mach7 => {
             if let Some(document_matches) = mach7_oracle {
@@ -309,19 +304,19 @@ fn collect_selectors_from_map(
     }
 }
 
-pub fn match_selectors_with_style_sharing(
-    document: &Html,
-    stylist: &style::stylist::Stylist,
+pub fn match_selectors_with_style_sharing<'document>(
+    document: &'document Html,
+    stylist: &'document style::stylist::Stylist,
     stylesheet_lock: &SharedRwLock,
-    selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
-) -> (OwnedDocumentMatches, Statistics) {
+    selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
+) -> (DocumentMatches<'document>, Statistics) {
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
         context: &mut StyleContext<ElementRef<'a>>,
-        matches: &mut Vec<OwnedElementMatches>,
-        mut selector_stats: Option<&mut SmallVec<[(MatchPair, SelectorStats); 16]>>,
-        selector_map: &SelectorMap<Rule>,
+        matches: &mut Vec<ElementMatches<'a>>,
+        mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
+        selector_map: &'a SelectorMap<Rule>,
         cascade_data: &CascadeData,
         stats: &mut Statistics,
     ) {
@@ -370,9 +365,8 @@ pub fn match_selectors_with_style_sharing(
                 // again. As Thalia said, they are probably using some sort of
                 // tree-walking machinery.
                 element.mutate_data().unwrap().set_styles(shared_styles);
-                let element = Element::from(element);
                 let other_element = Element::from(other_element);
-                matches.push(OwnedElementMatches{ element, selectors: OwnedSelectorsOrSharedStyles::SharedWithElement(other_element.id) });
+                matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::SharedWithElement(other_element.id) });
                 stats.counts.sharing_instances += 1;
             },
             None => {
@@ -403,18 +397,13 @@ pub fn match_selectors_with_style_sharing(
                 );
                 // 1.3.3: add the matched selectors to the list
                 matches.push(
-                    OwnedElementMatches{
-                        element: Element::from(element),
-                        selectors: OwnedSelectorsOrSharedStyles::Selectors(matched_selectors)
+                    ElementMatches{
+                        element,
+                        selectors: SelectorsOrSharedStyles::Selectors(matched_selectors)
                     }
                 );
                 if let Some(selector_stats) = selector_stats.as_deref_mut() {
-                    selector_stats.extend(
-                        sel_stats.unwrap().into_iter().map(|(sel, stats)| {
-                            let match_pair = (Element::from(element), sel);
-                            (match_pair, stats)
-                        })
-                    )
+                    selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
                 let start = Start::now();
@@ -487,7 +476,7 @@ pub fn match_selectors_with_style_sharing(
         cascade_data,
         &mut stats
     );
-    (OwnedDocumentMatches(result), stats)
+    (DocumentMatches(result), stats)
 }
 
 pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {

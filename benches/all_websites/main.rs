@@ -74,7 +74,7 @@ struct MatchBenchResult {
 impl MatchBenchResult {
     fn new(
         stats: TimedResults<Statistics>,
-        per_match_stats: TimedResults<SmallVec<[((Element, Selector), SelectorStats); 16]>>,
+        per_match_stats: TimedResults<SmallVec<[(&Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
             .samples
@@ -91,14 +91,14 @@ impl MatchBenchResult {
 
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
-            for ((_element, selector), selector_stats) in per_match_stats {
+            for (selector, selector_stats) in per_match_stats {
                 let slow_reject_duration = match selector_stats {
                     SelectorStats::Bloom(bq) =>
                         bq.time_slow_rejecting.unwrap_or_default(),
                     SelectorStats::ScopeProximity(sp) =>
                         sp.time_slow_rejecting,
                 };
-                let samples = map.entry(SelectorString::from(&selector)).or_default();
+                let samples = map.entry(SelectorString::from(selector)).or_default();
                 // If this is the first time we have touched the vector at this
                 // selector for this sample (samples.len() == i), push a new
                 // Duration onto the end. Otherwise, samples.len() == i + 1,
