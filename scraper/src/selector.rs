@@ -213,6 +213,10 @@ impl parser::NonTSPseudoClass for NonTSPseudoClass {
     fn is_user_action_state(&self) -> bool {
         false
     }
+
+    fn is_common(&self) -> bool {
+        false // We're not using this SelectorImpl anyway
+    }
 }
 
 impl ToCss for NonTSPseudoClass {
