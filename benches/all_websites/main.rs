@@ -240,7 +240,7 @@ fn main() {
 
 fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> MatchBenchResult {
     let overall_stats = bench_function(
-        &format!("{benchmark_name} (without selector stats)"),
+        benchmark_name,
         || {
             let (_, overall_stats) =
                 mach_6::match_selectors_with_style_sharing(
@@ -253,21 +253,20 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
         },
         NUM_SAMPLES,
     );
-    let per_match_stats = bench_function(
-        &format!("{benchmark_name} (with selector stats)"),
-        || {
-            let mut per_match_stats = SmallVec::new();
-            mach_6::match_selectors_with_style_sharing(
-                document,
-                stylist,
-                stylesheet_lock,
-                Some(&mut per_match_stats),
-            );
-            per_match_stats
-        },
-        1,
+    print!("Getting selector stats for {benchmark_name}...");
+    let mut per_match_stats = SmallVec::new();
+    mach_6::match_selectors_with_style_sharing(
+        document,
+        stylist,
+        stylesheet_lock,
+        Some(&mut per_match_stats),
     );
-    MatchBenchResult::new(overall_stats, per_match_stats)
+    println!("done.");
+    let results = TimedResults {
+        total_duration: tsc_timer::Duration::from_cycles(0), // whatever
+        samples: Samples::from_vec(vec![per_match_stats]),
+    };
+    MatchBenchResult::new(overall_stats, results)
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
