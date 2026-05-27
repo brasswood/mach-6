@@ -117,7 +117,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         },
         Algorithm::WithPreprocessing => {
             let preprocessed_selectors =
-                preprocessing::convert_to_is_selectors( &website.document(), website.selectors());
+                preprocessing::concretize::convert_to_is_selectors( &website.document(), website.selectors());
             let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
                 .iter()
                 .zip(website.selectors().iter())
@@ -522,7 +522,7 @@ mod tests {
     use crate::parse::{get_document_and_selectors, websites_path};
     use crate::structs::Selector;
     use crate::do_website;
-    use crate::preprocessing::convert_to_is_selectors;
+    use crate::preprocessing::concretize::convert_to_is_selectors;
     use crate::Algorithm;
     use cssparser::ToCss as _;
     use style::selector_parser::SelectorParser;

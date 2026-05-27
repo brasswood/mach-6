@@ -194,7 +194,6 @@ fn optimizable_substring_from_component(
     (!substring.0.contains(" ")).then_some(substring)
 }
 
-
 pub fn convert_to_is_selectors(
     document: &Html,
     selectors: &[Selector],

@@ -1,8 +1,12 @@
 use log::{error, warn};
 use mach_6::{self, get_all_documents_and_selectors, stylist_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
-use mach_6::preprocessing::{build_substr_selector_index, convert_to_is_selectors, substrings_from_selectors};
-use mach_6::structs::{Element, Selector};
+use mach_6::preprocessing::concretize::{
+    build_substr_selector_index,
+    convert_to_is_selectors,
+    substrings_from_selectors
+};
+use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
