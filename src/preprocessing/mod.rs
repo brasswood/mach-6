@@ -1,3 +1,4 @@
+use scraper::Html;
 use selectors::{builder::SelectorBuilder, parser::Component};
 use style::selector_parser::SelectorImpl;
 
@@ -20,3 +21,7 @@ fn selector_from_iter(components: impl Iterator<Item = Component<SelectorImpl>>)
     builder.build_selector(selectors::parser::ParseRelative::No)
 }
 
+pub fn preprocess(document: &Html, selectors: &[Selector]) -> Vec<Selector> {
+    let is = concretize::convert_to_is_selectors(document, selectors);
+    is.iter().flat_map(distribute::DistributedSelectors::from_selector).collect()
+}
