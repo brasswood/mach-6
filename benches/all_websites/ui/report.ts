@@ -1,6 +1,7 @@
 type SegmentKind =
   | "indexing"
   | "otherPreprocessing"
+  | "distribution"
   | "updatingBloomFilter"
   | "checkingStyleSharing"
   | "queryingSelectorMap"
@@ -44,7 +45,8 @@ interface SummaryJson {
 
 interface PreprocessingSummaryJson {
   mean_indexing_cycles: number;
-  mean_overall_cycles: number;
+  mean_is_conversion_cycles: number;
+  mean_distributing_cycles: number;
 }
 
 interface BenchmarkRunSummaryJson {
@@ -140,6 +142,7 @@ const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
 const SEGMENT_ORDER: readonly SegmentKind[] = [
   "indexing",
   "otherPreprocessing",
+  "distribution",
   "updatingBloomFilter",
   "checkingStyleSharing",
   "queryingSelectorMap",
@@ -151,7 +154,8 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
 ];
 const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   indexing: { label: "Indexing", cssClass: "seg-index" },
-  otherPreprocessing: { label: "Other Preprocessing", cssClass: "seg-preprocess-other" },
+  otherPreprocessing: { label: "Other :is() Conversion", cssClass: "seg-preprocess-other" },
+  distribution: { label: "Distribution", cssClass: "seg-distribution" },
   updatingBloomFilter: { label: "Updating Bloom Filter", cssClass: "seg-bloom" },
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
@@ -625,9 +629,11 @@ function buildBar(
   const segments: SegmentView[] = [];
   if (includePreprocessing) {
     const indexingCycles = toBigInt(includePreprocessing.mean_indexing_cycles);
-    const overallCycles = toBigInt(includePreprocessing.mean_overall_cycles);
+    const isConversionCycles = toBigInt(includePreprocessing.mean_is_conversion_cycles);
+    const distributionCycles = toBigInt(includePreprocessing.mean_distributing_cycles);
     segments.push({ kind: "indexing", meanCycles: indexingCycles, stddevCycles: null });
-    segments.push({ kind: "otherPreprocessing", meanCycles: overallCycles - indexingCycles, stddevCycles: null });
+    segments.push({ kind: "otherPreprocessing", meanCycles: isConversionCycles - indexingCycles, stddevCycles: null });
+    segments.push({ kind: "distribution", meanCycles: distributionCycles, stddevCycles: null });
   }
   segments.push(...measuredMatchDurations);
 
@@ -763,7 +769,8 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
       before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
       preprocessing: {
         mean_indexing_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_indexing_cycles)),
-        mean_overall_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_overall_cycles))
+        mean_is_conversion_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_is_conversion_cycles)),
+        mean_distributing_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_distributing_cycles))
       },
       after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
     },
