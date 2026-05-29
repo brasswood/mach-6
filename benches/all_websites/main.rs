@@ -1,11 +1,7 @@
 use log::{error, warn};
 use mach_6::{self, get_all_documents_and_selectors, stylist_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
-use mach_6::preprocessing::concretize::{
-    build_substr_selector_index,
-    convert_to_is_selectors,
-    substrings_from_selectors
-};
+use mach_6::preprocessing::{self, concretize, distribute};
 use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
@@ -138,24 +134,30 @@ impl MatchBenchResult {
 struct PreprocessingResult {
     /// The substring-indexing results
     indexing: TimedResults<()>,
-    /// The total preprocessing results. This has `indexing` included in it.
-    overall_preprocessing: TimedResults<()>,
+    /// The total is conversion results. This has `indexing` included in it.
+    overall_is_conversion: TimedResults<()>,
+    /// The :is() distribution results
+    distribution: TimedResults<()>
 }
 impl PreprocessingResult {
-    fn new(indexing: TimedResults<()>, overall_preprocessing: TimedResults<()>) -> Self {
+    fn new(indexing: TimedResults<()>, overall_is_conversion: TimedResults<()>, distribution: TimedResults<()>) -> Self {
         Self {
             indexing,
-            overall_preprocessing,
+            overall_is_conversion,
+            distribution,
         }
     }
     fn mean_indexing(&self) -> tsc_timer::Duration {
         self.indexing.total_duration / self.indexing.samples.len() as u64
     }
-    fn mean_overall(&self) -> tsc_timer::Duration {
-        self.overall_preprocessing.total_duration / self.overall_preprocessing.samples.len() as u64
+    fn mean_is_conversion(&self) -> tsc_timer::Duration {
+        self.overall_is_conversion.total_duration / self.overall_is_conversion.samples.len() as u64
     }
     fn mean_non_indexing(&self) -> tsc_timer::Duration {
-        self.mean_overall() - self.mean_indexing()
+        self.mean_is_conversion() - self.mean_indexing()
+    }
+    fn mean_distributing(&self) -> tsc_timer::Duration {
+        self.distribution.total_duration / self.distribution.samples.len() as u64
     }
 }
 
@@ -181,19 +183,31 @@ fn main() {
     let results = websites.map(|w| {
         let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), w.document(), w.stylist(), w.stylesheet_lock());
         let substrings =
-          substrings_from_selectors(w.selectors().iter());
+          concretize::substrings_from_selectors(w.selectors().iter());
         let indexing_results = bench_function(
           &format!("{} indexing", w.name),
-          || { build_substr_selector_index(w.document(), substrings.clone()); },
+          || { concretize::build_substr_selector_index(w.document(), substrings.clone()); },
           NUM_SAMPLES,
         );
-        let overall_preprocessing_results = bench_function(
-          &format!("{} preprocessing", w.name),
-          || { convert_to_is_selectors(w.document(), w.selectors()); },
-          NUM_SAMPLES,
-        );
-        let preprocessed_selectors = convert_to_is_selectors(w.document(), w.selectors());
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
+        let overall_is_conversion_results = bench_function(
+          &format!("{} :is() conversion", w.name),
+          || { concretize::convert_to_is_selectors(w.document(), w.selectors()); },
+          NUM_SAMPLES,
+        );
+        let is = concretize::convert_to_is_selectors(w.document(), w.selectors());
+        let distribute = || {
+            let _: Vec<_> = is
+                .iter()
+                .flat_map(distribute::DistributedSelectors::from_selector)
+                .collect();
+        };
+        let distributing_results = bench_function(
+            &format!("{} :is() distribution", w.name),
+            distribute,
+            NUM_SAMPLES,
+        );
+        let preprocessed_selectors = preprocessing::preprocess(w.document(), w.selectors());
         let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
         let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), w.document(), &preprocessed_stylist, &preprocessed_lock);
         let result = WebsiteResult {
@@ -201,7 +215,8 @@ fn main() {
             before_preprocessing,
             preprocessing: PreprocessingResult::new(
                 indexing_results,
-                overall_preprocessing_results,
+                overall_is_conversion_results,
+                distributing_results,
             ),
             after_preprocessing,
         };

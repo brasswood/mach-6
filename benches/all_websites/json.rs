@@ -104,14 +104,16 @@ mod overall_summary {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct PreprocessingSummaryJson {
         pub(crate) mean_indexing_cycles: u64,
-        pub(crate) mean_overall_cycles: u64,
+        pub(crate) mean_is_conversion_cycles: u64,
+        pub(crate) mean_distributing_cycles: u64,
     }
 
     impl From<&PreprocessingResult> for PreprocessingSummaryJson {
         fn from(value: &PreprocessingResult) -> Self {
             Self {
                 mean_indexing_cycles: value.mean_indexing().cycles(),
-                mean_overall_cycles: value.mean_overall().cycles(),
+                mean_is_conversion_cycles: value.mean_is_conversion().cycles(),
+                mean_distributing_cycles: value.mean_distributing().cycles(),
             }
         }
     }
