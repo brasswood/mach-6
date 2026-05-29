@@ -317,19 +317,8 @@ pub fn convert_to_is_selectors(
             OldOrNewSelector::Old(selector)
         } else {
             // slow path: feed all the components into a SelectorBuilder
-            let mut builder = SelectorBuilder::default();
-            for rewritten_component in rewritten_components {
-                let rewritten_component = rewritten_component.to_owned();
-                if let Some(combinator) = rewritten_component.as_combinator() {
-                    builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
-                    builder.push_combinator(combinator);
-                } else {
-                    builder.push_simple_selector(rewritten_component.clone());
-                }
-            }
-            builder.reverse_last_compound(); // TODO: This will effectively reverse twice. Get rid of this.
-            let new_selector = builder.build_selector(selectors::parser::ParseRelative::No);
-            OldOrNewSelector::New(new_selector)
+            let rewritten_components = rewritten_components.map(OldOrNewComponent::to_owned);
+            OldOrNewSelector::New(super::selector_from_iter(rewritten_components))
         }
     }
 

@@ -1,5 +1,5 @@
 use crate::Selector;
-use selectors::{builder::SelectorBuilder, parser::Component};
+use selectors::parser::Component;
 use std::iter::Iterator;
 use style::selector_parser::SelectorImpl;
 
@@ -107,16 +107,12 @@ impl<'selector> DistributedSelectors<'selector> {
         if stack.is_empty() {
             return None;
         }
-        let mut builder = SelectorBuilder::default();
-        for item in stack {
-            match item {
-                ComponentOrInner::Component(c) =>
-                    builder.push_simple_selector((*c).clone()),
-                ComponentOrInner::Inner(_) => continue, // Skip over Inner.
-                // This is because Self::recursively_push pushes an Inner, then pushes the
-                // correct components from inside the Inner immediately after.
-            }
-        }
-        Some(builder.build_selector(selectors::parser::ParseRelative::No))
+        let components = stack.iter().filter_map(|item| match item {
+            ComponentOrInner::Component(c) => Some((*c).clone()),
+            ComponentOrInner::Inner(_) => None, // Skip over Inner.
+            // This is because Self::recursively_push pushes an Inner, then pushes the
+            // correct components from inside the Inner immediately after.
+        });
+        Some(super::selector_from_iter(components))
     }
 }
