@@ -1,5 +1,6 @@
 use crate::Selector;
 use selectors::parser::Component;
+use smallvec::SmallVec;
 use std::iter::Iterator;
 use style::selector_parser::SelectorImpl;
 
@@ -17,7 +18,7 @@ enum ComponentOrInner<'selector> {
 
 #[derive(Clone, Debug)]
 enum StackOrNoOp<'selector> {
-    Stack(Vec<ComponentOrInner<'selector>>),
+    Stack(SmallVec<[ComponentOrInner<'selector>; 8]>),
     NoOp(std::iter::Once<Selector>), // Variant to avoid allocating a Vec if the selector has no :is() components to distribute (common)
 }
 
@@ -73,14 +74,14 @@ impl<'selector> DistributedSelectors<'selector> {
             StackOrNoOp::NoOp(std::iter::once(selector.clone()))
         } else {
             // There are :is() components. Seed the stack.
-            let mut stack = Vec::new();
+            let mut stack: SmallVec<[ComponentOrInner<'selector>; 8]> = SmallVec::new();
             Self::recursively_push(&mut stack, components);
             StackOrNoOp::Stack(stack)
         };
         Self { stack }
     }
 
-    fn recursively_push(stack: &mut Vec<ComponentOrInner<'selector>>, mut components: std::iter::Rev<std::slice::Iter<'selector, Component<SelectorImpl>>>) {
+    fn recursively_push(stack: &mut SmallVec<[ComponentOrInner<'selector>; 8]>, mut components: std::iter::Rev<std::slice::Iter<'selector, Component<SelectorImpl>>>) {
         while let Some(component) = components.next() {
             match component {
                 // upon encountering :is, push the Inner variant, then recurse inside the first selector.
@@ -102,7 +103,7 @@ impl<'selector> DistributedSelectors<'selector> {
         }
     }
 
-    fn realize_buffer(stack: &Vec<ComponentOrInner<'selector>>) -> Option<Selector> {
+    fn realize_buffer(stack: &SmallVec<[ComponentOrInner<'selector>; 8]>) -> Option<Selector> {
         // empty stack means no more selectors
         if stack.is_empty() {
             return None;
