@@ -25,6 +25,7 @@ use style::stylist::Stylist;
 use style::traversal_flags::TraversalFlags;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::path::Path;
 use scraper::ElementRef;
@@ -68,7 +69,8 @@ use crate::structs::{
 pub enum Algorithm {
     Naive,
     WithStyleSharing,
-    WithPreprocessing,
+    WithIsConversion,
+    WithDistribution,
     Mach7,
 }
 
@@ -115,7 +117,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 match_selectors_with_style_sharing(&website.document(), website.stylist(), &website.stylesheet_lock(), None);
             (OwnedDocumentMatches::from(&matches), stats)
         },
-        Algorithm::WithPreprocessing => {
+        Algorithm::WithIsConversion => {
             let preprocessed_selectors =
                 preprocessing::concretize::convert_to_is_selectors( &website.document(), website.selectors());
             let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
@@ -130,8 +132,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 &preprocessed_lock,
                 None,
             );
-            for oem in matches.0.iter_mut() {
-                if let SelectorsOrSharedStyles::Selectors(selectors) = &mut oem.selectors {
+            for em in matches.0.iter_mut() {
+                if let SelectorsOrSharedStyles::Selectors(selectors) = &mut em.selectors {
                     for selector in selectors.iter_mut() {
                         *selector = reverse_map
                             .get(&selector.to_css_string())
@@ -146,7 +148,50 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 }
             }
             (OwnedDocumentMatches::from(&matches), stats)
-        }
+        },
+        Algorithm::WithDistribution => {
+            let is = preprocessing::concretize::convert_to_is_selectors(&website.document(), website.selectors());
+            let mut translation_map: HashMap<String, SmallVec<[&Selector; 2]>> = HashMap::with_capacity(is.len());
+            let mut preprocessed_selectors: Vec<Selector> = Vec::with_capacity(is.len());
+            for selector in &is {
+                for sel in preprocessing::distribute::DistributedSelectors::from_selector(selector) {
+                    translation_map.entry(sel.to_css_string()).or_default().push(selector);
+                    preprocessed_selectors.push(sel);
+                }
+            }
+            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
+            let (mut matches, stats) = match_selectors_with_style_sharing(
+                &website.document(),
+                &preprocessed_stylist,
+                &preprocessed_lock,
+                None,
+            );
+            for em in matches.0.iter_mut() {
+                if let SelectorsOrSharedStyles::Selectors(selectors) = &mut em.selectors {
+                    // we have an (element, Vec<Selector>), where the selectors come from the preprocessed,
+                    // expanded selectors.
+                    // drain the Vec through the translation map, accumulating the results in a HashSet.
+                    // Once finished, use the HashSet as the new list
+                    // https://stackoverflow.com/a/69308604/3882118
+                    let mut set: HashSet<by_address::ByAddress<&Selector>> = HashSet::new();
+                    for selector in selectors.drain(..) {
+                        let old_selectors = translation_map
+                            .get(&selector.to_css_string())
+                            .unwrap_or_else(||
+                                panic!(
+                                    "failed to find original selector for {}",
+                                    selector.to_css_string()
+                                )
+                            );
+                        for old_selector in old_selectors {
+                            set.insert(by_address::ByAddress(*old_selector));
+                        }
+                    }
+                    selectors.extend(set.into_iter().map(|addr| *addr));
+                }
+            }
+            (OwnedDocumentMatches::from(&matches), stats)
+        },
         Algorithm::Mach7 => {
             if let Some(document_matches) = mach7_oracle {
                 (

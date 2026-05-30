@@ -24,6 +24,7 @@ url = "2.5.8"
 indexmap = "2.13.0"
 aho-corasick = "1.1.4"
 tsc-timer = { path = "./tsc", features = ["std"] }
+by_address = "1.2.1"
 
 [dev-dependencies]
 insta = { version = "1.43.2", features = ["yaml"] }
