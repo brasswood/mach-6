@@ -137,7 +137,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 if let SelectorsOrSharedStyles::Selectors(selectors) = &mut em.selectors {
                     for selector in selectors.iter_mut() {
                         *selector = reverse_map
-                            .get(&ByAddress(selector))
+                            .get(&ByAddress(*selector))
                             .copied()
                             .unwrap_or_else(|| {
                                 panic!(
