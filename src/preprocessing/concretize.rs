@@ -14,8 +14,10 @@ use selectors::builder::SelectorBuilder;
 use selectors::parser::Component;
 use selectors::SelectorList;
 use style::selector_parser::SelectorImpl;
+use style::servo_arc::Arc;
 use std::collections::HashMap;
 use std::iter::FlatMap;
+use std::sync::LazyLock;
 use style::values::AtomIdent;
 use style::values::AtomString;
 
@@ -200,12 +202,20 @@ pub fn convert_to_is_selectors(
 ) -> Vec<Selector> {
     // Helper function to turn a list of class names into a `SelectorList`
     fn create_class_selector_list(classes: impl ExactSizeIterator<Item = AtomIdent>) -> SelectorList<style::selector_parser::SelectorImpl> {
-        let selectors = classes.map(|class_str| {
+        static EMPTY_STRING: LazyLock<Arc<String>> = LazyLock::new(|| Arc::new(String::new()));
+        if classes.len() != 0 {
+            let selectors = classes.map(|class_str| {
+                let mut builder = SelectorBuilder::default();
+                builder.push_simple_selector(Component::Class(class_str));
+                builder.build_selector(selectors::parser::ParseRelative::No)
+            });
+            SelectorList::from_iter(selectors)
+        } else {
             let mut builder = SelectorBuilder::default();
-            builder.push_simple_selector(Component::Class(class_str));
-            builder.build_selector(selectors::parser::ParseRelative::No)
-        });
-        SelectorList::from_iter(selectors)
+            builder.push_simple_selector(Component::Invalid((*EMPTY_STRING).clone()));
+            let selector = builder.build_selector(selectors::parser::ParseRelative::No);
+            SelectorList::from_one(selector) // TODO: I probably need to be able to handle empty :is() in my distribution pass. But parsing an empty :is() seems to put an invalid component in anyway.
+        }
     }
 
     enum OldOrNewComponent<'component> {

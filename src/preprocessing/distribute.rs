@@ -95,6 +95,7 @@ impl<'selector> DistributedSelectors<'selector> {
                         panic!()
                     };
                     let first_sel = inner_iter.selector_iter.next().unwrap(); // assuming all :is()s have at least one selector
+                    // TODO: this actually wasn't true, since I was passing selectors directly from my concretization pass to this pass, and that was leaving empty :is() selectors. I've patched that to now put Component::Invalid inside if the list is empty. However, this pass probably ought to be able to handle empty :is() selectors.
                     Self::recursively_push(stack, first_sel.iter_raw_parse_order_from(0));
                 },
                 // TODO: add :where, and all other selectors I want to distribute
