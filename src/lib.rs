@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+use by_address::ByAddress;
 use clap::ValueEnum;
 use ::cssparser::ToCss as _;
 use derive_more::Display;
@@ -119,11 +120,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         },
         Algorithm::WithIsConversion => {
             let preprocessed_selectors =
-                preprocessing::concretize::convert_to_is_selectors( &website.document(), website.selectors());
-            let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
+                preprocessing::concretize::convert_to_is_selectors(&website.document(), website.selectors());
+            let reverse_map: HashMap<ByAddress<&Selector>, &Selector> = preprocessed_selectors
                 .iter()
                 .zip(website.selectors().iter())
-                .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
+                .map(|(preprocessed, original)| (ByAddress(preprocessed), original))
                 .collect();
             let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
             let (mut matches, stats) = match_selectors_with_style_sharing(
@@ -136,7 +137,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 if let SelectorsOrSharedStyles::Selectors(selectors) = &mut em.selectors {
                     for selector in selectors.iter_mut() {
                         *selector = reverse_map
-                            .get(&selector.to_css_string())
+                            .get(&ByAddress(selector))
                             .copied()
                             .unwrap_or_else(|| {
                                 panic!(
