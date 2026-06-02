@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use by_address::ByAddress;
 use clap::ValueEnum;
 use ::cssparser::ToCss as _;
 use derive_more::Display;
+use log::trace;
 use rustc_hash::FxBuildHasher;
 use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
@@ -160,10 +160,15 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             let mut distribution_map: HashMap<String, SmallVec<[&Selector; 2]>> = HashMap::with_capacity(is.len());
             let mut preprocessed_selectors: Vec<Selector> = Vec::with_capacity(is.len());
             for selector in &is {
+                let mut buf = String::new();
+                let _ = write!(&mut buf, "{} ->", selector.to_css_string());
                 for sel in preprocessing::distribute::DistributedSelectors::from_selector(selector) {
+                    let _ = write!(&mut buf, " {},", sel.to_css_string());
                     distribution_map.entry(sel.to_css_string()).or_default().push(selector);
                     preprocessed_selectors.push(sel);
                 }
+                let _ = writeln!(&mut buf, "");
+                trace!("{}", buf);
             }
             let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
             let (mut matches, stats) = match_selectors_with_style_sharing(
