@@ -121,10 +121,10 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         Algorithm::WithIsConversion => {
             let preprocessed_selectors =
                 preprocessing::concretize::convert_to_is_selectors(&website.document(), website.selectors());
-            let reverse_map: HashMap<ByAddress<&Selector>, &Selector> = preprocessed_selectors
+            let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
                 .iter()
                 .zip(website.selectors().iter())
-                .map(|(preprocessed, original)| (ByAddress(preprocessed), original))
+                .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
                 .collect();
             let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
             let (mut matches, stats) = match_selectors_with_style_sharing(
@@ -137,7 +137,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 if let SelectorsOrSharedStyles::Selectors(selectors) = &mut em.selectors {
                     for selector in selectors.iter_mut() {
                         *selector = reverse_map
-                            .get(&ByAddress(*selector))
+                            .get(&selector.to_css_string())
                             .copied()
                             .unwrap_or_else(|| {
                                 panic!(
