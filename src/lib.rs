@@ -152,11 +152,16 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         },
         Algorithm::WithDistribution => {
             let is = preprocessing::concretize::convert_to_is_selectors(&website.document(), website.selectors());
-            let mut translation_map: HashMap<String, SmallVec<[&Selector; 2]>> = HashMap::with_capacity(is.len());
+            let concretization_map: HashMap<String, &Selector> = is
+                .iter()
+                .zip(website.selectors().iter())
+                .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
+                .collect();
+            let mut distribution_map: HashMap<String, SmallVec<[&Selector; 2]>> = HashMap::with_capacity(is.len());
             let mut preprocessed_selectors: Vec<Selector> = Vec::with_capacity(is.len());
             for selector in &is {
                 for sel in preprocessing::distribute::DistributedSelectors::from_selector(selector) {
-                    translation_map.entry(sel.to_css_string()).or_default().push(selector);
+                    distribution_map.entry(sel.to_css_string()).or_default().push(selector);
                     preprocessed_selectors.push(sel);
                 }
             }
@@ -176,7 +181,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     // https://stackoverflow.com/a/69308604/3882118
                     let mut set: HashSet<by_address::ByAddress<&Selector>> = HashSet::new();
                     for selector in selectors.drain(..) {
-                        let old_selectors = translation_map
+                        let old_selectors = distribution_map
                             .get(&selector.to_css_string())
                             .unwrap_or_else(||
                                 panic!(
@@ -188,7 +193,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                             set.insert(by_address::ByAddress(*old_selector));
                         }
                     }
-                    selectors.extend(set.into_iter().map(|addr| *addr));
+                    // the results of reversing the distribution pass
+                    let is_selectors = set.into_iter().map(|addr| *addr);
+                    // pass these through the concretization_map to reverse the concretization pass
+                    let attr_selectors = is_selectors.map(|sel| concretization_map[&sel.to_css_string()]);
+                    selectors.extend(attr_selectors);
                 }
             }
             (OwnedDocumentMatches::from(&matches), stats)
