@@ -161,6 +161,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             let mut distribution_map: HashMap<String, SmallVec<[&Selector; 2]>> = HashMap::with_capacity(is.len());
             let mut preprocessed_selectors: Vec<Selector> = Vec::with_capacity(is.len());
             for selector in &is {
+                trace!("Distributing {}...", selector.to_css_string());
                 let mut buf = String::new();
                 let _ = write!(&mut buf, "{} ->", selector.to_css_string());
                 for sel in preprocessing::distribute::DistributedSelectors::from_selector(selector) {
