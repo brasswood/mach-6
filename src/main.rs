@@ -32,7 +32,7 @@ struct Args {
 }
 
 fn main() -> mach_6::result::Result<()> {
-    env_logger::builder().filter_level(log::LevelFilter::Warn).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
     let Args {
         websites,
         website,
