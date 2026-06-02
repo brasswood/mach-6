@@ -195,6 +195,8 @@ fn optimizable_substring_from_component(
     // only return a substring if it doesn't contain whitespace
     (!substring.0.contains(" ")).then_some(substring)
 }
+        
+static INVALID_STRING: LazyLock<Arc<String>> = LazyLock::new(|| Arc::new(":bogus".to_string()));
 
 pub fn convert_to_is_selectors(
     document: &Html,
@@ -202,7 +204,6 @@ pub fn convert_to_is_selectors(
 ) -> Vec<Selector> {
     // Helper function to turn a list of class names into a `SelectorList`
     fn create_class_selector_list(classes: impl ExactSizeIterator<Item = AtomIdent>) -> SelectorList<style::selector_parser::SelectorImpl> {
-        static EMPTY_STRING: LazyLock<Arc<String>> = LazyLock::new(|| Arc::new(String::new()));
         if classes.len() != 0 {
             let selectors = classes.map(|class_str| {
                 let mut builder = SelectorBuilder::default();
@@ -212,7 +213,7 @@ pub fn convert_to_is_selectors(
             SelectorList::from_iter(selectors)
         } else {
             let mut builder = SelectorBuilder::default();
-            builder.push_simple_selector(Component::Invalid((*EMPTY_STRING).clone()));
+            builder.push_simple_selector(Component::Invalid((*INVALID_STRING).clone()));
             let selector = builder.build_selector(selectors::parser::ParseRelative::No);
             SelectorList::from_one(selector) // TODO: I probably need to be able to handle empty :is() in my distribution pass. But parsing an empty :is() seems to put an invalid component in anyway.
         }
@@ -341,6 +342,32 @@ pub fn convert_to_is_selectors(
         selectors.to_vec()
     } else {
         converted_selectors.map(OldOrNewSelector::to_owned).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::INVALID_STRING;
+    use cssparser::ToCss as _;
+    use selectors::builder::SelectorBuilder;
+    use selectors::parser::Component;
+    use style::selector_parser::SelectorParser;
+    use style::selector_parser::SelectorImpl;
+    use style::stylesheets::UrlExtraData;
+
+    #[test]
+    fn invalid_selector_reserializes() {
+        let mut builder: SelectorBuilder<SelectorImpl> = SelectorBuilder::default();
+        builder.push_simple_selector(Component::Invalid((*INVALID_STRING).clone()));
+        let selector = builder.build_selector(selectors::parser::ParseRelative::No);
+        let css = selector.to_css_string();
+        assert_eq!(css, ":bogus");
+
+        let reparsed = SelectorParser::parse_author_origin_no_namespace(
+            &css,
+            &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+        );
+        assert!(reparsed.is_err(), "expected :bogus to fail reparsing");
     }
 }
 
