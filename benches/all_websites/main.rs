@@ -208,7 +208,7 @@ fn main() {
             NUM_SAMPLES,
         );
         let preprocessed_selectors = preprocessing::preprocess(w.document(), w.selectors());
-        let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
+        let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
         let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), w.document(), &preprocessed_stylist, &preprocessed_lock);
         let result = WebsiteResult {
             website: w.name,

@@ -126,7 +126,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 .zip(website.selectors().iter())
                 .map(|(preprocessed, original)| (ByAddress(preprocessed), original))
                 .collect();
-            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
+            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
                 &preprocessed_stylist,
@@ -160,7 +160,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     preprocessed_selectors.push(sel);
                 }
             }
-            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(&preprocessed_selectors);
+            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
                 &preprocessed_stylist,
@@ -253,10 +253,9 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
     DocumentMatches(result)
 }
 
-pub fn stylist_from_selectors(selectors: &[Selector]) -> (Stylist, SharedRwLock) {
+pub fn stylist_from_selectors<'sel>(selectors: impl Iterator<Item = &'sel Selector>) -> (Stylist, SharedRwLock) {
     let stylesheet_lock = SharedRwLock::new();
     let css = selectors
-        .iter()
         .map(|selector| format!("{} {{}}", selector.to_css_string()))
         .collect::<Vec<_>>()
         .join("\n");
