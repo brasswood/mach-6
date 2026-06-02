@@ -61,7 +61,7 @@ impl<'selector> Iterator for DistributedSelectors<'selector> {
                             },
                             None => {
                                 trace!("distribute::next: exhausted stack after returning current");
-                                return None
+                                return Some(current)
                             },
                         }
                     };
