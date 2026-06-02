@@ -141,8 +141,9 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                             .copied()
                             .unwrap_or_else(|| {
                                 panic!(
-                                    "failed to reverse preprocessed selector {}",
-                                    selector.to_css_string()
+                                    "failed to reverse preprocessed selector {}, website={}",
+                                    selector.to_css_string(),
+                                    website.name,
                                 )
                             });
                     }
@@ -190,8 +191,9 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                             .get(&selector.to_css_string())
                             .unwrap_or_else(||
                                 panic!(
-                                    "failed to find original selector for {}",
-                                    selector.to_css_string()
+                                    "failed to find original selector for {}, website={}",
+                                    selector.to_css_string(),
+                                    website.name,
                                 )
                             );
                         for old_selector in old_selectors {
