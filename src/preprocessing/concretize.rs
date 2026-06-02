@@ -196,7 +196,7 @@ fn optimizable_substring_from_component(
     (!substring.0.contains(" ")).then_some(substring)
 }
         
-static INVALID_STRING: LazyLock<Arc<String>> = LazyLock::new(|| Arc::new(":bogus".to_string()));
+static INVALID_STRING: LazyLock<Arc<String>> = LazyLock::new(|| Arc::new(":i".to_string()));
 
 pub fn convert_to_is_selectors(
     document: &Html,
@@ -361,13 +361,13 @@ mod tests {
         builder.push_simple_selector(Component::Invalid((*INVALID_STRING).clone()));
         let selector = builder.build_selector(selectors::parser::ParseRelative::No);
         let css = selector.to_css_string();
-        assert_eq!(css, ":bogus");
+        assert_eq!(css, **INVALID_STRING);
 
         let reparsed = SelectorParser::parse_author_origin_no_namespace(
             &css,
             &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
         );
-        assert!(reparsed.is_err(), "expected :bogus to fail reparsing");
+        assert!(reparsed.is_err(), "expected {} to fail reparsing", **INVALID_STRING);
     }
 }
 
