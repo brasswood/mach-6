@@ -13,6 +13,7 @@ use selectors::attr::ParsedAttrSelectorOperation;
 use selectors::builder::SelectorBuilder;
 use selectors::parser::Component;
 use selectors::SelectorList;
+use arrayvec::ArrayVec;
 use style::selector_parser::SelectorImpl;
 use style::servo_arc::Arc;
 use std::collections::HashMap;
@@ -219,16 +220,24 @@ pub fn convert_to_is_selectors(
         }
     }
 
-    enum OldOrNewComponent<'component> {
+    enum OldOrNewComponents<'component> {
         Old(&'component Component<SelectorImpl>),
-        New(Component<SelectorImpl>),
+        New(ArrayVec<Component<SelectorImpl>, 2>),
     }
 
-    impl<'component> OldOrNewComponent<'component> {
-        fn to_owned(self) -> Component<SelectorImpl> {
+    impl<'component> OldOrNewComponents<'component> {
+        fn new_from_one(component: Component<SelectorImpl>) -> OldOrNewComponents<'component> {
+            OldOrNewComponents::New(ArrayVec::from_iter(std::iter::once(component)))
+        }
+
+        fn new_from_two(component1: Component<SelectorImpl>, component2: Component<SelectorImpl>) -> OldOrNewComponents<'component> {
+            OldOrNewComponents::New(ArrayVec::from([component1, component2]))
+        }
+
+        fn to_owned(self) -> ArrayVec<Component<SelectorImpl>, 2> {
             match self {
-                OldOrNewComponent::Old(c) => c.clone(),
-                OldOrNewComponent::New(c) => c,
+                OldOrNewComponents::Old(c) => ArrayVec::from_iter(std::iter::once(c.clone())),
+                OldOrNewComponents::New(cs) => cs,
             }
         }
     }
@@ -250,69 +259,69 @@ pub fn convert_to_is_selectors(
     // Helper function which takes a Component; if it's an attribute selector
     // with "class*=", look it up in the map and convert it to an equivalent
     // `is()` selector. Otherwise, return None.
-    fn convert_to_is_component<'component>(
+    fn convert_to_is_components<'component>(
         map: &HashMap<&'component AtomString, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
         component: &'component Component<SelectorImpl>,
-    ) -> OldOrNewComponent<'component> {
+    ) -> OldOrNewComponents<'component> {
         // Let the record show that I tried to reuse code by defining an inner function which takes a closure that wraps a cloned selector list in a new component. But it was impossible to write the type of a closure that takes a Map<Map<...>> here; I would have had to make my own custom iterator type.
         let convert_selector = |selector| convert_to_is_selector(map, selector);
         match component {
             Component::Negation(l) => {
                 let converted = l.slice().iter().map(convert_selector);
                 if converted.clone().all(|selector| matches!(selector, OldOrNewSelector::Old(_))) {
-                    OldOrNewComponent::Old(component)
+                    OldOrNewComponents::Old(component)
                 } else {
                     let new_selectors = converted.map(OldOrNewSelector::to_owned);
-                    OldOrNewComponent::New(Component::Negation(SelectorList::from_iter(new_selectors)))
+                    OldOrNewComponents::new_from_one(Component::Negation(SelectorList::from_iter(new_selectors)))
                 }
             },
             Component::Slotted(s) => {
                 match convert_selector(s) {
-                    OldOrNewSelector::Old(_) => OldOrNewComponent::Old(component),
-                    OldOrNewSelector::New(s) => OldOrNewComponent::New(Component::Slotted(s)),
+                    OldOrNewSelector::Old(_) => OldOrNewComponents::Old(component),
+                    OldOrNewSelector::New(s) => OldOrNewComponents::new_from_one(Component::Slotted(s)),
                 }
             },
             Component::Host(s) => {
                 match s {
                     Some(s) => match convert_selector(s) {
-                        OldOrNewSelector::Old(_) => OldOrNewComponent::Old(component),
-                        OldOrNewSelector::New(s) => OldOrNewComponent::New(Component::Host(Some(s))),
+                        OldOrNewSelector::Old(_) => OldOrNewComponents::Old(component),
+                        OldOrNewSelector::New(s) => OldOrNewComponents::new_from_one(Component::Host(Some(s))),
                     },
-                    None => OldOrNewComponent::Old(component),
+                    None => OldOrNewComponents::Old(component),
                 }
             },
             Component::Where(l) => {
                 let converted = l.slice().iter().map(convert_selector);
                 if converted.clone().all(|selector| matches!(selector, OldOrNewSelector::Old(_))) {
-                    OldOrNewComponent::Old(component)
+                    OldOrNewComponents::Old(component)
                 } else {
                     let new_selectors = converted.map(OldOrNewSelector::to_owned);
-                    OldOrNewComponent::New(Component::Where(SelectorList::from_iter(new_selectors)))
+                    OldOrNewComponents::new_from_one(Component::Where(SelectorList::from_iter(new_selectors)))
                 }
             },
             Component::Is(l) => {
                 let converted = l.slice().iter().map(convert_selector);
                 if converted.clone().all(|selector| matches!(selector, OldOrNewSelector::Old(_))) {
-                    OldOrNewComponent::Old(component)
+                    OldOrNewComponents::Old(component)
                 } else {
                     let new_selectors = converted.map(OldOrNewSelector::to_owned);
-                    OldOrNewComponent::New(Component::Is(SelectorList::from_iter(new_selectors)))
+                    OldOrNewComponents::new_from_one(Component::Is(SelectorList::from_iter(new_selectors)))
                 }
             },
             component => {
                 // fast reject
                 if !may_be_optimizable_attr_selector(component) {
-                    return OldOrNewComponent::Old(component);
+                    return OldOrNewComponents::Old(component);
                 }
                 match optimizable_substring_from_component(component) {
-                    Some(substring) => OldOrNewComponent::New(Component::Is(
+                    Some(substring) => OldOrNewComponents::new_from_one(Component::Is(
                         match map.get(substring) {
                             Some(set) =>
                                 create_class_selector_list(set.iter().copied().cloned()),
                             None => create_class_selector_list(std::iter::empty()),
                         }
                     )),
-                    None => OldOrNewComponent::Old(component),
+                    None => OldOrNewComponents::Old(component),
                 }
             }
         }
@@ -322,13 +331,13 @@ pub fn convert_to_is_selectors(
         map: &HashMap<&'sel AtomString, IndexSet<&AtomIdent>>,
         selector: &'sel Selector,
     ) -> OldOrNewSelector<'sel> { // None when no change
-        let rewritten_components = selector.iter_raw_parse_order_from(0).map(|component| convert_to_is_component(map, component));
-        if rewritten_components.clone().all(|component| matches!(component, OldOrNewComponent::Old(_))) {
+        let rewritten_components = selector.iter_raw_parse_order_from(0).map(|component| convert_to_is_components(map, component));
+        if rewritten_components.clone().all(|component| matches!(component, OldOrNewComponents::Old(_))) {
             // Fast path: the selector doesn't need to be converted. Skip the expensive SelectorBuilder and just clone.
             OldOrNewSelector::Old(selector)
         } else {
             // slow path: feed all the components into a SelectorBuilder
-            let rewritten_components = rewritten_components.map(OldOrNewComponent::to_owned);
+            let rewritten_components = rewritten_components.flat_map(OldOrNewComponents::to_owned);
             OldOrNewSelector::New(super::selector_from_iter(rewritten_components))
         }
     }
