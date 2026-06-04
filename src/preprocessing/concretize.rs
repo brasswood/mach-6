@@ -13,14 +13,13 @@ use selectors::attr::ParsedAttrSelectorOperation;
 use selectors::builder::SelectorBuilder;
 use selectors::parser::Component;
 use selectors::SelectorList;
-use arrayvec::ArrayVec;
+use smallvec::SmallVec;
 use style::selector_parser::SelectorImpl;
 use style::servo_arc::Arc;
 use std::collections::HashMap;
 use std::iter::FlatMap;
 use std::sync::LazyLock;
 use style::values::AtomIdent;
-use style::values::AtomString;
 
 use crate::Selector;
 
@@ -103,28 +102,31 @@ impl<'a, I: Iterator<Item = &'a Selector>> Iterator for FlattenedSelectors<'a, I
     }
 }
 
-pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selector> + Clone) -> impl Iterator<Item = &'a AtomString> + Clone {
+pub fn substrings_from_selectors<'a>(selectors: impl Iterator<Item = &'a Selector> + Clone) -> impl Iterator<Item = &'a str> + Clone {
     FlattenedSelectors::from_iter(selectors)
-        .filter_map(optimizable_substring_from_component)
+        .filter_map(|c|
+            optimizable_substrings_from_component(c).map(|(substrs, _)| substrs)
+        )
+        .flatten()
 }
 
 pub fn build_substr_selector_index<'substr, 'class>(
     document: &'class Html,
-    substrings: impl Iterator<Item = &'substr AtomString>,
-) -> HashMap<&'substr AtomString, IndexSet<&'class AtomIdent>> {
+    substrings: impl Iterator<Item = &'substr str>,
+) -> HashMap<&'substr str, IndexSet<&'class AtomIdent>> {
     // instead of taking a &[&AtomString] from the getgo, we will
     // memoize it here so that we can change within here to see if
     // it actually speeds things up.
-    let substrings: Vec<&AtomString> = substrings.collect();
+    let substrings: Vec<&str> = substrings.collect();
     // build the aho-corasick automaton
     let mut ah_builder = AhoCorasickBuilder::new();
     ah_builder.kind(None);
-    let ac = ah_builder.build(substrings.iter().map(AsRef::as_ref)).unwrap();
-    let mut ret: HashMap<&AtomString, IndexSet<&AtomIdent>> = HashMap::new();
+    let ac = ah_builder.build(substrings.iter()).unwrap();
+    let mut ret: HashMap<&str, IndexSet<&AtomIdent>> = HashMap::new();
 
     fn preorder_traversal<'substr, 'class>(
-        map: &mut HashMap<&'substr AtomString, IndexSet<&'class AtomIdent>>,
-        substrings: &[&'substr AtomString],
+        map: &mut HashMap<&'substr str, IndexSet<&'class AtomIdent>>,
+        substrings: &[&'substr str],
         ac: &AhoCorasick,
         element: ElementRef<'class>,
     ) {
@@ -171,30 +173,29 @@ fn may_be_optimizable_attr_selector(
     )
 }
 
-fn optimizable_substring_from_component(
+fn optimizable_substrings_from_component(
     component: &Component<style::selector_parser::SelectorImpl>
-) -> Option<&AtomString> {
-    let substring = match component {
+) -> Option<(std::str::Split<'_, &'static str>, bool)> {
+    let (substring, operator) = match component {
         Component::AttributeInNoNamespace {
             local_name,
-            operator: AttrSelectorOperator::Substring,
+            operator,
             value: substring,
             ..
-        } if local_name.as_ref() == "class" => substring,
+        } if local_name.as_ref() == "class" => (substring, operator),
         Component::AttributeOther(attr) 
             if attr.local_name.as_ref() == "class"
         => {
             let ParsedAttrSelectorOperation::WithValue {
-                operator: AttrSelectorOperator::Substring,
-                value: ref substring,
+                operator,
+                value: substring,
                 ..
-            } = attr.operation else { return None };
-            substring
+            } = &attr.operation else { return None };
+            (substring, operator)
         },
         _ => return None,
     };
-    // only return a substring if it doesn't contain whitespace
-    (!substring.0.contains(" ")).then_some(substring)
+    Some((substring.0.split(" "), matches!(operator, AttrSelectorOperator::Substring) && !substring.contains(" ")))
 }
         
 static INVALID_STRING: LazyLock<Arc<String>> = LazyLock::new(|| Arc::new(":i".to_string()));
@@ -222,21 +223,17 @@ pub fn convert_to_is_selectors(
 
     enum OldOrNewComponents<'component> {
         Old(&'component Component<SelectorImpl>),
-        New(ArrayVec<Component<SelectorImpl>, 2>),
+        New(SmallVec<[Component<SelectorImpl>; 8]>),
     }
 
     impl<'component> OldOrNewComponents<'component> {
         fn new_from_one(component: Component<SelectorImpl>) -> OldOrNewComponents<'component> {
-            OldOrNewComponents::New(ArrayVec::from_iter(std::iter::once(component)))
+            OldOrNewComponents::New(smallvec::smallvec![component])
         }
 
-        fn new_from_two(component1: Component<SelectorImpl>, component2: Component<SelectorImpl>) -> OldOrNewComponents<'component> {
-            OldOrNewComponents::New(ArrayVec::from([component1, component2]))
-        }
-
-        fn to_owned(self) -> ArrayVec<Component<SelectorImpl>, 2> {
+        fn to_owned(self) -> SmallVec<[Component<SelectorImpl>; 8]> {
             match self {
-                OldOrNewComponents::Old(c) => ArrayVec::from_iter(std::iter::once(c.clone())),
+                OldOrNewComponents::Old(c) => smallvec::smallvec![c.clone()],
                 OldOrNewComponents::New(cs) => cs,
             }
         }
@@ -260,7 +257,7 @@ pub fn convert_to_is_selectors(
     // with "class*=", look it up in the map and convert it to an equivalent
     // `is()` selector. Otherwise, return None.
     fn convert_to_is_components<'component>(
-        map: &HashMap<&'component AtomString, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
+        map: &HashMap<&'component str, IndexSet<&AtomIdent>>, // mapping from substrings to lists of classes which match
         component: &'component Component<SelectorImpl>,
     ) -> OldOrNewComponents<'component> {
         // Let the record show that I tried to reuse code by defining an inner function which takes a closure that wraps a cloned selector list in a new component. But it was impossible to write the type of a closure that takes a Map<Map<...>> here; I would have had to make my own custom iterator type.
@@ -313,14 +310,23 @@ pub fn convert_to_is_selectors(
                 if !may_be_optimizable_attr_selector(component) {
                     return OldOrNewComponents::Old(component);
                 }
-                match optimizable_substring_from_component(component) {
-                    Some(substring) => OldOrNewComponents::new_from_one(Component::Is(
-                        match map.get(substring) {
-                            Some(set) =>
-                                create_class_selector_list(set.iter().copied().cloned()),
-                            None => create_class_selector_list(std::iter::empty()),
+                match optimizable_substrings_from_component(component) {
+                    Some((substrings, is_substr_selector_without_spaces)) => {
+                        // note: we take in a list of whitespace-separated substrings here. For each substring, we create an `:is()` of all the classes that substring might match. Then we put all of the `:is()`s together in what is effectively an AND of ORs. This is correct; if there is an attribute selector like `[class*="oo ba"]`, then it needs to have a class that "oo" is a substring of, AND it needs to have a class that "ba" is a substring of.
+                        let is_components = substrings.map(|substr| {
+                            let class_list = match map.get(substr) {
+                                Some(set) => create_class_selector_list(set.iter().copied().cloned()),
+                                None => create_class_selector_list(std::iter::empty()),
+                            };
+                            Component::Is(class_list)
+                        });
+                        let mut components = SmallVec::from_iter(is_components);
+                        if !is_substr_selector_without_spaces {
+                            components.push(component.clone()); // push the original component if it's not a substring selector without spaces.
+                            // This is because if the attribute selector is not a substring selector without spaces, then having the necessary classes does not guarantee matching the attribute selector, since the order in which the classes are defined on the element will matter.
                         }
-                    )),
+                        OldOrNewComponents::New(components)
+                    },
                     None => OldOrNewComponents::Old(component),
                 }
             }
@@ -328,7 +334,7 @@ pub fn convert_to_is_selectors(
     }
 
     fn convert_to_is_selector<'sel>(
-        map: &HashMap<&'sel AtomString, IndexSet<&AtomIdent>>,
+        map: &HashMap<&'sel str, IndexSet<&AtomIdent>>,
         selector: &'sel Selector,
     ) -> OldOrNewSelector<'sel> { // None when no change
         let rewritten_components = selector.iter_raw_parse_order_from(0).map(|component| convert_to_is_components(map, component));
