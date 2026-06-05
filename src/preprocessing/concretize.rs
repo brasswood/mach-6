@@ -175,7 +175,7 @@ fn may_be_optimizable_attr_selector(
 
 fn optimizable_substrings_from_component(
     component: &Component<style::selector_parser::SelectorImpl>
-) -> Option<(std::str::Split<'_, &'static str>, bool)> {
+) -> Option<(std::str::SplitWhitespace<'_>, bool)> {
     let (substring, operator) = match component {
         Component::AttributeInNoNamespace {
             local_name,
@@ -195,7 +195,7 @@ fn optimizable_substrings_from_component(
         },
         _ => return None,
     };
-    Some((substring.0.split(" "), matches!(operator, AttrSelectorOperator::Substring) && !substring.contains(" ")))
+    Some((substring.0.split_whitespace(), matches!(operator, AttrSelectorOperator::Substring) && !substring.contains(" ")))
 }
         
 static INVALID_STRING: LazyLock<Arc<String>> = LazyLock::new(|| Arc::new(":i".to_string()));
