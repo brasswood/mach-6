@@ -1,6 +1,6 @@
 use crate::Selector;
 use cssparser::ToCss as _;
-use log::trace;
+use log::{Level, log_enabled, trace};
 use selectors::parser::Component;
 use smallvec::SmallVec;
 use std::iter::Iterator;
@@ -41,10 +41,12 @@ impl<'selector> Iterator for DistributedSelectors<'selector> {
                     trace!("distribute::next: stack realized to None");
                     return None;
                 };
-                trace!(
-                    "distribute::next: realized current={}",
-                    current.to_css_string()
-                );
+                if log_enabled!(Level::Trace) {
+                    trace!(
+                        "distribute::next: realized current={}",
+                        current.to_css_string()
+                    );
+                }
                 // Prepare the stack for the next call.
                 // Pop items from our buffer until we find an Inner.
                 // Call next on it. If None, pop that Inner and continue searching.
@@ -67,10 +69,12 @@ impl<'selector> Iterator for DistributedSelectors<'selector> {
                     };
                     match last_inner.selector_iter.next() {
                         Some(next_sel) => {
-                            trace!(
-                                "distribute::next: advancing inner to next_sel={}",
-                                next_sel.to_css_string()
-                            );
+                            if log_enabled!(Level::Trace) {
+                                trace!(
+                                    "distribute::next: advancing inner to next_sel={}",
+                                    next_sel.to_css_string()
+                                );
+                            }
                             break (next_sel, last_inner.parent_iter_snapshot.clone())
                         },
                         None => {
@@ -82,10 +86,12 @@ impl<'selector> Iterator for DistributedSelectors<'selector> {
                 };
                 // recursively push the components of next_sel onto the stack;
                 // then, recursively push the components of parent_iter.
-                trace!(
-                    "distribute::next: pushing next_sel={}, then parent_iter={parent_iter:?}",
-                    next_sel.to_css_string()
-                );
+                if log_enabled!(Level::Trace) {
+                    trace!(
+                        "distribute::next: pushing next_sel={}, then parent_iter={parent_iter:?}",
+                        next_sel.to_css_string()
+                    );
+                }
                 Self::recursively_push(stack, next_sel.iter_raw_parse_order_from(0));
                 Self::recursively_push(stack, parent_iter);
                 trace!("distribute::next: end stack={stack:#?}");
@@ -127,11 +133,13 @@ impl<'selector> DistributedSelectors<'selector> {
                         panic!()
                     };
                     let first_sel = inner_iter.selector_iter.next().unwrap(); // assuming all :is()s have at least one selector
-                    trace!(
-                        "distribute::recursively_push: descending into first_sel={} with deferred parent_iter={:?}",
-                        first_sel.to_css_string(),
-                        inner_iter.parent_iter_snapshot
-                    );
+                    if log_enabled!(Level::Trace) {
+                        trace!(
+                            "distribute::recursively_push: descending into first_sel={} with deferred parent_iter={:?}",
+                            first_sel.to_css_string(),
+                            inner_iter.parent_iter_snapshot
+                        );
+                    }
                     // TODO: this actually wasn't true, since I was passing selectors directly from my concretization pass to this pass, and that was leaving empty :is() selectors. I've patched that to now put Component::Invalid inside if the list is empty. However, this pass probably ought to be able to handle empty :is() selectors.
                     Self::recursively_push(stack, first_sel.iter_raw_parse_order_from(0));
                 },
