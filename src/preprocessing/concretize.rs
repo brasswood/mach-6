@@ -166,7 +166,7 @@ fn may_be_optimizable_attr_selector(
         component,
         Component::AttributeInNoNamespace {
             local_name: _,
-            operator: AttrSelectorOperator::Substring,
+            operator: _,
             value: _,
             ..
         } | Component::AttributeOther(_)
@@ -195,6 +195,7 @@ fn optimizable_substrings_from_component(
         },
         _ => return None,
     };
+    debug_assert!(may_be_optimizable_attr_selector(component));
     Some((substring.0.split_whitespace(), matches!(operator, AttrSelectorOperator::Substring) && !substring.contains(" ")))
 }
         
