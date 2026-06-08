@@ -174,6 +174,13 @@ const NUM_SAMPLES: u64 = 25;
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
+    let git_metadata = match collect_report_git_metadata() {
+        Ok(git) => Some(git),
+        Err(e) => {
+            warn!("Failed to collect git metadata: {}", e);
+            None
+        },
+    };
     let time_start = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
     let website_filter: Vec<String> = std::env::args()
         .skip(1) // the executable name
@@ -226,13 +233,6 @@ fn main() {
         .map(|res| WebsiteJson::from(&res))
         .collect::<Vec<_>>();
 
-    let git_metadata = match collect_report_git_metadata() {
-        Ok(git) => Some(git),
-        Err(e) => {
-            warn!("Failed to collect git metadata: {}", e);
-            None
-        },
-    };
     let time_end = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
     let metadata = ReportMetadataJson::new(report_source_from_env(), git_metadata, time_start, time_end);
 
