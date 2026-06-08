@@ -332,11 +332,11 @@ fn bench_function<F, R>(name: &str, func: F, num_samples: u64) -> TimedResults<R
 where
     F: Fn() -> R,
 {
-    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_secs(5);
+    const WARM_UP_ITERATIONS: usize = 100;
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
-    eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
-    let num_warmup_iterations = warm_up(&WARM_UP_TIME, &func);
-    eprint!("done ({num_warmup_iterations} iterations), measuring {num_samples} samples...");
+    eprint!("Benchmarking {name}...warming up for {WARM_UP_ITERATIONS} seconds...");
+    warm_up_iterations(WARM_UP_ITERATIONS, &func);
+    eprint!("done ({WARM_UP_ITERATIONS} iterations), measuring {num_samples} samples...");
     let start = tsc_timer::Start::now();
     for _ in 0..num_samples {
       samples_vec.push(func());
@@ -349,7 +349,16 @@ where
     }
 }
 
-fn warm_up<F, R>(warm_up_time: &std::time::Duration, func: F) -> usize
+fn warm_up_iterations<F, R>(warm_up_iterations: usize, func: F)
+where
+    F: Fn() -> R
+{
+    for _ in 0..warm_up_iterations {
+        func();
+    }
+}
+
+fn warm_up_time<F, R>(warm_up_time: &std::time::Duration, func: F) -> usize
 where
     F: Fn() -> R
 {
