@@ -334,9 +334,9 @@ where
 {
     const WARM_UP_ITERATIONS: usize = 100;
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
-    eprint!("Benchmarking {name}...warming up for {WARM_UP_ITERATIONS} seconds...");
+    eprint!("Benchmarking {name}...warming up for {WARM_UP_ITERATIONS} iterations...");
     warm_up_iterations(WARM_UP_ITERATIONS, &func);
-    eprint!("done ({WARM_UP_ITERATIONS} iterations), measuring {num_samples} samples...");
+    eprint!("done, measuring {num_samples} samples...");
     let start = tsc_timer::Start::now();
     for _ in 0..num_samples {
       samples_vec.push(func());
