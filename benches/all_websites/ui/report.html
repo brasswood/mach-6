@@ -131,6 +131,9 @@
       display: grid;
       gap: 6px;
     }
+    .compare-field[hidden] {
+      display: none;
+    }
     .compare-field label {
       font-size: 12px;
       font-weight: 700;
@@ -148,6 +151,12 @@
       color: var(--fg);
       font: inherit;
       font-size: 14px;
+    }
+    .compare-hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
     }
     .compare-status {
       margin: 0;
@@ -607,17 +616,27 @@
       <section id="compare-controls" class="compare-controls" hidden aria-labelledby="compare-controls-title">
         <h2 id="compare-controls-title" class="compare-controls-title">Compare Reports</h2>
         <div class="compare-controls-grid">
-          <div class="compare-field">
+          <div id="compare-left-select-field" class="compare-field">
             <label for="compare-left">Left report</label>
             <select id="compare-left" class="compare-select">
               <option>Loading available reports...</option>
             </select>
           </div>
-          <div class="compare-field">
+          <div id="compare-left-file-field" class="compare-field" hidden>
+            <label for="compare-left-file">Left report</label>
+            <input id="compare-left-file" class="compare-select" type="file" accept=".json,application/json">
+            <p class="compare-hint">Leave empty to use the current report.</p>
+          </div>
+          <div id="compare-right-select-field" class="compare-field">
             <label for="compare-right">Right report</label>
             <select id="compare-right" class="compare-select">
               <option>Loading available reports...</option>
             </select>
+          </div>
+          <div id="compare-right-file-field" class="compare-field" hidden>
+            <label for="compare-right-file">Right report</label>
+            <input id="compare-right-file" class="compare-select" type="file" accept=".json,application/json">
+            <p class="compare-hint">Leave empty to use the current report.</p>
           </div>
       </div>
       <div class="compare-actions">

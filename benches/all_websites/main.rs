@@ -17,7 +17,7 @@ use std::process::Command;
 use cssparser::ToCss as _;
 use time::OffsetDateTime;
 
-use crate::json::{ReportJson, ReportMetadataJson, WebsiteJson};
+use crate::json::{ReportJson, ReportMetadataJson, ReportSourceJson, WebsiteJson};
 use crate::stats::Samples;
 
 mod json;
@@ -234,7 +234,7 @@ fn main() {
         },
     };
     let time_end = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
-    let metadata = ReportMetadataJson::new(git_metadata, time_start, time_end);
+    let metadata = ReportMetadataJson::new(report_source_from_env(), git_metadata, time_start, time_end);
 
     let report_json = ReportJson {
         metadata,
@@ -390,6 +390,13 @@ fn report_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("target")
         .join("all_websites_report")
+}
+
+fn report_source_from_env() -> ReportSourceJson {
+    match std::env::var("NIGHTLY").ok().as_deref() {
+        Some("1") => ReportSourceJson::Nightly,
+        _ => ReportSourceJson::Local,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

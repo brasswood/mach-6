@@ -9,6 +9,13 @@ pub(crate) struct ReportJson {
     pub(crate) websites: Vec<WebsiteJson>,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ReportSourceJson {
+    Nightly,
+    Local,
+}
+
 const CONFIG: iso8601::EncodedConfig = iso8601::Config::DEFAULT
     .set_time_precision(iso8601::TimePrecision::Second { decimal_digits: None })
     .encode();
@@ -22,6 +29,7 @@ pub(crate) struct ReportMetadataJson {
     pub(crate) time_start: time::OffsetDateTime,
     #[serde(with = "rfc3339_nodecimal")]
     pub(crate) time_end: time::OffsetDateTime,
+    pub(crate) report_source: ReportSourceJson,
     pub(crate) commit_hash: Option<CommitHash>,
     pub(crate) tagline: Option<String>,
     pub(crate) message: Option<String>,
@@ -31,6 +39,7 @@ pub(crate) struct ReportMetadataJson {
 
 impl ReportMetadataJson {
     pub(crate) fn new(
+        report_source: ReportSourceJson,
         git_metadata: Option<ReportGitMetadata>,
         time_start: time::OffsetDateTime,
         time_end: time::OffsetDateTime
@@ -39,6 +48,7 @@ impl ReportMetadataJson {
             Some(git) => Self {
                 time_start,
                 time_end,
+                report_source,
                 commit_hash: Some(git.commit_hash),
                 tagline: Some(git.tagline),
                 message: Some(git.message),
@@ -48,6 +58,7 @@ impl ReportMetadataJson {
             None => Self {
                 time_start,
                 time_end,
+                report_source,
                 commit_hash: None,
                 tagline: None,
                 message: None,

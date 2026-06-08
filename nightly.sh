@@ -3,6 +3,7 @@ set -e -x
 
 # Add cargo to $PATH
 export PATH=~/.cargo/bin:$PATH
+export NIGHTLY=1
 
 # Get npm dependencies (i.e., typescript)
 npm ci

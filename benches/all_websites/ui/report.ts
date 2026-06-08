@@ -13,6 +13,7 @@ type SegmentKind =
 
 type SortDatasetKey = "totalCycles" | "slowRejectCycles";
 type CompareSide = "left" | "right";
+type ReportSource = "nightly" | "local";
 
 interface ReportJson {
   metadata: ReportMetadataJson;
@@ -27,8 +28,14 @@ interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
   dirty: boolean | null;
+  report_source?: ReportSource;
   tagline: string | null;
   time_end?: string | null;
+}
+
+interface LoadedReport {
+  label: string;
+  report: ReportJson;
 }
 
 interface WebsiteJson {
@@ -258,6 +265,10 @@ function isReportsIndexJson(value: unknown): value is ReportsIndexJson {
   return Array.isArray(record.reports);
 }
 
+function isReportSource(value: unknown): value is ReportSource {
+  return value === "nightly" || value === "local";
+}
+
 function getRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -297,6 +308,17 @@ function formatReportDate(timeEnd: string | null): string | null {
     return null;
   }
   return REPORT_DATE_FORMAT.format(parsed);
+}
+
+function getReportSource(metadata: ReportMetadataJson): ReportSource {
+  return metadata.report_source ?? "local";
+}
+
+function buildCurrentReportLabel(metadata: ReportMetadataJson): string {
+  return buildReportOptionLabel({
+    url: currentReportUrl(),
+    metadata
+  });
 }
 
 function buildReportOptionLabel(entry: Record<string, unknown>): string {
@@ -369,13 +391,46 @@ function populateCompareSelect(
   }
 }
 
+function setCompareModeVisibility(
+  reportSource: ReportSource,
+  leftSelectField: HTMLElement,
+  rightSelectField: HTMLElement,
+  leftFileField: HTMLElement,
+  rightFileField: HTMLElement
+): void {
+  const useNightly = reportSource === "nightly";
+  leftSelectField.hidden = !useNightly;
+  rightSelectField.hidden = !useNightly;
+  leftFileField.hidden = useNightly;
+  rightFileField.hidden = useNightly;
+}
+
 async function loadCompareControls(
   container: HTMLElement,
+  leftSelectField: HTMLElement,
+  rightSelectField: HTMLElement,
+  leftFileField: HTMLElement,
+  rightFileField: HTMLElement,
   leftSelect: HTMLSelectElement,
   rightSelect: HTMLSelectElement,
+  leftFileInput: HTMLInputElement,
+  rightFileInput: HTMLInputElement,
   compareStatus: HTMLElement,
   currentMetadata: ReportMetadataJson
 ): Promise<void> {
+  const reportSource = getReportSource(currentMetadata);
+  setCompareModeVisibility(reportSource, leftSelectField, rightSelectField, leftFileField, rightFileField);
+  if (reportSource === "local") {
+    leftSelect.innerHTML = "";
+    rightSelect.innerHTML = "";
+    leftFileInput.value = "";
+    rightFileInput.value = "";
+    container.hidden = false;
+    compareStatus.hidden = false;
+    compareStatus.classList.remove("error");
+    compareStatus.textContent = "Choose local report.json files or leave a side empty to use the current report.";
+    return;
+  }
   try {
     const response = await fetch("reports-index.json");
     if (!response.ok) {
@@ -437,6 +492,32 @@ async function fetchReportJson(reportUrl: string): Promise<ReportJson> {
   return raw;
 }
 
+async function readReportJsonFile(file: File): Promise<ReportJson> {
+  const raw: unknown = JSON.parse(await file.text());
+  if (!isReportJson(raw)) {
+    throw new Error(file.name + " had an unexpected shape");
+  }
+  return raw;
+}
+
+async function resolveFileSelection(
+  input: HTMLInputElement,
+  fallbackReport: ReportJson,
+  fallbackLabel: string
+): Promise<LoadedReport> {
+  const file = input.files?.[0];
+  if (!file) {
+    return {
+      label: fallbackLabel,
+      report: fallbackReport
+    };
+  }
+  return {
+    label: file.name,
+    report: await readReportJsonFile(file)
+  };
+}
+
 function setCompareStatus(compareStatus: HTMLElement, message: string, isError: boolean): void {
   compareStatus.hidden = false;
   compareStatus.classList.toggle("error", isError);
@@ -482,11 +563,15 @@ function hideCompareResults(compareResults: HTMLElement): void {
 }
 
 function installCompareHandler(
+  currentReport: ReportJson,
   compareButton: HTMLButtonElement,
   leftOnlyButton: HTMLButtonElement,
   rightOnlyButton: HTMLButtonElement,
+  reportSource: ReportSource,
   leftSelect: HTMLSelectElement,
   rightSelect: HTMLSelectElement,
+  leftFileInput: HTMLInputElement,
+  rightFileInput: HTMLInputElement,
   compareStatus: HTMLElement,
   list: HTMLElement,
   sortControls: HTMLElement,
@@ -500,17 +585,33 @@ function installCompareHandler(
     rightOnlyButton.disabled = disabled;
   };
 
-  const renderTwoSided = async (): Promise<void> => {
-    const leftUrl = leftSelect.value;
-    const rightUrl = rightSelect.value;
-    const [leftReport, rightReport] = await Promise.all([
-      fetchReportJson(leftUrl),
-      fetchReportJson(rightUrl)
-    ]);
+  const currentLabel = buildCurrentReportLabel(currentReport.metadata);
 
-    const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
-    const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
-    renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
+  const loadSelectedReport = async (side: CompareSide): Promise<LoadedReport> => {
+    if (reportSource === "nightly") {
+      const select = side === "left" ? leftSelect : rightSelect;
+      const report = await fetchReportJson(select.value);
+      return {
+        label: select.selectedOptions[0]?.textContent ?? (side === "left" ? "Left report" : "Right report"),
+        report
+      };
+    }
+    const input = side === "left" ? leftFileInput : rightFileInput;
+    return resolveFileSelection(input, currentReport, currentLabel);
+  };
+
+  const renderTwoSided = async (): Promise<void> => {
+    const [leftLoadedReport, rightLoadedReport] = await Promise.all([
+      loadSelectedReport("left"),
+      loadSelectedReport("right")
+    ]);
+    renderCompareResults(
+      compareResults,
+      leftLoadedReport.report,
+      rightLoadedReport.report,
+      leftLoadedReport.label,
+      rightLoadedReport.label
+    );
     installCompareSortHandlers(compareResults);
     const defaultSortButton = compareResults.querySelector<HTMLButtonElement>(
       '.compare-sort-controls button[data-compare-side="left"][data-sort-key="totalCycles"]'
@@ -524,17 +625,15 @@ function installCompareHandler(
     document.body.classList.add("compare-active");
     setCompareStatus(
       compareStatus,
-      "Showing compare view for " + formatWebsiteCount(leftReport.websites.length) + " on the left and "
-        + formatWebsiteCount(rightReport.websites.length) + " on the right.",
+      "Showing compare view for " + formatWebsiteCount(leftLoadedReport.report.websites.length) + " on the left and "
+        + formatWebsiteCount(rightLoadedReport.report.websites.length) + " on the right.",
       false
     );
   };
 
   const renderOneSided = async (side: "left" | "right"): Promise<void> => {
-    const select = side === "left" ? leftSelect : rightSelect;
-    const report = await fetchReportJson(select.value);
-    const label = select.selectedOptions[0]?.textContent ?? (side === "left" ? "Left report" : "Right report");
-    renderSingleReportList(list, report, label);
+    const loadedReport = await loadSelectedReport(side);
+    renderSingleReportList(list, loadedReport.report, loadedReport.label);
     hideCompareResults(compareResults);
     list.hidden = false;
     sortControls.hidden = false;
@@ -543,7 +642,7 @@ function installCompareHandler(
     setCompareStatus(
       compareStatus,
       "Showing " + (side === "left" ? "left" : "right") + " report only for "
-        + formatWebsiteCount(report.websites.length) + ".",
+        + formatWebsiteCount(loadedReport.report.websites.length) + ".",
       false
     );
   };
@@ -1163,7 +1262,11 @@ function isReportJson(value: unknown): value is ReportJson {
     return false;
   }
   const record = value as Record<string, unknown>;
-  return Array.isArray(record.websites) && typeof record.metadata === "object" && record.metadata !== null;
+  if (!Array.isArray(record.websites) || typeof record.metadata !== "object" || record.metadata === null) {
+    return false;
+  }
+  const metadata = record.metadata as Record<string, unknown>;
+  return metadata.report_source === undefined || isReportSource(metadata.report_source);
 }
 
 async function main(): Promise<void> {
@@ -1173,8 +1276,14 @@ async function main(): Promise<void> {
   const status = document.getElementById("report-status");
   const commitLine = document.getElementById("report-commit-line");
   const compareControls = document.getElementById("compare-controls");
+  const compareLeftSelectField = document.getElementById("compare-left-select-field");
+  const compareRightSelectField = document.getElementById("compare-right-select-field");
+  const compareLeftFileField = document.getElementById("compare-left-file-field");
+  const compareRightFileField = document.getElementById("compare-right-file-field");
   const compareLeft = document.getElementById("compare-left");
   const compareRight = document.getElementById("compare-right");
+  const compareLeftFile = document.getElementById("compare-left-file");
+  const compareRightFile = document.getElementById("compare-right-file");
   const compareStatus = document.getElementById("compare-status");
   const compareRun = document.getElementById("compare-run");
   const compareLeftOnly = document.getElementById("compare-left-only");
@@ -1187,8 +1296,14 @@ async function main(): Promise<void> {
     || !(status instanceof HTMLElement)
     || !(commitLine instanceof HTMLElement)
     || !(compareControls instanceof HTMLElement)
+    || !(compareLeftSelectField instanceof HTMLElement)
+    || !(compareRightSelectField instanceof HTMLElement)
+    || !(compareLeftFileField instanceof HTMLElement)
+    || !(compareRightFileField instanceof HTMLElement)
     || !(compareLeft instanceof HTMLSelectElement)
     || !(compareRight instanceof HTMLSelectElement)
+    || !(compareLeftFile instanceof HTMLInputElement)
+    || !(compareRightFile instanceof HTMLInputElement)
     || !(compareStatus instanceof HTMLElement)
     || !(compareRun instanceof HTMLButtonElement)
     || !(compareLeftOnly instanceof HTMLButtonElement)
@@ -1222,13 +1337,29 @@ async function main(): Promise<void> {
     hideCompareResults(compareResults);
     document.body.classList.remove("compare-active");
     status.hidden = true;
-    await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
+    await loadCompareControls(
+      compareControls,
+      compareLeftSelectField,
+      compareRightSelectField,
+      compareLeftFileField,
+      compareRightFileField,
+      compareLeft,
+      compareRight,
+      compareLeftFile,
+      compareRightFile,
+      compareStatus,
+      raw.metadata
+    );
     installCompareHandler(
+      raw,
       compareRun,
       compareLeftOnly,
       compareRightOnly,
+      getReportSource(raw.metadata),
       compareLeft,
       compareRight,
+      compareLeftFile,
+      compareRightFile,
       compareStatus,
       list,
       sortControls,
