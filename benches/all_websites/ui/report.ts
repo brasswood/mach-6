@@ -122,10 +122,18 @@ interface BarView {
   topSlowRejectSelectors: SelectorRow[];
 }
 
+interface ContextBarView {
+  label: string;
+  totalLengthCycles: bigint;
+  aggregateTotalLengthCycles: bigint;
+}
+
 interface WebsiteView {
   name: string;
   isAggregate: boolean;
+  contextBars: ContextBarView[];
   bars: BarView[];
+  summaryMaxBarLengthCycles: bigint;
   totalSortKeyCycles: bigint;
   slowRejectSortKeyCycles: bigint;
   legendKinds: SegmentKind[];
@@ -534,7 +542,6 @@ function renderSingleReportList(
   label: string | null
 ): void {
   const websites = buildReportWebsiteViews(report);
-  const pageMaxBarLengthCycles = getPageMaxBarLengthCycles(websites);
   const headerHtml = label === null
     ? ""
     : '<h3 class="compare-column-header">' + renderCompareHeaderHtml(report.metadata, label) + '</h3>';
@@ -542,7 +549,7 @@ function renderSingleReportList(
   list.innerHTML = [
     headerHtml,
     websites.map((website) => {
-      return renderWebsite(website, pageMaxBarLengthCycles);
+      return renderWebsite(website);
     }).join(""),
   ].join("");
 }
@@ -758,11 +765,33 @@ function buildBar(
   };
 }
 
-function buildWebsiteView(website: WebsiteJson, isAggregate = false): WebsiteView {
-  const bars = [
+function buildWebsiteBars(website: WebsiteJson): [BarView, BarView] {
+  return [
     buildBar("Before Preprocessing", website.summary.before_preprocessing, website.selector_slow_rejects_summary.before_preprocessing, null),
     buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
   ];
+}
+
+function buildWebsiteView(
+  website: WebsiteJson,
+  aggregateBars: readonly BarView[],
+  isAggregate = false
+): WebsiteView {
+  const bars = buildWebsiteBars(website);
+  const contextBars = bars.map((bar, index) => {
+    const aggregateBar = aggregateBars[index];
+    if (!aggregateBar) {
+      throw new Error("Missing aggregate bar for " + bar.label);
+    }
+    return {
+      label: bar.label,
+      totalLengthCycles: bar.totalLengthCycles,
+      aggregateTotalLengthCycles: aggregateBar.totalLengthCycles
+    };
+  });
+  const summaryMaxBarLengthCycles = bars.reduce((max, bar) => {
+    return bar.totalLengthCycles > max ? bar.totalLengthCycles : max;
+  }, 0n);
 
   const totalSortKeyCycles = bars.reduce((max, bar) => {
     return bar.totalCycles > max ? bar.totalCycles : max;
@@ -780,7 +809,9 @@ function buildWebsiteView(website: WebsiteJson, isAggregate = false): WebsiteVie
   return {
     name: website.website,
     isAggregate,
+    contextBars,
     bars,
+    summaryMaxBarLengthCycles,
     totalSortKeyCycles,
     slowRejectSortKeyCycles,
     legendKinds: [...legendKinds]
@@ -882,9 +913,11 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
 
 function buildReportWebsiteViews(report: ReportJson): WebsiteView[] {
   const aggregateWebsite = buildAggregateWebsiteJson(report.websites);
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
+  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
   return [
-    buildWebsiteView(aggregateWebsite, true),
-    ...report.websites.map((website) => buildWebsiteView(website))
+    aggregateWebsiteView,
+    ...report.websites.map((website) => buildWebsiteView(website, aggregateWebsiteView.bars))
   ];
 }
 
@@ -900,7 +933,17 @@ function renderSegmentSwatch(kind: SegmentKind): string {
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
 }
 
-function renderSummaryBar(bar: BarView, pageMaxBarLengthCycles: bigint): string {
+function renderContextBar(bar: ContextBarView): string {
+  return [
+    '<div class="variant-context">',
+    '<div class="variant-context-label">' + escapeHtml(bar.label) + '</div>',
+    '<div class="context-bar-wrap"><div class="context-bar-total" style="width: ' + pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles) + '%"></div></div>',
+    '<div class="context-value">' + escapeHtml(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles)) + '%</div>',
+    '</div>'
+  ].join("");
+}
+
+function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint): string {
   const segmentsHtml = bar.segments.map((segment) => {
     return '<div class="bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
@@ -912,7 +955,7 @@ function renderSummaryBar(bar: BarView, pageMaxBarLengthCycles: bigint): string 
   return [
     '<div class="variant-summary">',
     '<div class="variant-label">' + escapeHtml(bar.label) + '</div>',
-    '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, pageMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
+    '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, summaryMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
     '<div class="time"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles)) + '</div>' + displayNote + '</div>',
     '</div>'
   ].join("");
@@ -978,7 +1021,7 @@ function renderVariantDetails(bar: BarView): string {
   ].join("");
 }
 
-function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): string {
+function renderWebsite(website: WebsiteView): string {
   return [
     '<details class="site" data-total-cycles="' + website.totalSortKeyCycles.toString() + '" data-slow-reject-cycles="' + website.slowRejectSortKeyCycles.toString() + '">',
     '<summary>',
@@ -987,8 +1030,10 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): st
     '<div class="name">' + (website.isAggregate
       ? '<span class="aggregate-label">' + escapeHtml(website.name) + '</span>'
       : escapeHtml(website.name)) + '</div>',
-    '<div class="summary-variants">' + website.bars.map((bar) => {
-      return renderSummaryBar(bar, pageMaxBarLengthCycles);
+    '<div class="summary-variants">' + website.contextBars.map((bar) => {
+      return renderContextBar(bar);
+    }).join("") + website.bars.map((bar) => {
+      return renderSummaryBar(bar, website.summaryMaxBarLengthCycles);
     }).join("") + '</div>',
     '</div>',
     '<div class="bar-legend">' + website.legendKinds.map((kind) => {
@@ -1005,19 +1050,13 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): st
 function buildWebsiteMap(websites: WebsiteJson[]): Map<string, WebsiteView> {
   const websiteMap = new Map<string, WebsiteView>();
   const aggregateWebsite = buildAggregateWebsiteJson(websites);
-  websiteMap.set(aggregateWebsite.website, buildWebsiteView(aggregateWebsite, true));
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
+  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
+  websiteMap.set(aggregateWebsite.website, aggregateWebsiteView);
   for (const website of websites) {
-    websiteMap.set(website.website, buildWebsiteView(website));
+    websiteMap.set(website.website, buildWebsiteView(website, aggregateWebsiteView.bars));
   }
   return websiteMap;
-}
-
-function getPageMaxBarLengthCycles(websites: WebsiteView[]): bigint {
-  return websites.reduce((max, website) => {
-    return website.bars.reduce((innerMax, bar) => {
-      return bar.totalLengthCycles > innerMax ? bar.totalLengthCycles : innerMax;
-    }, max);
-  }, 0n);
 }
 
 function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): CompareWebsiteView[] {
@@ -1044,13 +1083,12 @@ function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): 
 
 function renderCompareCell(
   website: WebsiteView | null,
-  pageMaxBarLengthCycles: bigint,
   missingLabel: string
 ): string {
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsite(website, pageMaxBarLengthCycles);
+  return renderWebsite(website);
 }
 
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
@@ -1095,14 +1133,6 @@ function renderCompareResults(
   rightLabel: string
 ): void {
   const compareWebsites = buildCompareWebsites(leftReport, rightReport);
-  const leftWebsites = compareWebsites.flatMap((website) => {
-    return website.left === null ? [] : [website.left];
-  });
-  const rightWebsites = compareWebsites.flatMap((website) => {
-    return website.right === null ? [] : [website.right];
-  });
-  const leftPageMaxBarLengthCycles = getPageMaxBarLengthCycles(leftWebsites);
-  const rightPageMaxBarLengthCycles = getPageMaxBarLengthCycles(rightWebsites);
 
   const headerHtml = [
     '<section class="compare-sort-row">',
@@ -1121,10 +1151,10 @@ function renderCompareResults(
     return [
       '<section class="compare-row" data-website-name="' + escapeHtml(website.name) + '">',
       '<div class="compare-column">',
-      renderCompareCell(website.left, leftPageMaxBarLengthCycles, "Not present in left report."),
+      renderCompareCell(website.left, "Not present in left report."),
       '</div>',
       '<div class="compare-column">',
-      renderCompareCell(website.right, rightPageMaxBarLengthCycles, "Not present in right report."),
+      renderCompareCell(website.right, "Not present in right report."),
       '</div>',
       '</section>'
     ].join("");
