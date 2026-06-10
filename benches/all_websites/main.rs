@@ -333,9 +333,10 @@ where
     F: Fn() -> R,
 {
     const WARM_UP_ITERATIONS: usize = 100;
+    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_secs(5);
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {WARM_UP_ITERATIONS} iterations...");
-    warm_up_iterations(WARM_UP_ITERATIONS, &func);
+    warm_up_time(&WARM_UP_TIME, &func);
     eprint!("measuring {num_samples} samples...");
     let start = tsc_timer::Start::now();
     for _ in 0..num_samples {
