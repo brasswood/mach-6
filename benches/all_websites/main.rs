@@ -333,7 +333,7 @@ where
     F: Fn() -> R,
 {
     const WARM_UP_ITERATIONS: usize = 100;
-    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_secs(1);
+    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
     warm_up_time(&WARM_UP_TIME, &func);
