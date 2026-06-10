@@ -120,6 +120,7 @@ interface BarView {
   slowRejectCycles: bigint;
   counts: CountingStatsJson;
   topSlowRejectSelectors: SelectorRow[];
+  showExpandedDetails: boolean;
 }
 
 interface ContextBarView {
@@ -710,7 +711,8 @@ function buildBar(
   label: string,
   summary: BenchmarkRunSummaryJson,
   selectorsSummary: SelectorStatsJson,
-  includePreprocessing: PreprocessingSummaryJson | null
+  includePreprocessing: PreprocessingSummaryJson | null,
+  showExpandedDetails = true
 ): BarView {
   const means = summary.times.means;
   const stddevs = summary.times.stddevs;
@@ -761,13 +763,15 @@ function buildBar(
     totalLengthCycles,
     slowRejectCycles: slowRejectSegment.meanCycles,
     counts: summary.counts,
-    topSlowRejectSelectors: buildSelectorRows(selectorsSummary)
+    topSlowRejectSelectors: buildSelectorRows(selectorsSummary),
+    showExpandedDetails
   };
 }
 
-function buildWebsiteBars(website: WebsiteJson): [BarView, BarView] {
+function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView] {
   return [
     buildBar("Before Preprocessing", website.summary.before_preprocessing, website.selector_slow_rejects_summary.before_preprocessing, null),
+    buildBar("After Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, false),
     buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
   ];
 }
@@ -1041,7 +1045,7 @@ function renderWebsite(website: WebsiteView): string {
     }).join("") + '</div>',
     '</summary>',
     '<div class="details">',
-    '<div class="details-variants">' + website.bars.map(renderVariantDetails).join("") + '</div>',
+    '<div class="details-variants">' + website.bars.filter((bar) => bar.showExpandedDetails).map(renderVariantDetails).join("") + '</div>',
     '</div>',
     '</details>'
   ].join("");
