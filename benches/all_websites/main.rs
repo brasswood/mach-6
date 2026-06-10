@@ -332,7 +332,7 @@ fn bench_function<F, R>(name: &str, func: F, num_samples: u64) -> TimedResults<R
 where
     F: Fn() -> R,
 {
-    const WARM_UP_ITERATIONS: usize = 10;
+    const WARM_UP_ITERATIONS: usize = 100;
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {WARM_UP_ITERATIONS} iterations...");
     warm_up_iterations(WARM_UP_ITERATIONS, &func);
