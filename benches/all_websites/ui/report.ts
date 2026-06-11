@@ -13,6 +13,7 @@ type SegmentKind =
 
 type SortDatasetKey = "totalCycles" | "slowRejectCycles";
 type CompareSide = "left" | "right";
+type ReportSource = "nightly" | "local";
 
 interface ReportJson {
   metadata: ReportMetadataJson;
@@ -27,8 +28,14 @@ interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
   dirty: boolean | null;
+  report_source?: ReportSource;
   tagline: string | null;
   time_end?: string | null;
+}
+
+interface LoadedReport {
+  label: string;
+  report: ReportJson;
 }
 
 interface WebsiteJson {
@@ -113,12 +120,21 @@ interface BarView {
   slowRejectCycles: bigint;
   counts: CountingStatsJson;
   topSlowRejectSelectors: SelectorRow[];
+  showExpandedDetails: boolean;
+}
+
+interface ContextBarView {
+  label: string;
+  totalLengthCycles: bigint;
+  aggregateTotalLengthCycles: bigint;
 }
 
 interface WebsiteView {
   name: string;
   isAggregate: boolean;
+  contextBars: ContextBarView[];
   bars: BarView[];
+  summaryMaxBarLengthCycles: bigint;
   totalSortKeyCycles: bigint;
   slowRejectSortKeyCycles: bigint;
   legendKinds: SegmentKind[];
@@ -258,6 +274,10 @@ function isReportsIndexJson(value: unknown): value is ReportsIndexJson {
   return Array.isArray(record.reports);
 }
 
+function isReportSource(value: unknown): value is ReportSource {
+  return value === "nightly" || value === "local";
+}
+
 function getRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -297,6 +317,17 @@ function formatReportDate(timeEnd: string | null): string | null {
     return null;
   }
   return REPORT_DATE_FORMAT.format(parsed);
+}
+
+function getReportSource(metadata: ReportMetadataJson): ReportSource {
+  return metadata.report_source ?? "local";
+}
+
+function buildCurrentReportLabel(metadata: ReportMetadataJson): string {
+  return buildReportOptionLabel({
+    url: currentReportUrl(),
+    metadata
+  });
 }
 
 function buildReportOptionLabel(entry: Record<string, unknown>): string {
@@ -369,13 +400,46 @@ function populateCompareSelect(
   }
 }
 
+function setCompareModeVisibility(
+  reportSource: ReportSource,
+  leftSelectField: HTMLElement,
+  rightSelectField: HTMLElement,
+  leftFileField: HTMLElement,
+  rightFileField: HTMLElement
+): void {
+  const useNightly = reportSource === "nightly";
+  leftSelectField.hidden = !useNightly;
+  rightSelectField.hidden = !useNightly;
+  leftFileField.hidden = useNightly;
+  rightFileField.hidden = useNightly;
+}
+
 async function loadCompareControls(
   container: HTMLElement,
+  leftSelectField: HTMLElement,
+  rightSelectField: HTMLElement,
+  leftFileField: HTMLElement,
+  rightFileField: HTMLElement,
   leftSelect: HTMLSelectElement,
   rightSelect: HTMLSelectElement,
+  leftFileInput: HTMLInputElement,
+  rightFileInput: HTMLInputElement,
   compareStatus: HTMLElement,
   currentMetadata: ReportMetadataJson
 ): Promise<void> {
+  const reportSource = getReportSource(currentMetadata);
+  setCompareModeVisibility(reportSource, leftSelectField, rightSelectField, leftFileField, rightFileField);
+  if (reportSource === "local") {
+    leftSelect.innerHTML = "";
+    rightSelect.innerHTML = "";
+    leftFileInput.value = "";
+    rightFileInput.value = "";
+    container.hidden = false;
+    compareStatus.hidden = false;
+    compareStatus.classList.remove("error");
+    compareStatus.textContent = "Choose local report.json files or leave a side empty to use the current report.";
+    return;
+  }
   try {
     const response = await fetch("reports-index.json");
     if (!response.ok) {
@@ -437,6 +501,32 @@ async function fetchReportJson(reportUrl: string): Promise<ReportJson> {
   return raw;
 }
 
+async function readReportJsonFile(file: File): Promise<ReportJson> {
+  const raw: unknown = JSON.parse(await file.text());
+  if (!isReportJson(raw)) {
+    throw new Error(file.name + " had an unexpected shape");
+  }
+  return raw;
+}
+
+async function resolveFileSelection(
+  input: HTMLInputElement,
+  fallbackReport: ReportJson,
+  fallbackLabel: string
+): Promise<LoadedReport> {
+  const file = input.files?.[0];
+  if (!file) {
+    return {
+      label: fallbackLabel,
+      report: fallbackReport
+    };
+  }
+  return {
+    label: file.name,
+    report: await readReportJsonFile(file)
+  };
+}
+
 function setCompareStatus(compareStatus: HTMLElement, message: string, isError: boolean): void {
   compareStatus.hidden = false;
   compareStatus.classList.toggle("error", isError);
@@ -453,7 +543,6 @@ function renderSingleReportList(
   label: string | null
 ): void {
   const websites = buildReportWebsiteViews(report);
-  const pageMaxBarLengthCycles = getPageMaxBarLengthCycles(websites);
   const headerHtml = label === null
     ? ""
     : '<h3 class="compare-column-header">' + renderCompareHeaderHtml(report.metadata, label) + '</h3>';
@@ -461,7 +550,7 @@ function renderSingleReportList(
   list.innerHTML = [
     headerHtml,
     websites.map((website) => {
-      return renderWebsite(website, pageMaxBarLengthCycles);
+      return renderWebsite(website);
     }).join(""),
   ].join("");
 }
@@ -482,11 +571,15 @@ function hideCompareResults(compareResults: HTMLElement): void {
 }
 
 function installCompareHandler(
+  currentReport: ReportJson,
   compareButton: HTMLButtonElement,
   leftOnlyButton: HTMLButtonElement,
   rightOnlyButton: HTMLButtonElement,
+  reportSource: ReportSource,
   leftSelect: HTMLSelectElement,
   rightSelect: HTMLSelectElement,
+  leftFileInput: HTMLInputElement,
+  rightFileInput: HTMLInputElement,
   compareStatus: HTMLElement,
   list: HTMLElement,
   sortControls: HTMLElement,
@@ -500,17 +593,33 @@ function installCompareHandler(
     rightOnlyButton.disabled = disabled;
   };
 
-  const renderTwoSided = async (): Promise<void> => {
-    const leftUrl = leftSelect.value;
-    const rightUrl = rightSelect.value;
-    const [leftReport, rightReport] = await Promise.all([
-      fetchReportJson(leftUrl),
-      fetchReportJson(rightUrl)
-    ]);
+  const currentLabel = buildCurrentReportLabel(currentReport.metadata);
 
-    const leftLabel = leftSelect.selectedOptions[0]?.textContent ?? "Left report";
-    const rightLabel = rightSelect.selectedOptions[0]?.textContent ?? "Right report";
-    renderCompareResults(compareResults, leftReport, rightReport, leftLabel, rightLabel);
+  const loadSelectedReport = async (side: CompareSide): Promise<LoadedReport> => {
+    if (reportSource === "nightly") {
+      const select = side === "left" ? leftSelect : rightSelect;
+      const report = await fetchReportJson(select.value);
+      return {
+        label: select.selectedOptions[0]?.textContent ?? (side === "left" ? "Left report" : "Right report"),
+        report
+      };
+    }
+    const input = side === "left" ? leftFileInput : rightFileInput;
+    return resolveFileSelection(input, currentReport, currentLabel);
+  };
+
+  const renderTwoSided = async (): Promise<void> => {
+    const [leftLoadedReport, rightLoadedReport] = await Promise.all([
+      loadSelectedReport("left"),
+      loadSelectedReport("right")
+    ]);
+    renderCompareResults(
+      compareResults,
+      leftLoadedReport.report,
+      rightLoadedReport.report,
+      leftLoadedReport.label,
+      rightLoadedReport.label
+    );
     installCompareSortHandlers(compareResults);
     const defaultSortButton = compareResults.querySelector<HTMLButtonElement>(
       '.compare-sort-controls button[data-compare-side="left"][data-sort-key="totalCycles"]'
@@ -524,17 +633,15 @@ function installCompareHandler(
     document.body.classList.add("compare-active");
     setCompareStatus(
       compareStatus,
-      "Showing compare view for " + formatWebsiteCount(leftReport.websites.length) + " on the left and "
-        + formatWebsiteCount(rightReport.websites.length) + " on the right.",
+      "Showing compare view for " + formatWebsiteCount(leftLoadedReport.report.websites.length) + " on the left and "
+        + formatWebsiteCount(rightLoadedReport.report.websites.length) + " on the right.",
       false
     );
   };
 
   const renderOneSided = async (side: "left" | "right"): Promise<void> => {
-    const select = side === "left" ? leftSelect : rightSelect;
-    const report = await fetchReportJson(select.value);
-    const label = select.selectedOptions[0]?.textContent ?? (side === "left" ? "Left report" : "Right report");
-    renderSingleReportList(list, report, label);
+    const loadedReport = await loadSelectedReport(side);
+    renderSingleReportList(list, loadedReport.report, loadedReport.label);
     hideCompareResults(compareResults);
     list.hidden = false;
     sortControls.hidden = false;
@@ -543,7 +650,7 @@ function installCompareHandler(
     setCompareStatus(
       compareStatus,
       "Showing " + (side === "left" ? "left" : "right") + " report only for "
-        + formatWebsiteCount(report.websites.length) + ".",
+        + formatWebsiteCount(loadedReport.report.websites.length) + ".",
       false
     );
   };
@@ -604,7 +711,8 @@ function buildBar(
   label: string,
   summary: BenchmarkRunSummaryJson,
   selectorsSummary: SelectorStatsJson,
-  includePreprocessing: PreprocessingSummaryJson | null
+  includePreprocessing: PreprocessingSummaryJson | null,
+  showExpandedDetails = true
 ): BarView {
   const means = summary.times.means;
   const stddevs = summary.times.stddevs;
@@ -655,15 +763,39 @@ function buildBar(
     totalLengthCycles,
     slowRejectCycles: slowRejectSegment.meanCycles,
     counts: summary.counts,
-    topSlowRejectSelectors: buildSelectorRows(selectorsSummary)
+    topSlowRejectSelectors: buildSelectorRows(selectorsSummary),
+    showExpandedDetails
   };
 }
 
-function buildWebsiteView(website: WebsiteJson, isAggregate = false): WebsiteView {
-  const bars = [
+function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView] {
+  return [
     buildBar("Before Preprocessing", website.summary.before_preprocessing, website.selector_slow_rejects_summary.before_preprocessing, null),
+    buildBar("After Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, false),
     buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
   ];
+}
+
+function buildWebsiteView(
+  website: WebsiteJson,
+  aggregateBars: readonly BarView[],
+  isAggregate = false
+): WebsiteView {
+  const bars = buildWebsiteBars(website);
+  const contextBars = bars.map((bar, index) => {
+    const aggregateBar = aggregateBars[index];
+    if (!aggregateBar) {
+      throw new Error("Missing aggregate bar for " + bar.label);
+    }
+    return {
+      label: bar.label,
+      totalLengthCycles: bar.totalLengthCycles,
+      aggregateTotalLengthCycles: aggregateBar.totalLengthCycles
+    };
+  });
+  const summaryMaxBarLengthCycles = bars.reduce((max, bar) => {
+    return bar.totalLengthCycles > max ? bar.totalLengthCycles : max;
+  }, 0n);
 
   const totalSortKeyCycles = bars.reduce((max, bar) => {
     return bar.totalCycles > max ? bar.totalCycles : max;
@@ -681,7 +813,9 @@ function buildWebsiteView(website: WebsiteJson, isAggregate = false): WebsiteVie
   return {
     name: website.website,
     isAggregate,
+    contextBars,
     bars,
+    summaryMaxBarLengthCycles,
     totalSortKeyCycles,
     slowRejectSortKeyCycles,
     legendKinds: [...legendKinds]
@@ -783,9 +917,11 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
 
 function buildReportWebsiteViews(report: ReportJson): WebsiteView[] {
   const aggregateWebsite = buildAggregateWebsiteJson(report.websites);
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
+  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
   return [
-    buildWebsiteView(aggregateWebsite, true),
-    ...report.websites.map((website) => buildWebsiteView(website))
+    aggregateWebsiteView,
+    ...report.websites.map((website) => buildWebsiteView(website, aggregateWebsiteView.bars))
   ];
 }
 
@@ -801,7 +937,17 @@ function renderSegmentSwatch(kind: SegmentKind): string {
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
 }
 
-function renderSummaryBar(bar: BarView, pageMaxBarLengthCycles: bigint): string {
+function renderContextBar(bar: ContextBarView): string {
+  return [
+    '<div class="variant-context">',
+    '<div class="variant-context-label">' + escapeHtml(bar.label) + '</div>',
+    '<div class="context-bar-wrap"><div class="context-bar-total" style="width: ' + pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles) + '%"></div></div>',
+    '<div class="context-value">' + escapeHtml(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles)) + '%</div>',
+    '</div>'
+  ].join("");
+}
+
+function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint): string {
   const segmentsHtml = bar.segments.map((segment) => {
     return '<div class="bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
@@ -813,7 +959,7 @@ function renderSummaryBar(bar: BarView, pageMaxBarLengthCycles: bigint): string 
   return [
     '<div class="variant-summary">',
     '<div class="variant-label">' + escapeHtml(bar.label) + '</div>',
-    '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, pageMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
+    '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, summaryMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
     '<div class="time"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles)) + '</div>' + displayNote + '</div>',
     '</div>'
   ].join("");
@@ -879,7 +1025,7 @@ function renderVariantDetails(bar: BarView): string {
   ].join("");
 }
 
-function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): string {
+function renderWebsite(website: WebsiteView): string {
   return [
     '<details class="site" data-total-cycles="' + website.totalSortKeyCycles.toString() + '" data-slow-reject-cycles="' + website.slowRejectSortKeyCycles.toString() + '">',
     '<summary>',
@@ -888,8 +1034,10 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): st
     '<div class="name">' + (website.isAggregate
       ? '<span class="aggregate-label">' + escapeHtml(website.name) + '</span>'
       : escapeHtml(website.name)) + '</div>',
-    '<div class="summary-variants">' + website.bars.map((bar) => {
-      return renderSummaryBar(bar, pageMaxBarLengthCycles);
+    '<div class="summary-variants">' + website.contextBars.map((bar) => {
+      return renderContextBar(bar);
+    }).join("") + website.bars.map((bar) => {
+      return renderSummaryBar(bar, website.summaryMaxBarLengthCycles);
     }).join("") + '</div>',
     '</div>',
     '<div class="bar-legend">' + website.legendKinds.map((kind) => {
@@ -897,7 +1045,7 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): st
     }).join("") + '</div>',
     '</summary>',
     '<div class="details">',
-    '<div class="details-variants">' + website.bars.map(renderVariantDetails).join("") + '</div>',
+    '<div class="details-variants">' + website.bars.filter((bar) => bar.showExpandedDetails).map(renderVariantDetails).join("") + '</div>',
     '</div>',
     '</details>'
   ].join("");
@@ -906,19 +1054,13 @@ function renderWebsite(website: WebsiteView, pageMaxBarLengthCycles: bigint): st
 function buildWebsiteMap(websites: WebsiteJson[]): Map<string, WebsiteView> {
   const websiteMap = new Map<string, WebsiteView>();
   const aggregateWebsite = buildAggregateWebsiteJson(websites);
-  websiteMap.set(aggregateWebsite.website, buildWebsiteView(aggregateWebsite, true));
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
+  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
+  websiteMap.set(aggregateWebsite.website, aggregateWebsiteView);
   for (const website of websites) {
-    websiteMap.set(website.website, buildWebsiteView(website));
+    websiteMap.set(website.website, buildWebsiteView(website, aggregateWebsiteView.bars));
   }
   return websiteMap;
-}
-
-function getPageMaxBarLengthCycles(websites: WebsiteView[]): bigint {
-  return websites.reduce((max, website) => {
-    return website.bars.reduce((innerMax, bar) => {
-      return bar.totalLengthCycles > innerMax ? bar.totalLengthCycles : innerMax;
-    }, max);
-  }, 0n);
 }
 
 function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): CompareWebsiteView[] {
@@ -945,13 +1087,12 @@ function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): 
 
 function renderCompareCell(
   website: WebsiteView | null,
-  pageMaxBarLengthCycles: bigint,
   missingLabel: string
 ): string {
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsite(website, pageMaxBarLengthCycles);
+  return renderWebsite(website);
 }
 
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
@@ -996,14 +1137,6 @@ function renderCompareResults(
   rightLabel: string
 ): void {
   const compareWebsites = buildCompareWebsites(leftReport, rightReport);
-  const leftWebsites = compareWebsites.flatMap((website) => {
-    return website.left === null ? [] : [website.left];
-  });
-  const rightWebsites = compareWebsites.flatMap((website) => {
-    return website.right === null ? [] : [website.right];
-  });
-  const leftPageMaxBarLengthCycles = getPageMaxBarLengthCycles(leftWebsites);
-  const rightPageMaxBarLengthCycles = getPageMaxBarLengthCycles(rightWebsites);
 
   const headerHtml = [
     '<section class="compare-sort-row">',
@@ -1022,10 +1155,10 @@ function renderCompareResults(
     return [
       '<section class="compare-row" data-website-name="' + escapeHtml(website.name) + '">',
       '<div class="compare-column">',
-      renderCompareCell(website.left, leftPageMaxBarLengthCycles, "Not present in left report."),
+      renderCompareCell(website.left, "Not present in left report."),
       '</div>',
       '<div class="compare-column">',
-      renderCompareCell(website.right, rightPageMaxBarLengthCycles, "Not present in right report."),
+      renderCompareCell(website.right, "Not present in right report."),
       '</div>',
       '</section>'
     ].join("");
@@ -1163,7 +1296,11 @@ function isReportJson(value: unknown): value is ReportJson {
     return false;
   }
   const record = value as Record<string, unknown>;
-  return Array.isArray(record.websites) && typeof record.metadata === "object" && record.metadata !== null;
+  if (!Array.isArray(record.websites) || typeof record.metadata !== "object" || record.metadata === null) {
+    return false;
+  }
+  const metadata = record.metadata as Record<string, unknown>;
+  return metadata.report_source === undefined || isReportSource(metadata.report_source);
 }
 
 async function main(): Promise<void> {
@@ -1173,8 +1310,14 @@ async function main(): Promise<void> {
   const status = document.getElementById("report-status");
   const commitLine = document.getElementById("report-commit-line");
   const compareControls = document.getElementById("compare-controls");
+  const compareLeftSelectField = document.getElementById("compare-left-select-field");
+  const compareRightSelectField = document.getElementById("compare-right-select-field");
+  const compareLeftFileField = document.getElementById("compare-left-file-field");
+  const compareRightFileField = document.getElementById("compare-right-file-field");
   const compareLeft = document.getElementById("compare-left");
   const compareRight = document.getElementById("compare-right");
+  const compareLeftFile = document.getElementById("compare-left-file");
+  const compareRightFile = document.getElementById("compare-right-file");
   const compareStatus = document.getElementById("compare-status");
   const compareRun = document.getElementById("compare-run");
   const compareLeftOnly = document.getElementById("compare-left-only");
@@ -1187,8 +1330,14 @@ async function main(): Promise<void> {
     || !(status instanceof HTMLElement)
     || !(commitLine instanceof HTMLElement)
     || !(compareControls instanceof HTMLElement)
+    || !(compareLeftSelectField instanceof HTMLElement)
+    || !(compareRightSelectField instanceof HTMLElement)
+    || !(compareLeftFileField instanceof HTMLElement)
+    || !(compareRightFileField instanceof HTMLElement)
     || !(compareLeft instanceof HTMLSelectElement)
     || !(compareRight instanceof HTMLSelectElement)
+    || !(compareLeftFile instanceof HTMLInputElement)
+    || !(compareRightFile instanceof HTMLInputElement)
     || !(compareStatus instanceof HTMLElement)
     || !(compareRun instanceof HTMLButtonElement)
     || !(compareLeftOnly instanceof HTMLButtonElement)
@@ -1222,13 +1371,29 @@ async function main(): Promise<void> {
     hideCompareResults(compareResults);
     document.body.classList.remove("compare-active");
     status.hidden = true;
-    await loadCompareControls(compareControls, compareLeft, compareRight, compareStatus, raw.metadata);
+    await loadCompareControls(
+      compareControls,
+      compareLeftSelectField,
+      compareRightSelectField,
+      compareLeftFileField,
+      compareRightFileField,
+      compareLeft,
+      compareRight,
+      compareLeftFile,
+      compareRightFile,
+      compareStatus,
+      raw.metadata
+    );
     installCompareHandler(
+      raw,
       compareRun,
       compareLeftOnly,
       compareRightOnly,
+      getReportSource(raw.metadata),
       compareLeft,
       compareRight,
+      compareLeftFile,
+      compareRightFile,
       compareStatus,
       list,
       sortControls,

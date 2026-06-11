@@ -131,6 +131,9 @@
       display: grid;
       gap: 6px;
     }
+    .compare-field[hidden] {
+      display: none;
+    }
     .compare-field label {
       font-size: 12px;
       font-weight: 700;
@@ -148,6 +151,12 @@
       color: var(--fg);
       font: inherit;
       font-size: 14px;
+    }
+    .compare-hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
     }
     .compare-status {
       margin: 0;
@@ -309,12 +318,36 @@
       align-items: center;
       gap: 10px;
     }
+    .variant-context {
+      display: grid;
+      grid-template-columns: minmax(130px, 170px) minmax(120px, 1fr) 120px;
+      align-items: center;
+      gap: 10px;
+    }
+    .variant-context-label {
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
     .variant-label {
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.02em;
+    }
+    .context-bar-wrap {
+      width: 100%;
+      height: 8px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+    .context-bar-total {
+      height: 100%;
+      min-width: 0;
+      background: #94a3b8;
     }
     .bar-wrap {
       width: 100%;
@@ -445,6 +478,12 @@
     }
     .time-value {
       font-variant-numeric: tabular-nums;
+    }
+    .context-value {
+      color: #94a3b8;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
     }
     .time-value.warning {
       color: var(--danger);
@@ -607,17 +646,27 @@
       <section id="compare-controls" class="compare-controls" hidden aria-labelledby="compare-controls-title">
         <h2 id="compare-controls-title" class="compare-controls-title">Compare Reports</h2>
         <div class="compare-controls-grid">
-          <div class="compare-field">
+          <div id="compare-left-select-field" class="compare-field">
             <label for="compare-left">Left report</label>
             <select id="compare-left" class="compare-select">
               <option>Loading available reports...</option>
             </select>
           </div>
-          <div class="compare-field">
+          <div id="compare-left-file-field" class="compare-field" hidden>
+            <label for="compare-left-file">Left report</label>
+            <input id="compare-left-file" class="compare-select" type="file" accept=".json,application/json">
+            <p class="compare-hint">Leave empty to use the current report.</p>
+          </div>
+          <div id="compare-right-select-field" class="compare-field">
             <label for="compare-right">Right report</label>
             <select id="compare-right" class="compare-select">
               <option>Loading available reports...</option>
             </select>
+          </div>
+          <div id="compare-right-file-field" class="compare-field" hidden>
+            <label for="compare-right-file">Right report</label>
+            <input id="compare-right-file" class="compare-select" type="file" accept=".json,application/json">
+            <p class="compare-hint">Leave empty to use the current report.</p>
           </div>
       </div>
       <div class="compare-actions">

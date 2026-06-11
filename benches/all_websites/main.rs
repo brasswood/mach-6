@@ -17,7 +17,7 @@ use std::process::Command;
 use cssparser::ToCss as _;
 use time::OffsetDateTime;
 
-use crate::json::{ReportJson, ReportMetadataJson, WebsiteJson};
+use crate::json::{ReportJson, ReportMetadataJson, ReportSourceJson, WebsiteJson};
 use crate::stats::Samples;
 
 mod json;
@@ -174,6 +174,13 @@ const NUM_SAMPLES: u64 = 25;
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
+    let git_metadata = match collect_report_git_metadata() {
+        Ok(git) => Some(git),
+        Err(e) => {
+            warn!("Failed to collect git metadata: {}", e);
+            None
+        },
+    };
     let time_start = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
     let website_filter: Vec<String> = std::env::args()
         .skip(1) // the executable name
@@ -226,15 +233,8 @@ fn main() {
         .map(|res| WebsiteJson::from(&res))
         .collect::<Vec<_>>();
 
-    let git_metadata = match collect_report_git_metadata() {
-        Ok(git) => Some(git),
-        Err(e) => {
-            warn!("Failed to collect git metadata: {}", e);
-            None
-        },
-    };
     let time_end = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
-    let metadata = ReportMetadataJson::new(git_metadata, time_start, time_end);
+    let metadata = ReportMetadataJson::new(report_source_from_env(), git_metadata, time_start, time_end);
 
     let report_json = ReportJson {
         metadata,
@@ -400,6 +400,13 @@ fn report_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("target")
         .join("all_websites_report")
+}
+
+fn report_source_from_env() -> ReportSourceJson {
+    match std::env::var("NIGHTLY").ok().as_deref() {
+        Some("1") => ReportSourceJson::Nightly,
+        _ => ReportSourceJson::Local,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
