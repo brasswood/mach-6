@@ -50,11 +50,18 @@ interface SummaryJson {
   after_preprocessing: BenchmarkRunSummaryJson;
 }
 
-interface PreprocessingSummaryJson {
+interface LegacyPreprocessingSummaryJson {
+  mean_indexing_cycles: number;
+  mean_overall_cycles: number;
+}
+
+interface CurrentPreprocessingSummaryJson {
   mean_indexing_cycles: number;
   mean_is_conversion_cycles: number;
   mean_distributing_cycles: number;
 }
+
+type PreprocessingSummaryJson = LegacyPreprocessingSummaryJson | CurrentPreprocessingSummaryJson;
 
 interface BenchmarkRunSummaryJson {
   mean_cycles: number;
@@ -184,6 +191,58 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
 
 function toBigInt(value: number): bigint {
   return BigInt(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isLegacyPreprocessingSummaryJson(value: unknown): value is LegacyPreprocessingSummaryJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isFiniteNumber(record.mean_indexing_cycles)
+    && isFiniteNumber(record.mean_overall_cycles)
+    && record.mean_is_conversion_cycles === undefined
+    && record.mean_distributing_cycles === undefined;
+}
+
+function isCurrentPreprocessingSummaryJson(value: unknown): value is CurrentPreprocessingSummaryJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isFiniteNumber(record.mean_indexing_cycles)
+    && isFiniteNumber(record.mean_is_conversion_cycles)
+    && isFiniteNumber(record.mean_distributing_cycles)
+    && record.mean_overall_cycles === undefined;
+}
+
+function isPreprocessingSummaryJson(value: unknown): value is PreprocessingSummaryJson {
+  return isLegacyPreprocessingSummaryJson(value) || isCurrentPreprocessingSummaryJson(value);
+}
+
+function getPreprocessingBreakdown(summary: PreprocessingSummaryJson): {
+  indexingCycles: bigint;
+  otherPreprocessingCycles: bigint;
+  distributionCycles: bigint;
+} {
+  const indexingCycles = toBigInt(summary.mean_indexing_cycles);
+  if ("mean_is_conversion_cycles" in summary) {
+    const isConversionCycles = toBigInt(summary.mean_is_conversion_cycles);
+    return {
+      indexingCycles,
+      otherPreprocessingCycles: isConversionCycles - indexingCycles,
+      distributionCycles: toBigInt(summary.mean_distributing_cycles)
+    };
+  }
+
+  return {
+    indexingCycles,
+    otherPreprocessingCycles: toBigInt(summary.mean_overall_cycles) - indexingCycles,
+    distributionCycles: 0n
+  };
 }
 
 function formatCycles(cycles: bigint): string {
@@ -736,11 +795,13 @@ function buildBar(
 
   const segments: SegmentView[] = [];
   if (includePreprocessing) {
-    const indexingCycles = toBigInt(includePreprocessing.mean_indexing_cycles);
-    const isConversionCycles = toBigInt(includePreprocessing.mean_is_conversion_cycles);
-    const distributionCycles = toBigInt(includePreprocessing.mean_distributing_cycles);
+    const {
+      indexingCycles,
+      otherPreprocessingCycles,
+      distributionCycles
+    } = getPreprocessingBreakdown(includePreprocessing);
     segments.push({ kind: "indexing", meanCycles: indexingCycles, stddevCycles: null });
-    segments.push({ kind: "otherPreprocessing", meanCycles: isConversionCycles - indexingCycles, stddevCycles: null });
+    segments.push({ kind: "otherPreprocessing", meanCycles: otherPreprocessingCycles, stddevCycles: null });
     segments.push({ kind: "distribution", meanCycles: distributionCycles, stddevCycles: null });
   }
   segments.push(...measuredMatchDurations);
@@ -897,14 +958,23 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
 }
 
 function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
+  const preprocessingBreakdowns = websites.map((website) => {
+    return getPreprocessingBreakdown(website.summary.preprocessing);
+  });
   return {
     website: "All Websites (" + websites.length.toString() + ")",
     summary: {
       before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
       preprocessing: {
-        mean_indexing_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_indexing_cycles)),
-        mean_is_conversion_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_is_conversion_cycles)),
-        mean_distributing_cycles: sumNumbers(websites.map((website) => website.summary.preprocessing.mean_distributing_cycles))
+        mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
+          return sum + breakdown.indexingCycles;
+        }, 0n)),
+        mean_is_conversion_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
+          return sum + breakdown.indexingCycles + breakdown.otherPreprocessingCycles;
+        }, 0n)),
+        mean_distributing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
+          return sum + breakdown.distributionCycles;
+        }, 0n))
       },
       after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
     },
@@ -1291,16 +1361,116 @@ function sortBy(
   setActive(activeBtn, byTotal, bySlow);
 }
 
+function isReportMetadataJson(value: unknown): value is ReportMetadataJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return (record.branch === null || typeof record.branch === "string")
+    && (record.commit_hash === null || typeof record.commit_hash === "string")
+    && (record.dirty === null || typeof record.dirty === "boolean")
+    && (record.tagline === null || typeof record.tagline === "string")
+    && (record.time_end === undefined || record.time_end === null || typeof record.time_end === "string")
+    && (record.report_source === undefined || isReportSource(record.report_source));
+}
+
+function isCountingStatsJson(value: unknown): value is CountingStatsJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isFiniteNumber(record.sharing_instances)
+    && isFiniteNumber(record.selector_map_hits)
+    && isFiniteNumber(record.fast_rejects)
+    && isFiniteNumber(record.slow_rejects)
+    && isFiniteNumber(record.slow_accepts);
+}
+
+function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isFiniteNumber(record.updating_bloom_filter_cycles)
+    && isFiniteNumber(record.slow_rejecting_cycles)
+    && isFiniteNumber(record.slow_accepting_cycles)
+    && isFiniteNumber(record.fast_rejecting_cycles)
+    && isFiniteNumber(record.checking_style_sharing_cycles)
+    && isFiniteNumber(record.inserting_into_sharing_cache_cycles)
+    && isFiniteNumber(record.querying_selector_map_cycles);
+}
+
+function isTimingStatsJson(value: unknown): value is TimingStatsJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isTimingsJsonBody(record.means) && isTimingsJsonBody(record.stddevs);
+}
+
+function isBenchmarkRunSummaryJson(value: unknown): value is BenchmarkRunSummaryJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isFiniteNumber(record.mean_cycles)
+    && isCountingStatsJson(record.counts)
+    && isTimingStatsJson(record.times);
+}
+
+function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  const means = getRecord(record.means_cycles);
+  const stddevs = getRecord(record.stddevs_cycles);
+  if (means === null || stddevs === null) {
+    return false;
+  }
+  return Object.values(means).every(isFiniteNumber)
+    && Object.values(stddevs).every(isFiniteNumber);
+}
+
+function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isSelectorStatsJson(record.before_preprocessing)
+    && isSelectorStatsJson(record.after_preprocessing);
+}
+
+function isSummaryJson(value: unknown): value is SummaryJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isBenchmarkRunSummaryJson(record.before_preprocessing)
+    && isPreprocessingSummaryJson(record.preprocessing)
+    && isBenchmarkRunSummaryJson(record.after_preprocessing);
+}
+
+function isWebsiteJson(value: unknown): value is WebsiteJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return typeof record.website === "string"
+    && isSummaryJson(record.summary)
+    && isSelectorsSummaryJson(record.selector_slow_rejects_summary);
+}
+
 function isReportJson(value: unknown): value is ReportJson {
-  if (typeof value !== "object" || value === null) {
+  const record = getRecord(value);
+  if (record === null) {
     return false;
   }
-  const record = value as Record<string, unknown>;
-  if (!Array.isArray(record.websites) || typeof record.metadata !== "object" || record.metadata === null) {
+  if (!Array.isArray(record.websites)) {
     return false;
   }
-  const metadata = record.metadata as Record<string, unknown>;
-  return metadata.report_source === undefined || isReportSource(metadata.report_source);
+  return isReportMetadataJson(record.metadata)
+    && record.websites.every((website) => isWebsiteJson(website));
 }
 
 async function main(): Promise<void> {
