@@ -1,5 +1,5 @@
 use log::{error, warn};
-use mach_6::{self, get_all_documents_and_selectors, stylist_from_selectors};
+use mach_6::{self, Optimizations, get_all_documents_and_selectors, stylist_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
 use mach_6::structs::Selector;
@@ -265,6 +265,7 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     stylist,
+                    Optimizations::from_none(),
                     stylesheet_lock,
                     None,
                 );
@@ -277,6 +278,7 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
     mach_6::match_selectors_with_style_sharing(
         document,
         stylist,
+        Optimizations::from_none(),
         stylesheet_lock,
         Some(&mut per_match_stats),
     );

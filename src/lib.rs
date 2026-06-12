@@ -75,6 +75,19 @@ pub enum Algorithm {
     Mach7,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Optimizations {
+    first_child_bucket: bool,
+}
+
+impl Optimizations {
+    pub fn from_none() -> Self {
+        Self {
+            first_child_bucket: false,
+        }
+    }
+}
+
 fn element_to_string(el: ElementRef<'_>) -> String {
     let name = el.value().name();
     let mut out = String::new();
@@ -115,7 +128,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         ),
         Algorithm::WithStyleSharing => {
             let (matches, stats) =
-                match_selectors_with_style_sharing(&website.document(), website.stylist(), &website.stylesheet_lock(), None);
+                match_selectors_with_style_sharing(&website.document(), website.stylist(), Optimizations::from_none(), &website.stylesheet_lock(), None);
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithIsConversion => {
@@ -130,6 +143,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
                 &preprocessed_stylist,
+                Optimizations::from_none(),
                 &preprocessed_lock,
                 None,
             );
@@ -176,6 +190,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
                 &preprocessed_stylist,
+                Optimizations::from_none(),
                 &preprocessed_lock,
                 None,
             );
@@ -369,6 +384,7 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     stylist: &'document style::stylist::Stylist,
+    optimizations: Optimizations,
     stylesheet_lock: &SharedRwLock,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
