@@ -1,5 +1,5 @@
 use log::{error, warn};
-use mach_6::{self, Optimizations, get_all_documents_and_selectors, stylist_from_selectors};
+use mach_6::{self, Optimizations, WebsiteMatcher, get_all_documents_and_selectors, stylist_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
 use mach_6::structs::Selector;
@@ -188,9 +188,15 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), w.document(), w.stylist(), w.stylesheet_lock());
+        let prepared = w.prepare(Optimizations::from_none());
+        let before_preprocessing = bench_website(
+            &format!("{} before preprocessing", w.name),
+            &w,
+            &prepared,
+        );
+        let selectors = prepared.selectors();
         let substrings =
-          concretize::substrings_from_selectors(w.selectors().iter());
+          concretize::substrings_from_selectors(selectors.iter());
         let indexing_results = bench_function(
           &format!("{} indexing", w.name),
           || { concretize::build_substr_selector_index(w.document(), substrings.clone()); },
@@ -199,10 +205,10 @@ fn main() {
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let overall_is_conversion_results = bench_function(
           &format!("{} :is() conversion", w.name),
-          || { concretize::convert_to_is_selectors(w.document(), w.selectors()); },
+          || { concretize::convert_to_is_selectors(w.document(), &selectors); },
           NUM_SAMPLES,
         );
-        let is = concretize::convert_to_is_selectors(w.document(), w.selectors());
+        let is = concretize::convert_to_is_selectors(w.document(), &selectors);
         let distribute = || {
             let _: Vec<_> = is
                 .iter()
@@ -214,9 +220,17 @@ fn main() {
             distribute,
             NUM_SAMPLES,
         );
-        let preprocessed_selectors = preprocessing::preprocess(w.document(), w.selectors());
-        let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
-        let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), w.document(), &preprocessed_stylist, &preprocessed_lock);
+        let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
+        let (preprocessed_stylist, _preprocessed_lock) = stylist_from_selectors(
+            preprocessed_selectors.iter(),
+            prepared.optimizations().edge_selector(),
+        );
+        let preprocessed = WebsiteMatcher::new(preprocessed_stylist, prepared.optimizations());
+        let after_preprocessing = bench_website(
+            &format!("{} after preprocessing", w.name),
+            &w,
+            &preprocessed,
+        );
         let result = WebsiteResult {
             website: w.name,
             before_preprocessing,
@@ -257,16 +271,20 @@ fn main() {
     };
 }
 
-fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> MatchBenchResult {
+fn bench_website(
+    benchmark_name: &str,
+    website: &ParsedWebsite,
+    prepared: &WebsiteMatcher,
+) -> MatchBenchResult {
     let overall_stats = bench_function(
         benchmark_name,
         || {
             let (_, overall_stats) =
                 mach_6::match_selectors_with_style_sharing(
-                    document,
-                    stylist,
-                    Optimizations::from_none(),
-                    stylesheet_lock,
+                    website.document(),
+                    prepared.stylist(),
+                    prepared.optimizations(),
+                    website.stylesheet_lock(),
                     None,
                 );
             overall_stats
@@ -276,10 +294,10 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
     print!("Getting selector stats for {benchmark_name}...");
     let mut per_match_stats = SmallVec::new();
     mach_6::match_selectors_with_style_sharing(
-        document,
-        stylist,
-        Optimizations::from_none(),
-        stylesheet_lock,
+        website.document(),
+        prepared.stylist(),
+        prepared.optimizations(),
+        website.stylesheet_lock(),
         Some(&mut per_match_stats),
     );
     println!("done.");

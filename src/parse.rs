@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use crate::{Selector, selectors_from_stylist, stylist_from_stylesheets};
+use crate::{Optimizations, WebsiteMatcher, stylist_from_stylesheets};
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
 use scraper::Html;
@@ -17,7 +17,6 @@ use style::context::QuirksMode;
 use style::media_queries::MediaList;
 use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
-use style::stylist::Stylist;
 use style::stylesheets::{
     AllowImportRules, DocumentStyleSheet, Origin, Stylesheet, UrlExtraData
 };
@@ -29,9 +28,8 @@ pub fn websites_path() -> PathBuf {
 pub struct ParsedWebsite {
     pub name: String,
     document: Html,
+    stylesheets: Vec<DocumentStyleSheet>,
     stylesheet_lock: SharedRwLock,
-    stylist: Stylist,
-    selectors: Vec<Selector>,
 }
 
 impl ParsedWebsite {
@@ -41,14 +39,11 @@ impl ParsedWebsite {
         stylesheets: Vec<DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock
     ) -> Self {
-        let stylist = stylist_from_stylesheets(stylesheets.iter(), &stylesheet_lock.read());
-        let selectors = selectors_from_stylist(&stylist);
         Self {
             name,
             document,
+            stylesheets,
             stylesheet_lock,
-            stylist,
-            selectors,
         }
     }
 
@@ -56,16 +51,21 @@ impl ParsedWebsite {
         &self.document
     }
 
+    pub fn stylesheets(&self) -> &[DocumentStyleSheet] {
+        &self.stylesheets
+    }
+
     pub fn stylesheet_lock(&self) -> &SharedRwLock {
         &self.stylesheet_lock
     }
 
-    pub fn stylist(&self) -> &Stylist {
-        &self.stylist
-    }
-
-    pub fn selectors(&self) -> &[Selector] {
-        &self.selectors
+    pub fn prepare(&self, optimizations: Optimizations) -> WebsiteMatcher {
+        let stylist = stylist_from_stylesheets(
+            self.stylesheets.iter(),
+            &self.stylesheet_lock.read(),
+            optimizations.edge_selector(),
+        );
+        WebsiteMatcher::new(stylist, optimizations)
     }
 }
 
@@ -230,7 +230,7 @@ pub(crate) fn parse_stylesheet(
 mod tests {
     use std::fmt::Write as _;
     use std::{fs, path::PathBuf};
-    use crate::Selector;
+    use crate::Optimizations;
     use crate::result::IntoResultExt;
     use crate::parse::{CssFile, get_document_and_selectors, get_main_html, get_stylesheet_paths, parse_css_file, parse_main_html};
     use cssparser::ToCss as _;
@@ -333,8 +333,9 @@ mod tests {
         let stylist = super::stylist_from_stylesheets(
             std::iter::once(&stylesheet),
             &lock.read(),
+            false,
         );
-        let selectors = super::selectors_from_stylist(&stylist);
+        let selectors = crate::selectors_from_stylist(&stylist);
         let mut res = String::new();
         for selector in selectors {
             writeln!(&mut res, "{}", selector.to_css_string()).unwrap();
@@ -355,10 +356,11 @@ mod tests {
 
         let website = get_document_and_selectors(website_path)?
             .expect("expected parsed website");
-        let selectors: Vec<_> = website
+        let prepared = website.prepare(Optimizations::from_none());
+        let selectors: Vec<_> = prepared
             .selectors()
             .iter()
-            .map(Selector::to_css_string)
+            .map(crate::Selector::to_css_string)
             .collect();
 
         assert!(selectors.iter().any(|selector| selector.contains(">")));

@@ -6,7 +6,7 @@
  */
 use std::{fmt::Write as _, path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
 use html5ever::{LocalName, QualName, ns};
-use mach_6::{Algorithm, match_selectors, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{borrowed::DocumentMatches, element_id, owned::OwnedDocumentMatches, ser::{DebugSerDocumentMatches, SerDocumentMatches}, set::SetDocumentMatches}};
+use mach_6::{Algorithm, Optimizations, match_selectors, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{borrowed::DocumentMatches, element_id, owned::OwnedDocumentMatches, ser::{DebugSerDocumentMatches, SerDocumentMatches}, set::SetDocumentMatches}};
 use insta;
 use rayon::prelude::*;
 use scraper::{ElementRef, Html, Node};
@@ -106,7 +106,12 @@ fn all_algorithms_correct() -> Result<()> {
         .map(|path| {
             // 1.1. Compute naive result
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            let naive_result = match_selectors(website.document(), website.selectors());
+            let prepared = website.prepare(Optimizations::from_none());
+            let selectors = prepared.selectors();
+            let naive_result = match_selectors(
+                website.document(),
+                &selectors,
+            );
             let set_naive_result = SetDocumentMatches::from(OwnedDocumentMatches::from(&naive_result));
             let ser_naive_result = SerDocumentMatches::from(&set_naive_result);
             let debug_naive_result = DebugSerDocumentMatches::from(&set_naive_result);
