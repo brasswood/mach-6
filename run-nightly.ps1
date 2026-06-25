@@ -1,3 +1,29 @@
+<#
+.SYNOPSIS
+Triggers a nightly benchmark run for this repository.
+
+.DESCRIPTION
+Posts a request to the nightly benchmark service for the `mach-6` repository.
+If `-Branch` is not provided, the script uses the current Git branch's upstream
+tracking branch name.
+
+The script expects a `nightly-credentials.ps1` file in the same directory that
+defines `$User` and `$Password`.
+
+.PARAMETER Branch
+The branch to run on the nightly service. If omitted, the script determines the
+current Git branch and uses the name of its configured upstream branch.
+
+.EXAMPLE
+./run-nightly.ps1
+
+Triggers a nightly run for the current branch's upstream branch.
+
+.EXAMPLE
+./run-nightly.ps1 -Branch main
+
+Triggers a nightly run for the `main` branch.
+#>
 param(
     [string]$Branch
 )
