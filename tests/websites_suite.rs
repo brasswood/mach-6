@@ -106,7 +106,7 @@ fn all_algorithms_correct() -> Result<()> {
         .map(|path| {
             // 1.1. Compute naive result
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            let naive_selectors = website.get_matcher().selectors();
+            let naive_selectors = website.get_matcher().get_selectors();
             let naive_result = match_selectors(website.document(), &naive_selectors);
             let set_naive_result = SetDocumentMatches::from(OwnedDocumentMatches::from(&naive_result));
             let ser_naive_result = SerDocumentMatches::from(&set_naive_result);

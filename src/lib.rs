@@ -113,7 +113,7 @@ impl MatchingContext {
         &self.stylist
     }
 
-    pub fn selectors(&self) -> Vec<Selector> {
+    pub fn get_selectors(&self) -> Vec<Selector> {
         let mut selectors = BTreeMap::new();
         let cascade_data = self.stylist.cascade_data().borrow_for_origin(Origin::Author);
         if let Some(map) = cascade_data.normal_rules(&[]) {
@@ -159,7 +159,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
     let matching_context = website.get_matcher();
     let (matches, stats) = match algorithm {
         Algorithm::Naive => (
-            OwnedDocumentMatches::from(&match_selectors(&website.document(), &matching_context.selectors())),
+            OwnedDocumentMatches::from(&match_selectors(&website.document(), &matching_context.get_selectors())),
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
@@ -174,7 +174,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithIsConversion => {
-            let selectors = matching_context.selectors();
+            let selectors = matching_context.get_selectors();
             let preprocessed_selectors =
                 preprocessing::concretize::convert_to_is_selectors(&website.document(), &selectors);
             let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
@@ -214,7 +214,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithDistribution => {
-            let selectors = matching_context.selectors();
+            let selectors = matching_context.get_selectors();
             let is = preprocessing::concretize::convert_to_is_selectors(&website.document(), &selectors);
             let concretization_map: HashMap<String, &Selector> = is
                 .iter()
@@ -286,7 +286,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     Statistics::default()
                 )
             } else {
-                let selectors = matching_context.selectors();
+                let selectors = matching_context.get_selectors();
                 let document_matches = match_selectors(&website.document(), &selectors);
                 (
                     OwnedDocumentMatches::from(&mach_7(&document_matches)),
@@ -679,7 +679,7 @@ mod tests {
             &websites_path().join("is_conversion_test")
         )?.unwrap();
         let converted: Vec<_> =
-            convert_to_is_selectors(&website.document(), &website.get_matcher().selectors())
+            convert_to_is_selectors(&website.document(), &website.get_matcher().get_selectors())
                 .iter()
                 .map(Selector::to_css_string)
                 .collect();

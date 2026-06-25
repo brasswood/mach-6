@@ -329,7 +329,7 @@ mod tests {
             std::iter::once(&stylesheet),
             lock,
         );
-        let selectors = context.selectors();
+        let selectors = context.get_selectors();
         let mut res = String::new();
         for selector in selectors {
             writeln!(&mut res, "{}", selector.to_css_string()).unwrap();
@@ -352,7 +352,7 @@ mod tests {
             .expect("expected parsed website");
         let selectors: Vec<_> = website
             .get_matcher()
-            .selectors()
+            .get_selectors()
             .iter()
             .map(Selector::to_css_string)
             .collect();

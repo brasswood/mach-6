@@ -195,7 +195,7 @@ fn main() {
             matching_context.stylist(),
             matching_context.stylesheet_lock(),
         );
-        let selectors = matching_context.selectors();
+        let selectors = matching_context.get_selectors();
         let substrings =
           concretize::substrings_from_selectors(selectors.iter());
         let indexing_results = bench_function(
