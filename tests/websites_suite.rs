@@ -105,7 +105,7 @@ fn all_algorithms_correct() -> Result<()> {
         .into_par_iter()
         .map(|path| {
             // 1.1. Compute naive result
-            let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
+            let Some(website) = get_document_and_selectors(&path?, Optimizations::from_none())? else { return Ok(()); };
             let prepared = website.prepare(Optimizations::from_none());
             let selectors = prepared.selectors();
             let naive_result = match_selectors(
@@ -172,7 +172,7 @@ fn statistics_dont_change() -> Result<()> {
     let _: Vec<_> = website_paths
         .into_par_iter()
         .map(|path| {
-            let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
+            let Some(website) = get_document_and_selectors(&path?, Optimizations::from_none())? else { return Ok(()); };
             for algorithm in [Algorithm::WithStyleSharing, Algorithm::WithIsConversion, Algorithm::WithDistribution, /* Algorithm::Mach7 just produces default statistics*/] {
                 let (_, _, mut stats1) = mach_6::do_website(&website, algorithm, None);
                 let (_, _, mut stats2) = mach_6::do_website(&website, algorithm, None);

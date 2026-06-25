@@ -37,7 +37,8 @@ impl ParsedWebsite {
         name: String,
         document: Html,
         stylesheets: Vec<DocumentStyleSheet>,
-        stylesheet_lock: SharedRwLock
+        stylesheet_lock: SharedRwLock,
+        _optimizations: Optimizations,
     ) -> Self {
         Self {
             name,
@@ -69,19 +70,23 @@ impl ParsedWebsite {
     }
 }
 
-pub fn get_all_documents_and_selectors(websites_path: &Path) -> Result<impl Iterator<Item = Result<ParsedWebsite>> + use<>> {
+pub fn get_all_documents_and_selectors(
+    websites_path: &Path,
+    optimizations: Optimizations,
+) -> Result<impl Iterator<Item = Result<ParsedWebsite>> + use<>> {
     let websites = get_websites_dirs(websites_path)?;
     Ok(
-        websites.filter_map(|r|
+        websites.filter_map(move |r|
             r.and_then(|path|
-                get_document_and_selectors(&path)
+                get_document_and_selectors(&path, optimizations)
             ).transpose()
         )
     )
 }
 
 pub fn get_document_and_selectors(
-    website_path: &Path
+    website_path: &Path,
+    optimizations: Optimizations,
 ) -> Result<Option<ParsedWebsite>> {
     if !website_path.is_dir() {
         warn!("ignoring {} because it is not a directory", website_path.display());
@@ -134,6 +139,7 @@ pub fn get_document_and_selectors(
         document,
         stylesheets,
         stylesheet_lock,
+        optimizations,
     )))
 }
 
@@ -354,7 +360,10 @@ mod tests {
             r#"<html><head><style>:is(.foo > :not(.bar)) { color: red; }</style></head><body></body></html>"#,
         ).into_result(Some(index_html_path))?;
 
-        let website = get_document_and_selectors(website_path)?
+        let website = get_document_and_selectors(
+            website_path,
+            Optimizations::from_none(),
+        )?
             .expect("expected parsed website");
         let prepared = website.prepare(Optimizations::from_none());
         let selectors: Vec<_> = prepared

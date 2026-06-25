@@ -189,6 +189,7 @@ fn main() {
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
         let prepared = w.prepare(Optimizations::from_none());
+        let optimized = w.prepare(Optimizations::with_edge_selector(true));
         let before_preprocessing = bench_website(
             &format!("{} before preprocessing", w.name),
             &w,
@@ -223,9 +224,9 @@ fn main() {
         let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
         let (preprocessed_stylist, _preprocessed_lock) = stylist_from_selectors(
             preprocessed_selectors.iter(),
-            prepared.optimizations().edge_selector(),
+            optimized.optimizations().edge_selector(),
         );
-        let preprocessed = WebsiteMatcher::new(preprocessed_stylist, prepared.optimizations());
+        let preprocessed = WebsiteMatcher::new(preprocessed_stylist, optimized.optimizations());
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
             &w,
@@ -313,7 +314,7 @@ fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<
     if website_filter.peek().is_some() {
         let websites = website_filter.map(|website_name| {
             let website_location = websites_path().join(website_name);
-            match get_document_and_selectors(&website_location) {
+            match get_document_and_selectors(&website_location, Optimizations::from_none()) {
                 Ok(Some(website)) => website,
                 Ok(None) => {
                     eprintln!("{} is not a directory or contains no html files.", website_location.display());
@@ -327,7 +328,7 @@ fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<
         });
         Box::new(websites)
     } else {
-        let res = match get_all_documents_and_selectors(&websites_path()) {
+        let res = match get_all_documents_and_selectors(&websites_path(), Optimizations::from_none()) {
             Ok(websites) => {
                 websites.filter_map(|website_result| {
                     match website_result {

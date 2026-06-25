@@ -147,8 +147,12 @@ fn assert_childrens_parent_is_me(parent: &ElementRef) {
     }
 }
 
-pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
-    Ok(get_all_documents_and_selectors(websites)?
+pub fn do_all_websites(
+    websites: &Path,
+    algorithm: Algorithm,
+    optimizations: Optimizations,
+) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
+    Ok(get_all_documents_and_selectors(websites, optimizations)?
         .map(move |r| {
             r.map(|w| do_website(&w, algorithm, None))
         })
@@ -662,13 +666,13 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::Optimizations;
     use crate::result::Result;
     use crate::parse::{get_document_and_selectors, websites_path};
     use crate::structs::Selector;
     use crate::do_website;
     use crate::preprocessing::concretize::convert_to_is_selectors;
     use crate::Algorithm;
-    use crate::Optimizations;
     use cssparser::ToCss as _;
     use style::selector_parser::SelectorParser;
     use style::stylesheets::UrlExtraData;
@@ -677,7 +681,8 @@ mod tests {
     #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
-            &websites_path().join("ten_divs_style_sharing")
+            &websites_path().join("ten_divs_style_sharing"),
+            Optimizations::from_none(),
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(stats.counts.sharing_instances, 9);
@@ -688,7 +693,8 @@ mod tests {
     // TODO: This test doesn't actually test what I want
     fn nonshareable_styles_are_not_shared() -> Result<()> {
         let website = get_document_and_selectors(
-            &websites_path().join("ten_divs_style_sharing_2")
+            &websites_path().join("ten_divs_style_sharing_2"),
+            Optimizations::from_none(),
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(stats.counts.sharing_instances, 5);
@@ -699,7 +705,8 @@ mod tests {
     // looks like bad grammar, but this tests that the conversion to "is()" selectors works
     fn is_conversion_works() -> Result<()> {
         let website = get_document_and_selectors(
-            &websites_path().join("is_conversion_test")
+            &websites_path().join("is_conversion_test"),
+            Optimizations::from_none(),
         )?.unwrap();
         let converted: Vec<_> =
             convert_to_is_selectors(

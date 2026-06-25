@@ -8,6 +8,7 @@ use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
 use mach_6::{
     Algorithm,
+    Optimizations,
     parse::get_document_and_selectors,
     result::Result,
     structs::{ser::SerDocumentMatches, set::SetDocumentMatches},
@@ -39,12 +40,12 @@ fn main() -> mach_6::result::Result<()> {
         algorithm,
     } = Args::parse();
     let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = if let Some(website) = website {
-        Ok(get_document_and_selectors(&website)?
+        Ok(get_document_and_selectors(&website, Optimizations::from_none())?
             .map(|website| vec![mach_6::do_website(&website, algorithm, None)])
             .unwrap_or_default())
     } else {
         let websites = websites.unwrap_or_else(|| PathBuf::from("websites"));
-        mach_6::do_all_websites(&websites, algorithm)?.collect()
+        mach_6::do_all_websites(&websites, algorithm, Optimizations::from_none())?.collect()
     };
     let result: HashMap<String, SerDocumentMatches> = result?
         .into_iter()
