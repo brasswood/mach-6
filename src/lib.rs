@@ -114,7 +114,12 @@ impl MatchingContext {
     }
 
     pub fn selectors(&self) -> Vec<Selector> {
-        selectors_from_stylist(&self.stylist)
+        let mut selectors = BTreeMap::new();
+        let cascade_data = self.stylist.cascade_data().borrow_for_origin(Origin::Author);
+        if let Some(map) = cascade_data.normal_rules(&[]) {
+            collect_selectors_from_map(map, &mut selectors);
+        }
+        selectors.into_values().collect()
     }
 }
 
@@ -370,15 +375,6 @@ pub fn stylist_from_stylesheets<'a>(
         ua_or_user: &ua_or_user_guard,
     });
     stylist
-}
-
-pub fn selectors_from_stylist(stylist: &Stylist) -> Vec<Selector> {
-    let mut selectors = BTreeMap::new();
-    let cascade_data = stylist.cascade_data().borrow_for_origin(Origin::Author);
-    if let Some(map) = cascade_data.normal_rules(&[]) {
-        collect_selectors_from_map(map, &mut selectors);
-    }
-    selectors.into_values().collect()
 }
 
 fn collect_selectors_from_map(
