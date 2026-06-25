@@ -88,6 +88,36 @@ impl Optimizations {
     }
 }
 
+pub struct MatchingContext {
+    stylesheet_lock: SharedRwLock,
+    stylist: Stylist,
+}
+
+impl MatchingContext {
+    pub fn new<'a>(
+        stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
+        stylesheet_lock: SharedRwLock,
+    ) -> Self {
+        let stylist = stylist_from_stylesheets(stylesheets, &stylesheet_lock.read());
+        Self {
+            stylesheet_lock,
+            stylist,
+        }
+    }
+
+    pub fn stylesheet_lock(&self) -> &SharedRwLock {
+        &self.stylesheet_lock
+    }
+
+    pub fn stylist(&self) -> &Stylist {
+        &self.stylist
+    }
+
+    pub fn selectors(&self) -> Vec<Selector> {
+        selectors_from_stylist(&self.stylist)
+    }
+}
+
 fn element_to_string(el: ElementRef<'_>) -> String {
     let name = el.value().name();
     let mut out = String::new();
@@ -121,30 +151,43 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
 }
 
 pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: Option<&DocumentMatches>) -> (String, SetDocumentMatches, Statistics){
+    let matching_context = website.get_matcher();
     let (matches, stats) = match algorithm {
         Algorithm::Naive => (
-            OwnedDocumentMatches::from(&match_selectors(&website.document(), website.selectors())),
+            OwnedDocumentMatches::from(&match_selectors(&website.document(), &matching_context.selectors())),
             Statistics::default()
         ),
         Algorithm::WithStyleSharing => {
             let (matches, stats) =
-                match_selectors_with_style_sharing(&website.document(), website.stylist(), Optimizations::from_none(), &website.stylesheet_lock(), None);
+                match_selectors_with_style_sharing(
+                    &website.document(),
+                    matching_context.stylist(),
+                    Optimizations::from_none(),
+                    matching_context.stylesheet_lock(),
+                    None,
+                );
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithIsConversion => {
+            let selectors = matching_context.selectors();
             let preprocessed_selectors =
-                preprocessing::concretize::convert_to_is_selectors(&website.document(), website.selectors());
+                preprocessing::concretize::convert_to_is_selectors(&website.document(), &selectors);
             let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
                 .iter()
-                .zip(website.selectors().iter())
+                .zip(selectors.iter())
                 .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
                 .collect();
-            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
+            let (preprocessed_stylesheet, preprocessed_lock) =
+                stylesheet_from_selectors(preprocessed_selectors.iter());
+            let preprocessed_context = MatchingContext::new(
+                std::iter::once(&preprocessed_stylesheet),
+                preprocessed_lock,
+            );
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
-                &preprocessed_stylist,
+                preprocessed_context.stylist(),
                 Optimizations::from_none(),
-                &preprocessed_lock,
+                preprocessed_context.stylesheet_lock(),
                 None,
             );
             for em in matches.0.iter_mut() {
@@ -166,10 +209,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithDistribution => {
-            let is = preprocessing::concretize::convert_to_is_selectors(&website.document(), website.selectors());
+            let selectors = matching_context.selectors();
+            let is = preprocessing::concretize::convert_to_is_selectors(&website.document(), &selectors);
             let concretization_map: HashMap<String, &Selector> = is
                 .iter()
-                .zip(website.selectors().iter())
+                .zip(selectors.iter())
                 .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
                 .collect();
             let mut distribution_map: HashMap<String, SmallVec<[&Selector; 2]>> = HashMap::with_capacity(is.len());
@@ -186,12 +230,17 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 let _ = writeln!(&mut buf, "");
                 trace!("{}", buf);
             }
-            let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
+            let (preprocessed_stylesheet, preprocessed_lock) =
+                stylesheet_from_selectors(preprocessed_selectors.iter());
+            let preprocessed_context = MatchingContext::new(
+                std::iter::once(&preprocessed_stylesheet),
+                preprocessed_lock,
+            );
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
-                &preprocessed_stylist,
+                preprocessed_context.stylist(),
                 Optimizations::from_none(),
-                &preprocessed_lock,
+                preprocessed_context.stylesheet_lock(),
                 None,
             );
             for em in matches.0.iter_mut() {
@@ -232,7 +281,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     Statistics::default()
                 )
             } else {
-                let document_matches = match_selectors(&website.document(), website.selectors());
+                let selectors = matching_context.selectors();
+                let document_matches = match_selectors(&website.document(), &selectors);
                 (
                     OwnedDocumentMatches::from(&mach_7(&document_matches)),
                     Statistics::default()
@@ -285,7 +335,9 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
     DocumentMatches(result)
 }
 
-pub fn stylist_from_selectors<'sel>(selectors: impl Iterator<Item = &'sel Selector>) -> (Stylist, SharedRwLock) {
+pub fn stylesheet_from_selectors<'sel>(
+    selectors: impl Iterator<Item = &'sel Selector>,
+ ) -> (DocumentStyleSheet, SharedRwLock) {
     let stylesheet_lock = SharedRwLock::new();
     let css = selectors
         .map(|selector| format!("{} {{}}", selector.to_css_string()))
@@ -297,11 +349,7 @@ pub fn stylist_from_selectors<'sel>(selectors: impl Iterator<Item = &'sel Select
         &stylesheet_lock,
     )
     .expect("synthetic selector stylesheet should parse");
-    let stylist = stylist_from_stylesheets(
-        std::iter::once(&stylesheet),
-        &stylesheet_lock.read(),
-    );
-    (stylist, stylesheet_lock)
+    (stylesheet, stylesheet_lock)
 }
 
 pub fn stylist_from_stylesheets<'a>(
@@ -635,7 +683,7 @@ mod tests {
             &websites_path().join("is_conversion_test")
         )?.unwrap();
         let converted: Vec<_> =
-            convert_to_is_selectors(&website.document(), website.selectors())
+            convert_to_is_selectors(&website.document(), &website.get_matcher().selectors())
                 .iter()
                 .map(Selector::to_css_string)
                 .collect();

@@ -1,5 +1,5 @@
 use log::{error, warn};
-use mach_6::{self, Optimizations, get_all_documents_and_selectors, stylist_from_selectors};
+use mach_6::{self, MatchingContext, Optimizations, get_all_documents_and_selectors, stylesheet_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
 use mach_6::structs::Selector;
@@ -188,9 +188,16 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let before_preprocessing = bench_website(&format!("{} before preprocessing", w.name), w.document(), w.stylist(), w.stylesheet_lock());
+        let matching_context = w.get_matcher();
+        let before_preprocessing = bench_website(
+            &format!("{} before preprocessing", w.name),
+            w.document(),
+            matching_context.stylist(),
+            matching_context.stylesheet_lock(),
+        );
+        let selectors = matching_context.selectors();
         let substrings =
-          concretize::substrings_from_selectors(w.selectors().iter());
+          concretize::substrings_from_selectors(selectors.iter());
         let indexing_results = bench_function(
           &format!("{} indexing", w.name),
           || { concretize::build_substr_selector_index(w.document(), substrings.clone()); },
@@ -199,10 +206,10 @@ fn main() {
         drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
         let overall_is_conversion_results = bench_function(
           &format!("{} :is() conversion", w.name),
-          || { concretize::convert_to_is_selectors(w.document(), w.selectors()); },
+          || { concretize::convert_to_is_selectors(w.document(), &selectors); },
           NUM_SAMPLES,
         );
-        let is = concretize::convert_to_is_selectors(w.document(), w.selectors());
+        let is = concretize::convert_to_is_selectors(w.document(), &selectors);
         let distribute = || {
             let _: Vec<_> = is
                 .iter()
@@ -214,9 +221,19 @@ fn main() {
             distribute,
             NUM_SAMPLES,
         );
-        let preprocessed_selectors = preprocessing::preprocess(w.document(), w.selectors());
-        let (preprocessed_stylist, preprocessed_lock) = stylist_from_selectors(preprocessed_selectors.iter());
-        let after_preprocessing = bench_website(&format!("{} after preprocessing", w.name), w.document(), &preprocessed_stylist, &preprocessed_lock);
+        let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
+        let (preprocessed_stylesheet, preprocessed_lock) =
+            stylesheet_from_selectors(preprocessed_selectors.iter());
+        let preprocessed_context = MatchingContext::new(
+            std::iter::once(&preprocessed_stylesheet),
+            preprocessed_lock,
+        );
+        let after_preprocessing = bench_website(
+            &format!("{} after preprocessing", w.name),
+            w.document(),
+            preprocessed_context.stylist(),
+            preprocessed_context.stylesheet_lock(),
+        );
         let result = WebsiteResult {
             website: w.name,
             before_preprocessing,
