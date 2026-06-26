@@ -98,7 +98,19 @@ impl MatchingContext {
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
     ) -> Self {
-        let stylist = stylist_from_stylesheets(stylesheets, &stylesheet_lock.read());
+        let mut stylist = Stylist::new(
+            stylo_interface::mock_device(),
+            selectors::matching::QuirksMode::NoQuirks,
+        );
+        for sheet in stylesheets {
+            stylist.append_stylesheet(sheet.clone(), &stylesheet_lock.read());
+        }
+        let ua_or_user_lock = SharedRwLock::new();
+        let ua_or_user_guard = ua_or_user_lock.read();
+        stylist.flush_without_invalidation(&StylesheetGuards {
+            author: &stylesheet_lock.read(),
+            ua_or_user: &ua_or_user_guard,
+        });
         Self {
             stylesheet_lock,
             stylist,
@@ -355,26 +367,6 @@ pub fn stylesheet_from_selectors<'sel>(
     )
     .expect("synthetic selector stylesheet should parse");
     (stylesheet, stylesheet_lock)
-}
-
-pub fn stylist_from_stylesheets<'a>(
-    stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
-    author_guard: &SharedRwLockReadGuard
-) -> Stylist {
-    let mut stylist = Stylist::new(
-        stylo_interface::mock_device(),
-        selectors::matching::QuirksMode::NoQuirks,
-    );
-    for sheet in stylesheets {
-        stylist.append_stylesheet(sheet.clone(), &author_guard);
-    }
-    let ua_or_user_lock = SharedRwLock::new();
-    let ua_or_user_guard = ua_or_user_lock.read();
-    stylist.flush_without_invalidation(&StylesheetGuards {
-        author: &author_guard,
-        ua_or_user: &ua_or_user_guard,
-    });
-    stylist
 }
 
 fn collect_selectors_from_map(
