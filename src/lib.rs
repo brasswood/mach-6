@@ -17,7 +17,6 @@ use style::context::ThreadLocalStyleContext;
 #[cfg(feature = "debug_element")]
 use style::selector_map::debug_element_selector;
 use style::selector_parser::SnapshotMap;
-use style::shared_lock::SharedRwLockReadGuard;
 use style::shared_lock::{SharedRwLock, StylesheetGuards};
 use style::sharing::StyleSharingElement as _;
 use style::stylesheets::DocumentStyleSheet;
@@ -178,9 +177,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             let (matches, stats) =
                 match_selectors_with_style_sharing(
                     &website.document(),
-                    matching_context.stylist(),
+                    &matching_context,
                     Optimizations::from_none(),
-                    matching_context.stylesheet_lock(),
                     None,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
@@ -202,9 +200,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             );
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
-                preprocessed_context.stylist(),
+                &preprocessed_context,
                 Optimizations::from_none(),
-                preprocessed_context.stylesheet_lock(),
                 None,
             );
             for em in matches.0.iter_mut() {
@@ -255,9 +252,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             );
             let (mut matches, stats) = match_selectors_with_style_sharing(
                 &website.document(),
-                preprocessed_context.stylist(),
+                &preprocessed_context,
                 Optimizations::from_none(),
-                preprocessed_context.stylesheet_lock(),
                 None,
             );
             for em in matches.0.iter_mut() {
@@ -419,9 +415,8 @@ fn collect_selectors_from_map(
 
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
-    stylist: &'document style::stylist::Stylist,
+    matching_context: &'document MatchingContext,
     optimizations: Optimizations,
-    stylesheet_lock: &SharedRwLock,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
     fn preorder_traversal<'a>(
@@ -546,9 +541,10 @@ pub fn match_selectors_with_style_sharing<'document>(
             );
         }
     }
-    let author_guard = stylesheet_lock.read();
+    let author_guard = matching_context.stylesheet_lock().read();
     let ua_or_user_lock = SharedRwLock::new();
     let ua_or_user_guard = ua_or_user_lock.read();
+    let stylist = matching_context.stylist();
     let cascade_data = stylist.cascade_data().borrow_for_origin(Origin::Author);
     // TODO: It's evident from this that we get one selector map per origin. How do real browsers handle all three origins (Author, User, User Agent)?
     let selector_map = cascade_data.normal_rules(&[]).unwrap();

@@ -6,8 +6,6 @@ use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
-use style::shared_lock::SharedRwLock;
-use style::stylist::Stylist;
 use std::collections::HashMap;
 use std::cmp::Reverse;
 use std::fs;
@@ -192,8 +190,7 @@ fn main() {
         let before_preprocessing = bench_website(
             &format!("{} before preprocessing", w.name),
             w.document(),
-            matching_context.stylist(),
-            matching_context.stylesheet_lock(),
+            &matching_context,
         );
         let selectors = matching_context.get_selectors();
         let substrings =
@@ -231,8 +228,7 @@ fn main() {
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
             w.document(),
-            preprocessed_context.stylist(),
-            preprocessed_context.stylesheet_lock(),
+            &preprocessed_context,
         );
         let result = WebsiteResult {
             website: w.name,
@@ -274,16 +270,19 @@ fn main() {
     };
 }
 
-fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, stylesheet_lock: &SharedRwLock) -> MatchBenchResult {
+fn bench_website(
+    benchmark_name: &str,
+    document: &Html,
+    matching_context: &MatchingContext,
+) -> MatchBenchResult {
     let overall_stats = bench_function(
         benchmark_name,
         || {
             let (_, overall_stats) =
                 mach_6::match_selectors_with_style_sharing(
                     document,
-                    stylist,
+                    matching_context,
                     Optimizations::from_none(),
-                    stylesheet_lock,
                     None,
                 );
             overall_stats
@@ -294,9 +293,8 @@ fn bench_website(benchmark_name: &str, document: &Html, stylist: &Stylist, style
     let mut per_match_stats = SmallVec::new();
     mach_6::match_selectors_with_style_sharing(
         document,
-        stylist,
+        matching_context,
         Optimizations::from_none(),
-        stylesheet_lock,
         Some(&mut per_match_stats),
     );
     println!("done.");
