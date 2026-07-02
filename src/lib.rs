@@ -7,7 +7,6 @@
 use clap::ValueEnum;
 use ::cssparser::ToCss as _;
 use derive_more::Display;
-use log::trace;
 use rustc_hash::FxBuildHasher;
 use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
@@ -54,6 +53,8 @@ pub mod structs;
 pub use parse::get_all_documents_and_selectors;
 use crate::parse::ParsedWebsite;
 use crate::result::Result;
+use crate::structs::owned::OwnedElementMatches;
+use crate::structs::owned::OwnedSelectorsOrSharedStyles;
 use crate::structs::{
     Element, Selector,
     borrowed::{
@@ -74,18 +75,161 @@ pub enum Algorithm {
     Mach7,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Optimizations {
-    first_child_bucket: bool,
+    pub is_conversion: bool,
+    pub distribution: bool,
 }
 
 impl Optimizations {
     pub fn from_none() -> Self {
         Self {
-            first_child_bucket: false,
+            ..Default::default()
         }
     }
 }
+
+struct PreparedSelectors<'selector> {
+    selectors: Vec<Selector>,
+    reverse_map: HashMap<String, SmallVec<[&'selector Selector; 2]>>,
+    // consider the case that author wrote both `:is(.a, .b)` and `.a`.
+    // Two original selectors would be in the reverse map due to distribution.
+    // Likewise consider if author wrote both `[class*=-top]` and `.a-top`.
+    // Two original selectors would be in the reverse map for :is conversion.
+    // Reversing to two original selectors will be correct, because if an
+    // element matched one selector, it must have also matched the other.
+}
+
+fn prepare_selectors<'selector>(
+    document: &Html,
+    selectors: &'selector [Selector],
+    optimizations: Optimizations,
+) -> PreparedSelectors<'selector> {
+    let pre_distribution = if optimizations.is_conversion {
+        preprocessing::concretize::convert_to_is_selectors(document, selectors)
+    } else {
+        selectors.to_vec()
+    };
+    let mut pre_distribution_to_originals: HashMap<String, SmallVec<[&'selector Selector; 2]>> =
+        HashMap::with_capacity(pre_distribution.len());
+    if optimizations.is_conversion {
+        for (preprocessed, original) in pre_distribution.iter().zip(selectors.iter()) {
+            pre_distribution_to_originals
+                .entry(preprocessed.to_css_string())
+                .or_default()
+                .push(original);
+        }
+    } else {
+        // TODO: this is shit, should just have an enum variant denoting noop, but whatever
+        for selector in selectors {
+            pre_distribution_to_originals.insert(
+               selector.to_css_string(),
+               smallvec::smallvec![selector],
+            );
+        }
+    }
+
+    if optimizations.distribution {
+        let mut distributed = Vec::with_capacity(pre_distribution.len());
+        let mut reverse_map: HashMap<String, SmallVec<[&'selector Selector; 2]>> =
+            HashMap::with_capacity(pre_distribution.len()); // many distributed |-> one original
+        for selector in &pre_distribution {
+            // TODO: maybe could avoid an extra hashmap lookup when both options are enabled. But this does make the control flow nicer.
+            let original_selectors = pre_distribution_to_originals
+                .get(&selector.to_css_string())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "failed to find original selector for preprocessing input {}",
+                        selector.to_css_string(),
+                    )
+                });
+            for distributed_selector in preprocessing::distribute::DistributedSelectors::from_selector(selector) {
+                let distributed_css = distributed_selector.to_css_string();
+                reverse_map
+                    .entry(distributed_css)
+                    .or_default()
+                    .extend(original_selectors.iter().copied());
+                distributed.push(distributed_selector);
+            }
+        }
+        PreparedSelectors {
+            selectors: distributed,
+            reverse_map,
+        }
+    } else {
+        PreparedSelectors {
+            selectors: pre_distribution,
+            reverse_map: pre_distribution_to_originals,
+        }
+    }
+}
+
+fn translate_element_matches_to_original<'new, 'original>(
+    element_matches: &ElementMatches<'new>,
+    reverse_map: &HashMap<String, SmallVec<[&'original Selector; 2]>>,
+) -> OwnedElementMatches {
+    let selectors_or_shared_styles = match &element_matches.selectors {
+        SelectorsOrSharedStyles::Selectors(selectors) => {
+            let mut set: HashSet<by_address::ByAddress<&Selector>> = HashSet::new();
+            for selector in selectors {
+                let original_selectors = reverse_map
+                    .get(&selector.to_css_string())
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "failed to find original selector for preprocessed selector {}",
+                            selector.to_css_string(),
+                        )
+                    });
+                for original_selector in original_selectors {
+                    set.insert(by_address::ByAddress(*original_selector));
+                }
+            }
+            let selectors = set
+                .into_iter()
+                .map(|addr|
+                    (*addr).clone()
+                )
+                .collect();
+            OwnedSelectorsOrSharedStyles::Selectors(selectors)
+        }
+        SelectorsOrSharedStyles::SharedWithElement(id) => {
+            OwnedSelectorsOrSharedStyles::SharedWithElement(*id)
+        }
+    };
+    OwnedElementMatches {
+        element: element_matches.element.into(),
+        selectors: selectors_or_shared_styles,
+    }
+}
+
+fn do_website_with_configured_optimizations(
+    website: &ParsedWebsite,
+    optimizations: Optimizations,
+) -> (OwnedDocumentMatches, Statistics) {
+    // must return OwnedDocumentMatches, because the list of input selectors will be owned by this function
+    let document = website.document();
+    let selectors = website.get_matcher().get_selectors();
+    let prepared = prepare_selectors(document, &selectors, optimizations);
+    let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
+    let matching_context = MatchingContext::new(std::iter::once(&stylesheet), stylesheet_lock);
+    let (matches, stats) = match_selectors_with_style_sharing(
+        document,
+        &matching_context,
+        optimizations,
+        None,
+    );
+    let owned = OwnedDocumentMatches(
+        matches
+            .0
+            .iter()
+            .map(|element_matches| {
+                translate_element_matches_to_original(element_matches, &prepared.reverse_map)
+            })
+            .collect(),
+    );
+    (owned, stats)
+}
+
 
 pub struct MatchingContext {
     stylesheet_lock: SharedRwLock,
@@ -183,110 +327,22 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
-        Algorithm::WithIsConversion => {
-            let selectors = matching_context.get_selectors();
-            let preprocessed_selectors =
-                preprocessing::concretize::convert_to_is_selectors(&website.document(), &selectors);
-            let reverse_map: HashMap<String, &Selector> = preprocessed_selectors
-                .iter()
-                .zip(selectors.iter())
-                .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
-                .collect();
-            let (preprocessed_stylesheet, preprocessed_lock) =
-                stylesheet_from_selectors(preprocessed_selectors.iter());
-            let preprocessed_context = MatchingContext::new(
-                std::iter::once(&preprocessed_stylesheet),
-                preprocessed_lock,
-            );
-            let (mut matches, stats) = match_selectors_with_style_sharing(
-                &website.document(),
-                &preprocessed_context,
-                Optimizations::from_none(),
-                None,
-            );
-            for em in matches.0.iter_mut() {
-                if let SelectorsOrSharedStyles::Selectors(selectors) = &mut em.selectors {
-                    for selector in selectors.iter_mut() {
-                        *selector = reverse_map
-                            .get(&selector.to_css_string())
-                            .copied()
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "failed to reverse preprocessed selector {}, website={}",
-                                    selector.to_css_string(),
-                                    website.name,
-                                )
-                            });
-                    }
-                }
-            }
-            (OwnedDocumentMatches::from(&matches), stats)
-        },
-        Algorithm::WithDistribution => {
-            let selectors = matching_context.get_selectors();
-            let is = preprocessing::concretize::convert_to_is_selectors(&website.document(), &selectors);
-            let concretization_map: HashMap<String, &Selector> = is
-                .iter()
-                .zip(selectors.iter())
-                .map(|(preprocessed, original)| (preprocessed.to_css_string(), original))
-                .collect();
-            let mut distribution_map: HashMap<String, SmallVec<[&Selector; 2]>> = HashMap::with_capacity(is.len());
-            let mut preprocessed_selectors: Vec<Selector> = Vec::with_capacity(is.len());
-            for selector in &is {
-                trace!("Distributing {}...", selector.to_css_string());
-                let mut buf = String::new();
-                let _ = write!(&mut buf, "{} ->", selector.to_css_string());
-                for sel in preprocessing::distribute::DistributedSelectors::from_selector(selector) {
-                    let _ = write!(&mut buf, " {},", sel.to_css_string());
-                    distribution_map.entry(sel.to_css_string()).or_default().push(selector);
-                    preprocessed_selectors.push(sel);
-                }
-                let _ = writeln!(&mut buf, "");
-                trace!("{}", buf);
-            }
-            let (preprocessed_stylesheet, preprocessed_lock) =
-                stylesheet_from_selectors(preprocessed_selectors.iter());
-            let preprocessed_context = MatchingContext::new(
-                std::iter::once(&preprocessed_stylesheet),
-                preprocessed_lock,
-            );
-            let (mut matches, stats) = match_selectors_with_style_sharing(
-                &website.document(),
-                &preprocessed_context,
-                Optimizations::from_none(),
-                None,
-            );
-            for em in matches.0.iter_mut() {
-                if let SelectorsOrSharedStyles::Selectors(selectors) = &mut em.selectors {
-                    // we have an (element, Vec<Selector>), where the selectors come from the preprocessed,
-                    // expanded selectors.
-                    // drain the Vec through the translation map, accumulating the results in a HashSet.
-                    // Once finished, use the HashSet as the new list
-                    // https://stackoverflow.com/a/69308604/3882118
-                    let mut set: HashSet<by_address::ByAddress<&Selector>> = HashSet::new();
-                    for selector in selectors.drain(..) {
-                        let old_selectors = distribution_map
-                            .get(&selector.to_css_string())
-                            .unwrap_or_else(||
-                                panic!(
-                                    "failed to find original selector for {}, website={}",
-                                    selector.to_css_string(),
-                                    website.name,
-                                )
-                            );
-                        for old_selector in old_selectors {
-                            set.insert(by_address::ByAddress(*old_selector));
-                        }
-                    }
-                    // the results of reversing the distribution pass
-                    let is_selectors = set.into_iter().map(|addr| *addr);
-                    // pass these through the concretization_map to reverse the concretization pass
-                    let attr_selectors = is_selectors.map(|sel| concretization_map[&sel.to_css_string()]);
-                    selectors.extend(attr_selectors);
-                }
-            }
-            (OwnedDocumentMatches::from(&matches), stats)
-        },
+        Algorithm::WithIsConversion =>
+            do_website_with_configured_optimizations(
+                website,
+                Optimizations {
+                    is_conversion: true,
+                    distribution: false,
+                },
+            ),
+        Algorithm::WithDistribution =>
+            do_website_with_configured_optimizations(
+                website,
+                Optimizations {
+                    is_conversion: true,
+                    distribution: true,
+                },
+            ),
         Algorithm::Mach7 => {
             if let Some(document_matches) = mach7_oracle {
                 (
@@ -416,7 +472,7 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     matching_context: &'document MatchingContext,
-    optimizations: Optimizations,
+    _optimizations: Optimizations,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
     fn preorder_traversal<'a>(
@@ -628,10 +684,13 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeSet, HashMap};
+
     use crate::result::Result;
     use crate::parse::{get_document_and_selectors, websites_path};
+    use crate::structs::set::{SetDocumentMatches, SetSelectorsOrSharedStyles};
     use crate::structs::Selector;
-    use crate::do_website;
+    use crate::{Optimizations, do_website};
     use crate::preprocessing::concretize::convert_to_is_selectors;
     use crate::Algorithm;
     use cssparser::ToCss as _;
@@ -682,6 +741,129 @@ mod tests {
             ).unwrap().slice()[0].clone().to_css_string() // god damn insane api
         }).collect();
         assert_eq!(expected, converted, "\nexpected: {:?}\nactual: {:?}", expected, converted);
+        Ok(())
+    }
+
+    fn parse_selector(selector_str: &str) -> Selector {
+        SelectorParser::parse_author_origin_no_namespace(
+            selector_str,
+            &UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+        ).unwrap().slice()[0].clone()
+    }
+
+    fn selectors_for_element(matches: &SetDocumentMatches, html_substring: &str) -> BTreeSet<String> {
+        let element = matches
+            .0
+            .values()
+            .find(|element_matches| element_matches.element.html.contains(html_substring))
+            .unwrap_or_else(|| panic!("failed to find element containing {html_substring}"));
+        match &element.selectors {
+            SetSelectorsOrSharedStyles::Selectors(selectors) => {
+                selectors.iter().cloned().collect()
+            }
+            SetSelectorsOrSharedStyles::SharedWithElement(id) => {
+                matches.find_selectors(*id).iter().cloned().collect()
+            }
+        }
+    }
+
+    #[test]
+    fn prepare_selectors_without_optimizations_preserves_identity() {
+        let selector = parse_selector(".foo");
+        let selectors = vec![selector.clone()];
+        let document = scraper::Html::parse_document("<html><body><div class='foo'></div></body></html>");
+        let prepared = super::prepare_selectors(&document, &selectors, Optimizations::from_none());
+        let reverse_map: HashMap<_, Vec<_>> = prepared
+            .reverse_map
+            .iter()
+            .map(|(selector, originals)| {
+                (
+                    selector.clone(),
+                    originals.iter().map(|original| original.to_css_string()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            prepared.selectors.iter().map(Selector::to_css_string).collect::<Vec<_>>(),
+            vec![".foo"]
+        );
+        assert_eq!(reverse_map.get(".foo").cloned(), Some(vec![".foo".to_string()]));
+    }
+
+    #[test]
+    fn prepare_selectors_maps_is_conversion_back_to_original() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("is_conversion_test")
+        )?.unwrap();
+        let selectors = website.get_matcher().get_selectors();
+        let prepared = super::prepare_selectors(
+            &website.document(),
+            &selectors,
+            Optimizations {
+                is_conversion: true,
+                distribution: false,
+            },
+        );
+        let reverse_map: HashMap<_, Vec<_>> = prepared
+            .reverse_map
+            .iter()
+            .map(|(selector, originals)| {
+                (
+                    selector.clone(),
+                    originals.iter().map(|original| original.to_css_string()).collect(),
+                )
+            })
+            .collect();
+        assert!(prepared.selectors.iter().any(|selector| selector.to_css_string().contains(":is(")));
+        for original in &selectors {
+            assert!(
+                reverse_map
+                    .values()
+                    .any(|mapped| mapped.iter().any(|mapped_selector| mapped_selector == &original.to_css_string()))
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn prepare_selectors_maps_distribution_back_to_original() {
+        let selector = parse_selector("div:is(.left, .right)");
+        let selectors = vec![selector.clone()];
+        let document = scraper::Html::parse_document("<html><body><div class='left'></div><div class='right'></div></body></html>");
+        let prepared = super::prepare_selectors(
+            &document,
+            &selectors,
+            Optimizations {
+                is_conversion: false,
+                distribution: true,
+            },
+        );
+        let prepared_css: BTreeSet<_> = prepared.selectors.iter().map(Selector::to_css_string).collect();
+        assert_eq!(
+            prepared_css,
+            BTreeSet::from([
+                "div.left".to_string(),
+                "div.right".to_string(),
+            ])
+        );
+        for selector_css in prepared_css {
+            let originals = prepared.reverse_map.get(&selector_css).unwrap();
+            assert_eq!(originals.len(), 1);
+            assert_eq!(originals[0].to_css_string(), "div:is(.left, .right)");
+        }
+    }
+
+    #[test]
+    fn optimized_matching_returns_original_selectors() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("distribute_test")
+        )?.unwrap();
+        let (_, distributed_matches, _) = do_website(&website, Algorithm::WithDistribution, None);
+        let actual = selectors_for_element(
+            &distributed_matches,
+            "masonry-up",
+        );
+        assert_eq!(actual, BTreeSet::from([".section[class*=\"-up\"]".to_string()]));
         Ok(())
     }
 }
