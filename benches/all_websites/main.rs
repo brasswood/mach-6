@@ -159,12 +159,29 @@ impl PreprocessingResult {
     }
 }
 
+/// Timing data for fail-cache setup that can be shown separately from the
+/// steady-state matching time.
+struct FailCachePreprocessingResult {
+    interning: TimedResults<()>,
+}
+
+impl FailCachePreprocessingResult {
+    fn new(interning: TimedResults<()>) -> Self {
+        Self { interning }
+    }
+
+    fn mean_interning(&self) -> tsc_timer::Duration {
+        self.interning.total_duration / self.interning.samples.len() as u64
+    }
+}
+
 /// All report data for one website: the baseline matching variant, the
 /// preprocessing step, and the post-preprocessing matching variant.
 struct WebsiteResult {
     website: String,
     baseline: MatchBenchResult,
     fail_caches: MatchBenchResult,
+    fail_cache_preprocessing: FailCachePreprocessingResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
 }
@@ -187,6 +204,13 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
+        let fail_cache_interning = bench_function(
+            &format!("{} fail cache interning", w.name),
+            || {
+                let _ = w.get_matcher();
+            },
+            NUM_SAMPLES,
+        );
         let matching_context = w.get_matcher();
         let baseline = bench_website(
             &format!("{} baseline", w.name),
@@ -246,6 +270,7 @@ fn main() {
             website: w.name,
             baseline,
             fail_caches,
+            fail_cache_preprocessing: FailCachePreprocessingResult::new(fail_cache_interning),
             preprocessing: PreprocessingResult::new(
                 indexing_results,
                 overall_is_conversion_results,

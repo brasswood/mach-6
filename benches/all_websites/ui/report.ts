@@ -1,4 +1,5 @@
 type SegmentKind =
+  | "interning"
   | "indexing"
   | "otherPreprocessing"
   | "distribution"
@@ -47,8 +48,13 @@ interface WebsiteJson {
 interface SummaryJson {
   baseline: BenchmarkRunSummaryJson;
   fail_caches: BenchmarkRunSummaryJson;
+  fail_cache_preprocessing: FailCachePreprocessingSummaryJson;
   preprocessing: PreprocessingSummaryJson;
   after_preprocessing: BenchmarkRunSummaryJson;
+}
+
+interface FailCachePreprocessingSummaryJson {
+  mean_interning_cycles: number;
 }
 
 interface LegacyPreprocessingSummaryJson {
@@ -165,6 +171,7 @@ const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit"
 });
 const SEGMENT_ORDER: readonly SegmentKind[] = [
+  "interning",
   "indexing",
   "otherPreprocessing",
   "distribution",
@@ -178,6 +185,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "other"
 ];
 const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
+  interning: { label: "Interning", cssClass: "seg-preprocess-other" },
   indexing: { label: "Indexing", cssClass: "seg-index" },
   otherPreprocessing: { label: "Other :is() Conversion", cssClass: "seg-preprocess-other" },
   distribution: { label: "Distribution", cssClass: "seg-distribution" },
@@ -244,6 +252,14 @@ function getPreprocessingBreakdown(summary: PreprocessingSummaryJson): {
     indexingCycles,
     otherPreprocessingCycles: toBigInt(summary.mean_overall_cycles) - indexingCycles,
     distributionCycles: 0n
+  };
+}
+
+function getFailCachePreprocessingBreakdown(summary: FailCachePreprocessingSummaryJson): {
+  interningCycles: bigint;
+} {
+  return {
+    interningCycles: toBigInt(summary.mean_interning_cycles)
   };
 }
 
@@ -772,6 +788,7 @@ function buildBar(
   label: string,
   summary: BenchmarkRunSummaryJson,
   selectorsSummary: SelectorStatsJson,
+  includeFailCachePreprocessing: FailCachePreprocessingSummaryJson | null,
   includePreprocessing: PreprocessingSummaryJson | null,
   showExpandedDetails = true
 ): BarView {
@@ -796,6 +813,10 @@ function buildBar(
   });
 
   const segments: SegmentView[] = [];
+  if (includeFailCachePreprocessing) {
+    const { interningCycles } = getFailCachePreprocessingBreakdown(includeFailCachePreprocessing);
+    segments.push({ kind: "interning", meanCycles: interningCycles, stddevCycles: null });
+  }
   if (includePreprocessing) {
     const {
       indexingCycles,
@@ -831,12 +852,13 @@ function buildBar(
   };
 }
 
-function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView, BarView] {
+function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView, BarView, BarView] {
   return [
-    buildBar("Baseline", website.summary.baseline, website.selector_slow_rejects_summary.baseline, null),
-    buildBar("Fail Caches", website.summary.fail_caches, website.selector_slow_rejects_summary.fail_caches, null),
-    buildBar("After Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, false),
-    buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
+    buildBar("Baseline", website.summary.baseline, website.selector_slow_rejects_summary.baseline, null, null),
+    buildBar("Fail Caches", website.summary.fail_caches, website.selector_slow_rejects_summary.fail_caches, null, null, false),
+    buildBar("Interning + Fail Caches", website.summary.fail_caches, website.selector_slow_rejects_summary.fail_caches, website.summary.fail_cache_preprocessing, null),
+    buildBar("After Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, null, false),
+    buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, website.summary.preprocessing)
   ];
 }
 
@@ -964,11 +986,19 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
   const preprocessingBreakdowns = websites.map((website) => {
     return getPreprocessingBreakdown(website.summary.preprocessing);
   });
+  const failCachePreprocessingBreakdowns = websites.map((website) => {
+    return getFailCachePreprocessingBreakdown(website.summary.fail_cache_preprocessing);
+  });
   return {
     website: "All Websites (" + websites.length.toString() + ")",
     summary: {
       baseline: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.baseline)),
       fail_caches: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.fail_caches)),
+      fail_cache_preprocessing: {
+        mean_interning_cycles: Number(failCachePreprocessingBreakdowns.reduce((sum, breakdown) => {
+          return sum + breakdown.interningCycles;
+        }, 0n))
+      },
       preprocessing: {
         mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
           return sum + breakdown.indexingCycles;
@@ -1447,6 +1477,14 @@ function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
     && isSelectorStatsJson(record.after_preprocessing);
 }
 
+function isFailCachePreprocessingSummaryJson(value: unknown): value is FailCachePreprocessingSummaryJson {
+  const record = getRecord(value);
+  if (record === null) {
+    return false;
+  }
+  return isFiniteNumber(record.mean_interning_cycles);
+}
+
 function isSummaryJson(value: unknown): value is SummaryJson {
   const record = getRecord(value);
   if (record === null) {
@@ -1454,6 +1492,7 @@ function isSummaryJson(value: unknown): value is SummaryJson {
   }
   return isBenchmarkRunSummaryJson(record.baseline)
     && isBenchmarkRunSummaryJson(record.fail_caches)
+    && isFailCachePreprocessingSummaryJson(record.fail_cache_preprocessing)
     && isPreprocessingSummaryJson(record.preprocessing)
     && isBenchmarkRunSummaryJson(record.after_preprocessing);
 }

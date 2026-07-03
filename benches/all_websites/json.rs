@@ -93,12 +93,13 @@ mod overall_summary {
 
     use crate::WebsiteResult;
 
-    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
+    use super::{CountingStats, FailCachePreprocessingResult, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
         pub(crate) baseline: BenchmarkRunSummaryJson,
         pub(crate) fail_caches: BenchmarkRunSummaryJson,
+        pub(crate) fail_cache_preprocessing: FailCachePreprocessingSummaryJson,
         pub(crate) preprocessing: PreprocessingSummaryJson,
         pub(crate) after_preprocessing: BenchmarkRunSummaryJson,
     }
@@ -108,8 +109,22 @@ mod overall_summary {
             Self {
                 baseline: BenchmarkRunSummaryJson::from(&value.baseline),
                 fail_caches: BenchmarkRunSummaryJson::from(&value.fail_caches),
+                fail_cache_preprocessing: FailCachePreprocessingSummaryJson::from(&value.fail_cache_preprocessing),
                 preprocessing: PreprocessingSummaryJson::from(&value.preprocessing),
                 after_preprocessing: BenchmarkRunSummaryJson::from(&value.after_preprocessing),
+            }
+        }
+    }
+
+    #[derive(Clone, Serialize, Deserialize)]
+    pub(crate) struct FailCachePreprocessingSummaryJson {
+        pub(crate) mean_interning_cycles: u64,
+    }
+
+    impl From<&FailCachePreprocessingResult> for FailCachePreprocessingSummaryJson {
+        fn from(value: &FailCachePreprocessingResult) -> Self {
+            Self {
+                mean_interning_cycles: value.mean_interning().cycles(),
             }
         }
     }
