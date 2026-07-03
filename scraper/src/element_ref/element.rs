@@ -143,6 +143,20 @@ impl Element for ElementRef<'_> {
         // FIXME: Do we want to add `self.node.id()` here?
         false
     }
+
+    fn fail_cache_contains(&self, id: u16) -> bool {
+        if id == 0 {
+            return false;
+        }
+        self.value().borrow_data().fail_cache.contains(id)
+    }
+
+    fn insert_into_fail_cache(&self, id: u16) {
+        if id == 0 {
+            return;
+        }
+        self.value().mutate_data().fail_cache.insert(id);
+    }
 }
 
 #[cfg(test)]

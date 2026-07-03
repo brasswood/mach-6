@@ -70,6 +70,7 @@ use crate::structs::{
 pub enum Algorithm {
     Naive,
     WithStyleSharing,
+    WithFailCaches,
     WithIsConversion,
     WithDistribution,
     Mach7,
@@ -79,6 +80,7 @@ pub enum Algorithm {
 pub struct Optimizations {
     pub is_conversion: bool,
     pub distribution: bool,
+    pub fail_caches: bool,
 }
 
 impl Optimizations {
@@ -244,6 +246,7 @@ impl MatchingContext {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
+            false,
         );
         for sheet in stylesheets {
             stylist.append_stylesheet(sheet.clone(), &stylesheet_lock.read());
@@ -327,12 +330,26 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
+        Algorithm::WithFailCaches => {
+            let (matches, stats) =
+                match_selectors_with_style_sharing(
+                    &website.document(),
+                    &matching_context,
+                    Optimizations {
+                        fail_caches: true,
+                        ..Optimizations::from_none()
+                    },
+                    None,
+                );
+            (OwnedDocumentMatches::from(&matches), stats)
+        },
         Algorithm::WithIsConversion =>
             do_website_with_configured_optimizations(
                 website,
                 Optimizations {
                     is_conversion: true,
                     distribution: false,
+                    ..Optimizations::from_none()
                 },
             ),
         Algorithm::WithDistribution =>
@@ -341,6 +358,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 Optimizations {
                     is_conversion: true,
                     distribution: true,
+                    ..Optimizations::from_none()
                 },
             ),
         Algorithm::Mach7 => {
@@ -483,6 +501,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
         selector_map: &'a SelectorMap<Rule>,
         cascade_data: &CascadeData,
+        optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
         // 0. debug element if applicable
@@ -545,6 +564,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     matching::NeedsSelectorFlags::No,
                     matching::MatchingForInvalidation::No,
                 );
+                matching_context.set_use_fail_caches(optimizations.fail_caches);
                 // 1.3.2: Use the selector map to get matching rules
                 let mut matched_selectors = SmallVec::new();
                 let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
@@ -593,6 +613,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                 selector_stats.as_deref_mut(),
                 selector_map,
                 cascade_data,
+                optimizations,
                 stats
             );
         }
@@ -626,7 +647,7 @@ pub fn match_selectors_with_style_sharing<'document>(
     };
     let mut style_context = StyleContext {
         shared: &shared_style_context,
-        thread_local: &mut ThreadLocalStyleContext::new(),
+        thread_local: &mut ThreadLocalStyleContext::new(false),
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
@@ -640,6 +661,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_stats,
         selector_map,
         cascade_data,
+        _optimizations,
         &mut stats
     );
     (DocumentMatches(result), stats)
@@ -802,6 +824,7 @@ mod tests {
             Optimizations {
                 is_conversion: true,
                 distribution: false,
+                ..Optimizations::from_none()
             },
         );
         let reverse_map: HashMap<_, Vec<_>> = prepared
@@ -836,6 +859,7 @@ mod tests {
             Optimizations {
                 is_conversion: false,
                 distribution: true,
+                ..Optimizations::from_none()
             },
         );
         let prepared_css: BTreeSet<_> = prepared.selectors.iter().map(Selector::to_css_string).collect();
