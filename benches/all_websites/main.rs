@@ -163,7 +163,8 @@ impl PreprocessingResult {
 /// preprocessing step, and the post-preprocessing matching variant.
 struct WebsiteResult {
     website: String,
-    before_preprocessing: MatchBenchResult,
+    baseline: MatchBenchResult,
+    fail_caches: MatchBenchResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
 }
@@ -187,10 +188,20 @@ fn main() {
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
         let matching_context = w.get_matcher();
-        let before_preprocessing = bench_website(
-            &format!("{} before preprocessing", w.name),
+        let baseline = bench_website(
+            &format!("{} baseline", w.name),
             w.document(),
             &matching_context,
+            Optimizations::from_none(),
+        );
+        let fail_caches = bench_website(
+            &format!("{} fail caches", w.name),
+            w.document(),
+            &matching_context,
+            Optimizations {
+                fail_caches: true,
+                ..Optimizations::from_none()
+            },
         );
         let selectors = matching_context.get_selectors();
         let substrings =
@@ -229,10 +240,12 @@ fn main() {
             &format!("{} after preprocessing", w.name),
             w.document(),
             &preprocessed_context,
+            Optimizations::from_none(),
         );
         let result = WebsiteResult {
             website: w.name,
-            before_preprocessing,
+            baseline,
+            fail_caches,
             preprocessing: PreprocessingResult::new(
                 indexing_results,
                 overall_is_conversion_results,
@@ -274,6 +287,7 @@ fn bench_website(
     benchmark_name: &str,
     document: &Html,
     matching_context: &MatchingContext,
+    optimizations: Optimizations,
 ) -> MatchBenchResult {
     let overall_stats = bench_function(
         benchmark_name,
@@ -282,7 +296,7 @@ fn bench_website(
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     matching_context,
-                    Optimizations::from_none(),
+                    optimizations,
                     None,
                 );
             overall_stats
@@ -294,7 +308,7 @@ fn bench_website(
     mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
-        Optimizations::from_none(),
+        optimizations,
         Some(&mut per_match_stats),
     );
     println!("done.");

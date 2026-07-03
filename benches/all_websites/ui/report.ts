@@ -45,7 +45,8 @@ interface WebsiteJson {
 }
 
 interface SummaryJson {
-  before_preprocessing: BenchmarkRunSummaryJson;
+  baseline: BenchmarkRunSummaryJson;
+  fail_caches: BenchmarkRunSummaryJson;
   preprocessing: PreprocessingSummaryJson;
   after_preprocessing: BenchmarkRunSummaryJson;
 }
@@ -93,7 +94,8 @@ interface TimingsJsonBody {
 }
 
 interface SelectorsSummaryJson {
-  before_preprocessing: SelectorStatsJson;
+  baseline: SelectorStatsJson;
+  fail_caches: SelectorStatsJson;
   after_preprocessing: SelectorStatsJson;
 }
 
@@ -829,9 +831,10 @@ function buildBar(
   };
 }
 
-function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView] {
+function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView, BarView] {
   return [
-    buildBar("Before Preprocessing", website.summary.before_preprocessing, website.selector_slow_rejects_summary.before_preprocessing, null),
+    buildBar("Baseline", website.summary.baseline, website.selector_slow_rejects_summary.baseline, null),
+    buildBar("Fail Caches", website.summary.fail_caches, website.selector_slow_rejects_summary.fail_caches, null),
     buildBar("After Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, false),
     buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
   ];
@@ -964,7 +967,8 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
   return {
     website: "All Websites (" + websites.length.toString() + ")",
     summary: {
-      before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
+      baseline: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.baseline)),
+      fail_caches: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.fail_caches)),
       preprocessing: {
         mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
           return sum + breakdown.indexingCycles;
@@ -979,7 +983,8 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
       after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
     },
     selector_slow_rejects_summary: {
-      before_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.before_preprocessing)),
+      baseline: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.baseline)),
+      fail_caches: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.fail_caches)),
       after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
     }
   };
@@ -1437,7 +1442,8 @@ function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
   if (record === null) {
     return false;
   }
-  return isSelectorStatsJson(record.before_preprocessing)
+  return isSelectorStatsJson(record.baseline)
+    && isSelectorStatsJson(record.fail_caches)
     && isSelectorStatsJson(record.after_preprocessing);
 }
 
@@ -1446,7 +1452,8 @@ function isSummaryJson(value: unknown): value is SummaryJson {
   if (record === null) {
     return false;
   }
-  return isBenchmarkRunSummaryJson(record.before_preprocessing)
+  return isBenchmarkRunSummaryJson(record.baseline)
+    && isBenchmarkRunSummaryJson(record.fail_caches)
     && isPreprocessingSummaryJson(record.preprocessing)
     && isBenchmarkRunSummaryJson(record.after_preprocessing);
 }

@@ -97,7 +97,8 @@ mod overall_summary {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
-        pub(crate) before_preprocessing: BenchmarkRunSummaryJson,
+        pub(crate) baseline: BenchmarkRunSummaryJson,
+        pub(crate) fail_caches: BenchmarkRunSummaryJson,
         pub(crate) preprocessing: PreprocessingSummaryJson,
         pub(crate) after_preprocessing: BenchmarkRunSummaryJson,
     }
@@ -105,7 +106,8 @@ mod overall_summary {
     impl From<&WebsiteResult> for SummaryJson {
         fn from(value: &WebsiteResult) -> Self {
             Self {
-                before_preprocessing: BenchmarkRunSummaryJson::from(&value.before_preprocessing),
+                baseline: BenchmarkRunSummaryJson::from(&value.baseline),
+                fail_caches: BenchmarkRunSummaryJson::from(&value.fail_caches),
                 preprocessing: PreprocessingSummaryJson::from(&value.preprocessing),
                 after_preprocessing: BenchmarkRunSummaryJson::from(&value.after_preprocessing),
             }
@@ -219,14 +221,16 @@ mod selector_summary {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
-        pub(crate) before_preprocessing: SelectorStatsJson,
+        pub(crate) baseline: SelectorStatsJson,
+        pub(crate) fail_caches: SelectorStatsJson,
         pub(crate) after_preprocessing: SelectorStatsJson,
     }
 
     impl From<&WebsiteResult> for SelectorsSummaryJson {
         fn from(value: &WebsiteResult) -> Self {
             Self {
-                before_preprocessing: SelectorStatsJson::from(value.before_preprocessing.selector_slow_reject_times.as_slice()),
+                baseline: SelectorStatsJson::from(value.baseline.selector_slow_reject_times.as_slice()),
+                fail_caches: SelectorStatsJson::from(value.fail_caches.selector_slow_reject_times.as_slice()),
                 after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.selector_slow_reject_times.as_slice())
             }
         }
@@ -265,14 +269,16 @@ mod samples {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SamplesJson {
-        pub(crate) before_preprocessing: TimingsSamplesJson,
+        pub(crate) baseline: TimingsSamplesJson,
+        pub(crate) fail_caches: TimingsSamplesJson,
         pub(crate) after_preprocessing: TimingsSamplesJson,
     }
 
     impl From<&WebsiteResult> for SamplesJson {
         fn from(value: &WebsiteResult) -> Self {
             Self {
-                before_preprocessing: TimingsSamplesJson::from(&value.before_preprocessing),
+                baseline: TimingsSamplesJson::from(&value.baseline),
+                fail_caches: TimingsSamplesJson::from(&value.fail_caches),
                 after_preprocessing: TimingsSamplesJson::from(&value.after_preprocessing),
             }
         }
