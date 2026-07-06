@@ -330,12 +330,7 @@ fn main() {
         let fail_cache_measurements = measure_fail_cache_fill(&w.name);
         let result = WebsiteResult {
             website: w.name,
-            baseline: baseline.with_fail_cache_measurements(
-                fail_cache_measurements.map(|m: FailCacheMeasurements| FailCacheMeasurements {
-                    filled_caches: 0,
-                    total_caches: m.total_caches,
-                }),
-            ),
+            baseline,
             fail_caches: fail_caches.with_fail_cache_measurements(fail_cache_measurements),
             fail_cache_preprocessing: FailCachePreprocessingResult::new(fail_cache_interning),
             preprocessing: PreprocessingResult::new(
@@ -343,12 +338,7 @@ fn main() {
                 overall_is_conversion_results,
                 distributing_results,
             ),
-            after_preprocessing: after_preprocessing.with_fail_cache_measurements(
-                fail_cache_measurements.map(|m: FailCacheMeasurements| FailCacheMeasurements {
-                    filled_caches: 0,
-                    total_caches: m.total_caches,
-                }),
-            ),
+            after_preprocessing,
         };
         result
     });
