@@ -52,6 +52,7 @@ exclude = ["stylo"]
 [features]
 debug_element = ["style/debug_element", "selectors/debug_element"]
 serialize_selector_samples = []
+measure_fail_cache_fill = ["selectors/fail_cache_fill_stats"]
 
 [profile.samply]
 inherits = "release"

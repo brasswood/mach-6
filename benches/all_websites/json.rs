@@ -93,7 +93,7 @@ mod overall_summary {
 
     use crate::WebsiteResult;
 
-    use super::{CountingStats, FailCachePreprocessingResult, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
+    use super::{FailCachePreprocessingResult, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
@@ -157,7 +157,7 @@ mod overall_summary {
         fn from(value: &MatchBenchResult) -> Self {
             Self {
                 mean_cycles: value.mean_duration().cycles(),
-                counts: CountingStatsJson::from(value.counting_stats),
+                counts: CountingStatsJson::from(value),
                 times: TimingStatsJson::from(&value.timing_stats),
             }
         }
@@ -170,16 +170,24 @@ mod overall_summary {
         pub(crate) fast_rejects: usize,
         pub(crate) slow_rejects: usize,
         pub(crate) slow_accepts: usize,
+        pub(crate) filled_fail_caches: Option<usize>,
+        pub(crate) total_fail_caches: Option<usize>,
     }
 
-    impl From<CountingStats> for CountingStatsJson {
-        fn from(value: CountingStats) -> Self {
+    impl From<&MatchBenchResult> for CountingStatsJson {
+        fn from(value: &MatchBenchResult) -> Self {
             Self {
-                sharing_instances: value.sharing_instances,
-                selector_map_hits: value.selector_map_hits,
-                fast_rejects: value.fast_rejects,
-                slow_rejects: value.slow_rejects,
-                slow_accepts: value.slow_accepts,
+                sharing_instances: value.counting_stats.sharing_instances,
+                selector_map_hits: value.counting_stats.selector_map_hits,
+                fast_rejects: value.counting_stats.fast_rejects,
+                slow_rejects: value.counting_stats.slow_rejects,
+                slow_accepts: value.counting_stats.slow_accepts,
+                filled_fail_caches: value
+                    .fail_cache_measurements
+                    .map(|measurements| measurements.filled_caches),
+                total_fail_caches: value
+                    .fail_cache_measurements
+                    .map(|measurements| measurements.total_caches),
             }
         }
     }

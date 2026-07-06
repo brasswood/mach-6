@@ -82,6 +82,8 @@ interface CountingStatsJson {
   fast_rejects: number;
   slow_rejects: number;
   slow_accepts: number;
+  filled_fail_caches: number | null;
+  total_fail_caches: number | null;
 }
 
 interface TimingStatsJson {
@@ -914,6 +916,14 @@ function sumNumbers(values: number[]): number {
   }, 0);
 }
 
+function sumNullableNumbers(values: Array<number | null>): number | null {
+  const present = values.filter((value): value is number => value !== null);
+  if (present.length === 0) {
+    return null;
+  }
+  return sumNumbers(present);
+}
+
 function combineStddevs(values: number[]): number {
   return Math.round(Math.sqrt(values.reduce((sum, value) => {
     return sum + (value * value);
@@ -938,7 +948,9 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
-      slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts))
+      slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts)),
+      filled_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.filled_fail_caches)),
+      total_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.total_fail_caches))
     },
     times: {
       means: {
@@ -1116,6 +1128,8 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
+    '<tr><th>Filled Fail Caches</th><td>' + renderOptionalCount(bar.counts.filled_fail_caches) + '</td></tr>',
+    '<tr><th>Total Fail Caches</th><td>' + renderOptionalCount(bar.counts.total_fail_caches) + '</td></tr>',
     '</tbody></table>',
     '<details class="selector-breakdown">',
     '<summary>Slow-Reject Cycles Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
@@ -1128,6 +1142,13 @@ function renderVariantDetails(bar: BarView): string {
     '</details>',
     '</section>'
   ].join("");
+}
+
+function renderOptionalCount(value: number | null): string {
+  if (value === null) {
+    return "N/A";
+  }
+  return escapeHtml(NUMBER_FORMAT.format(value));
 }
 
 function renderWebsite(website: WebsiteView): string {
@@ -1418,7 +1439,9 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     && isFiniteNumber(record.selector_map_hits)
     && isFiniteNumber(record.fast_rejects)
     && isFiniteNumber(record.slow_rejects)
-    && isFiniteNumber(record.slow_accepts);
+    && isFiniteNumber(record.slow_accepts)
+    && isNullableFiniteNumber(record.filled_fail_caches)
+    && isNullableFiniteNumber(record.total_fail_caches);
 }
 
 function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
@@ -1451,6 +1474,10 @@ function isBenchmarkRunSummaryJson(value: unknown): value is BenchmarkRunSummary
   return isFiniteNumber(record.mean_cycles)
     && isCountingStatsJson(record.counts)
     && isTimingStatsJson(record.times);
+}
+
+function isNullableFiniteNumber(value: unknown): value is number | null {
+  return value === null || isFiniteNumber(value);
 }
 
 function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {

@@ -67,6 +67,14 @@ struct MatchBenchResult {
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
+    /// Fail-cache fill measurements, if enabled for this build.
+    fail_cache_measurements: Option<FailCacheMeasurements>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FailCacheMeasurements {
+    filled_caches: usize,
+    total_caches: usize,
 }
 
 impl MatchBenchResult {
@@ -119,11 +127,20 @@ impl MatchBenchResult {
             counting_stats,
             timing_stats: Samples::from_vec(timing_stats),
             selector_slow_reject_times: sorted,
+            fail_cache_measurements: None,
         }
     }
 
     fn mean_duration(&self) -> tsc_timer::Duration {
         self.total_duration / self.timing_stats.len() as u64
+    }
+
+    fn with_fail_cache_measurements(
+        mut self,
+        fail_cache_measurements: Option<FailCacheMeasurements>,
+    ) -> Self {
+        self.fail_cache_measurements = fail_cache_measurements;
+        self
     }
 }
 
@@ -184,6 +201,50 @@ struct WebsiteResult {
     fail_cache_preprocessing: FailCachePreprocessingResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
+}
+
+fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> {
+    #[cfg(not(feature = "measure_fail_cache_fill"))]
+    {
+        let _ = website_name;
+        None
+    }
+
+    #[cfg(feature = "measure_fail_cache_fill")]
+    {
+        let website_path = websites_path().join(website_name);
+        // Fail caches are stored in the DOM's per-element state, and benchmark
+        // variants reuse one parsed document across many samples, so we need a
+        // fresh parse here to measure whether a single fail-cache matching pass
+        // fills caches without contamination from prior runs.
+        let parsed_website = get_document_and_selectors(&website_path)
+            .expect("expected measurement website to parse successfully")
+            .expect("expected measurement website to exist");
+        let matching_context = parsed_website.get_matcher();
+        let _ = mach_6::match_selectors_with_style_sharing(
+            parsed_website.document(),
+            &matching_context,
+            Optimizations {
+                fail_caches: true,
+                ..Optimizations::from_none()
+            },
+            None,
+        );
+
+        let mut total_caches = 0;
+        let mut filled_caches = 0;
+        for element in parsed_website.document().root_element().descendent_elements() {
+            total_caches += 1;
+            if element.value().borrow_data().fail_cache.filled_once() {
+                filled_caches += 1;
+            }
+        }
+
+        Some(FailCacheMeasurements {
+            filled_caches,
+            total_caches,
+        })
+    }
 }
 
 const NUM_SAMPLES: u64 = 25;
@@ -266,17 +327,28 @@ fn main() {
             &preprocessed_context,
             Optimizations::from_none(),
         );
+        let fail_cache_measurements = measure_fail_cache_fill(&w.name);
         let result = WebsiteResult {
             website: w.name,
-            baseline,
-            fail_caches,
+            baseline: baseline.with_fail_cache_measurements(
+                fail_cache_measurements.map(|m: FailCacheMeasurements| FailCacheMeasurements {
+                    filled_caches: 0,
+                    total_caches: m.total_caches,
+                }),
+            ),
+            fail_caches: fail_caches.with_fail_cache_measurements(fail_cache_measurements),
             fail_cache_preprocessing: FailCachePreprocessingResult::new(fail_cache_interning),
             preprocessing: PreprocessingResult::new(
                 indexing_results,
                 overall_is_conversion_results,
                 distributing_results,
             ),
-            after_preprocessing,
+            after_preprocessing: after_preprocessing.with_fail_cache_measurements(
+                fail_cache_measurements.map(|m: FailCacheMeasurements| FailCacheMeasurements {
+                    filled_caches: 0,
+                    total_caches: m.total_caches,
+                }),
+            ),
         };
         result
     });
