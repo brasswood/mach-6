@@ -155,7 +155,7 @@ impl Element for ElementRef<'_> {
         if id == 0 {
             return;
         }
-        self.value().mutate_data().fail_cache.insert(id);
+        self.value().mutate_data().fail_cache.insert_unchecked(id);
     }
 }
 
