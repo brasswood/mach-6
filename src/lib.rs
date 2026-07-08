@@ -75,7 +75,7 @@ pub enum Algorithm {
     Mach7,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct Optimizations {
     pub is_conversion: bool,
     pub distribution: bool,
