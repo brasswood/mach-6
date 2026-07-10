@@ -60,7 +60,15 @@ impl ParsedWebsite {
     }
 
     pub fn get_matcher(&self) -> MatchingContext {
-        MatchingContext::new(self.stylesheets.iter(), self.stylesheet_lock.clone())
+        self.get_matcher_with_fail_caches(false)
+    }
+
+    pub fn get_matcher_with_fail_caches(&self, build_fail_cache_entries: bool) -> MatchingContext {
+        MatchingContext::new(
+            self.stylesheets.iter(),
+            self.stylesheet_lock.clone(),
+            build_fail_cache_entries,
+        )
     }
 }
 
@@ -328,6 +336,7 @@ mod tests {
         let context = crate::MatchingContext::new(
             std::iter::once(&stylesheet),
             lock,
+            false,
         );
         let selectors = context.get_selectors();
         let mut res = String::new();

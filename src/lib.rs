@@ -213,7 +213,11 @@ fn do_website_with_configured_optimizations(
     let selectors = website.get_matcher().get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
-    let matching_context = MatchingContext::new(std::iter::once(&stylesheet), stylesheet_lock);
+    let matching_context = MatchingContext::new(
+        std::iter::once(&stylesheet),
+        stylesheet_lock,
+        optimizations.fail_caches,
+    );
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
         &matching_context,
@@ -242,11 +246,13 @@ impl MatchingContext {
     pub fn new<'a>(
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
+        build_fail_cache_entries: bool,
     ) -> Self {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
             false,
+            build_fail_cache_entries,
         );
         for sheet in stylesheets {
             stylist.append_stylesheet(sheet.clone(), &stylesheet_lock.read());

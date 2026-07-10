@@ -220,7 +220,7 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
         let parsed_website = get_document_and_selectors(&website_path)
             .expect("expected measurement website to parse successfully")
             .expect("expected measurement website to exist");
-        let matching_context = parsed_website.get_matcher();
+        let matching_context = parsed_website.get_matcher_with_fail_caches(true);
         let _ = mach_6::match_selectors_with_style_sharing(
             parsed_website.document(),
             &matching_context,
@@ -268,11 +268,12 @@ fn main() {
         let fail_cache_interning = bench_function(
             &format!("{} fail cache interning", w.name),
             || {
-                let _ = w.get_matcher();
+                let _ = w.get_matcher_with_fail_caches(true);
             },
             NUM_SAMPLES,
         );
         let matching_context = w.get_matcher();
+        let fail_cache_matching_context = w.get_matcher_with_fail_caches(true);
         let baseline = bench_website(
             &format!("{} baseline", w.name),
             w.document(),
@@ -282,7 +283,7 @@ fn main() {
         let fail_caches = bench_website(
             &format!("{} fail caches", w.name),
             w.document(),
-            &matching_context,
+            &fail_cache_matching_context,
             Optimizations {
                 fail_caches: true,
                 ..Optimizations::from_none()
@@ -320,6 +321,7 @@ fn main() {
         let preprocessed_context = MatchingContext::new(
             std::iter::once(&preprocessed_stylesheet),
             preprocessed_lock,
+            false,
         );
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
