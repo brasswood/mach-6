@@ -179,11 +179,11 @@ impl PreprocessingResult {
 /// Timing data for fail-cache setup that can be shown separately from the
 /// steady-state matching time.
 struct FailCachePreprocessingResult {
-    interning: TimedResults<()>,
+    interning: TimedResults<tsc_timer::Duration>,
 }
 
 impl FailCachePreprocessingResult {
-    fn new(interning: TimedResults<()>) -> Self {
+    fn new(interning: TimedResults<tsc_timer::Duration>) -> Self {
         Self { interning }
     }
 
@@ -265,10 +265,12 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let fail_cache_interning = bench_function(
+        let fail_cache_interning = bench_timed_subsection(
             &format!("{} fail cache interning", w.name),
             || {
-                let _ = w.get_matcher_with_fail_caches(true);
+                w.get_matcher_with_fail_caches(true)
+                    .fail_cache_build_timings()
+                    .entry_build
             },
             NUM_SAMPLES,
         );
@@ -463,6 +465,29 @@ where
       samples_vec.push(func());
     }
     let total_duration = start.elapsed();
+    eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
+    TimedResults {
+        total_duration,
+        samples: Samples::from_vec(samples_vec),
+    }
+}
+
+fn bench_timed_subsection<F>(name: &str, func: F, num_samples: u64) -> TimedResults<tsc_timer::Duration>
+where
+    F: Fn() -> tsc_timer::Duration,
+{
+    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
+    let mut samples_vec = Vec::with_capacity(num_samples as usize);
+    eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
+    warm_up_time(&WARM_UP_TIME, &func);
+    eprint!("measuring {num_samples} samples...");
+    for _ in 0..num_samples {
+        samples_vec.push(func());
+    }
+    let mut total_duration = tsc_timer::Duration::from_cycles(0);
+    for duration in &samples_vec {
+        total_duration += *duration;
+    }
     eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
     TimedResults {
         total_duration,
