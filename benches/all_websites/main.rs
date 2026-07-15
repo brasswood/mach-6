@@ -295,73 +295,73 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     }
 
     let selectors = matching_context.get_selectors();
-    let mut variant_result;
-    let preprocessed_selectors = preprocess_selectors(document, &selectors, variant_spec.optimizations);
+    let (selectors_after_is_conversion, indexing_durations, overall_is_conversion_durations) =
+        if variant_spec.optimizations.is_conversion {
+            let substrings = concretize::substrings_from_selectors(selectors.iter());
+            let indexing_results = bench_function(
+                &format!("{} indexing", website.name),
+                || { concretize::build_substr_selector_index(document, substrings.clone()); },
+                NUM_SAMPLES,
+            );
+            let overall_is_conversion_results = bench_function(
+                &format!("{} :is() conversion", website.name),
+                || { concretize::convert_to_is_selectors(document, &selectors); },
+                NUM_SAMPLES,
+            );
+            let converted_selectors = concretize::convert_to_is_selectors(document, &selectors);
+            (
+                converted_selectors,
+                Some(indexing_results.sample_durations),
+                Some(overall_is_conversion_results.sample_durations),
+            )
+        } else {
+            (selectors.to_vec(), None, None)
+        };
+
+    let (preprocessed_selectors, distribution_durations) =
+        if variant_spec.optimizations.distribution {
+            let distributing_results = bench_function(
+                &format!("{} :is() distribution", website.name),
+                || {
+                    let _: Vec<_> = selectors_after_is_conversion
+                        .iter()
+                        .flat_map(distribute::DistributedSelectors::from_selector)
+                        .collect();
+                },
+                NUM_SAMPLES,
+            );
+            let preprocessed_selectors = selectors_after_is_conversion
+                .iter()
+                .flat_map(distribute::DistributedSelectors::from_selector)
+                .collect();
+            (preprocessed_selectors, Some(distributing_results.sample_durations))
+        } else {
+            (selectors_after_is_conversion, None)
+        };
+
     let (preprocessed_stylesheet, preprocessed_lock) =
         stylesheet_from_selectors(preprocessed_selectors.iter());
     let preprocessed_context = MatchingContext::new(
         std::iter::once(&preprocessed_stylesheet),
         preprocessed_lock,
     );
-    variant_result = bench_website(
+    let mut variant_result = bench_website(
         &benchmark_name,
         document,
         &preprocessed_context,
     );
 
-    let selectors_after_is_conversion = if variant_spec.optimizations.is_conversion {
-        let substrings = concretize::substrings_from_selectors(selectors.iter());
-        let indexing_results = bench_function(
-            &format!("{} indexing", website.name),
-            || { concretize::build_substr_selector_index(document, substrings.clone()); },
-            NUM_SAMPLES,
-        );
-        let overall_is_conversion_results = bench_function(
-            &format!("{} :is() conversion", website.name),
-            || { concretize::convert_to_is_selectors(document, &selectors); },
-            NUM_SAMPLES,
-        );
-        let converted_selectors = concretize::convert_to_is_selectors(document, &selectors);
-        variant_result.add_indexing(indexing_results.sample_durations);
-        variant_result.add_overall_is_conversion(overall_is_conversion_results.sample_durations);
-        converted_selectors
-    } else {
-        selectors.to_vec()
-    };
-
-    if variant_spec.optimizations.distribution {
-        let distribution_input = selectors_after_is_conversion.clone();
-        let distributing_results = bench_function(
-            &format!("{} :is() distribution", website.name),
-            || {
-                let _: Vec<_> = distribution_input
-                    .iter()
-                    .flat_map(distribute::DistributedSelectors::from_selector)
-                    .collect();
-            },
-            NUM_SAMPLES,
-        );
-        variant_result.add_distribution(distributing_results.sample_durations);
+    if let Some(indexing_durations) = indexing_durations {
+        variant_result.add_indexing(indexing_durations);
+    }
+    if let Some(overall_is_conversion_durations) = overall_is_conversion_durations {
+        variant_result.add_overall_is_conversion(overall_is_conversion_durations);
+    }
+    if let Some(distribution_durations) = distribution_durations {
+        variant_result.add_distribution(distribution_durations);
     }
 
     variant_result
-}
-
-fn preprocess_selectors(document: &Html, selectors: &[Selector], optimizations: Optimizations) -> Vec<Selector> {
-    let selectors = if optimizations.is_conversion {
-        concretize::convert_to_is_selectors(document, selectors)
-    } else {
-        selectors.to_vec()
-    };
-
-    if optimizations.distribution {
-        selectors
-            .iter()
-            .flat_map(distribute::DistributedSelectors::from_selector)
-            .collect()
-    } else {
-        selectors
-    }
 }
 
 fn bench_website(
