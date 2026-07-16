@@ -15,4 +15,16 @@ When working in a separate branch or branches, you can create new branches prefi
 
 ## Benchmarking
 
-If you need to run benchmarks, the nightly server is the preferred place to do it. Make sure to push the branch you're benchmarking to Github first, then use `uvx nightlies` to interface with the nightly server. If the nightly server is not working, fall back to running `cargo bench` locally.
+### Middle-level Benchmarking
+
+The binary used in `cargo bench`/the nightly server (introduced next) is designed to provide a "middle-level" report of where time is spent in the program. It times the main stages of selector matching and our optimizations (e.g. querying bloom filter, selector indexing) and generates a report. This is the primary report we use to evaluate our techniques.
+
+The nightly server is the preferred server to run the middle-level suite. To use it, make sure to push the branch you're benchmarking (and submodules!) to Github first, then use `uvx nightlies` to interface with it. If the nightly server is down or not working, fall back to running `cargo bench` locally.
+
+The nightly server is designed to run a fixed routine per branch. There is probably no clean way to pass parameters to the routine; you would probably have to create a different routine on a different branch.
+
+### Low-level Benchmarking
+
+Sometimes, you may want to measure something finer-grained than what the middle-level report provides. For example, you may want to know how time is being spent within one stage.
+
+One option is to run `samply` locally. Another could be to isolate one function/code block and create a binary which times it (i.e. the typical microbenchmarking workflow). You can try other methods that you think are reasonable.
