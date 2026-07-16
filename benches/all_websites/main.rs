@@ -174,11 +174,12 @@ impl VariantResult {
         result
     }
 
-    fn add_indexing(&mut self, indexing: Samples<tsc_timer::Duration>) {
+    fn add_is_conversion_timings(
+        &mut self,
+        indexing: Samples<tsc_timer::Duration>,
+        overall_is_conversion: Samples<tsc_timer::Duration>,
+    ) {
         self.timing_segments.indexing = Some(indexing);
-    }
-
-    fn add_overall_is_conversion(&mut self, overall_is_conversion: Samples<tsc_timer::Duration>) {
         self.timing_segments.overall_is_conversion = Some(overall_is_conversion);
     }
 
@@ -351,11 +352,13 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
         &preprocessed_context,
     );
 
-    if let Some(indexing_durations) = indexing_durations {
-        variant_result.add_indexing(indexing_durations);
-    }
-    if let Some(overall_is_conversion_durations) = overall_is_conversion_durations {
-        variant_result.add_overall_is_conversion(overall_is_conversion_durations);
+    if let (Some(indexing_durations), Some(overall_is_conversion_durations)) =
+        (indexing_durations, overall_is_conversion_durations)
+    {
+        variant_result.add_is_conversion_timings(
+            indexing_durations,
+            overall_is_conversion_durations,
+        );
     }
     if let Some(distribution_durations) = distribution_durations {
         variant_result.add_distribution(distribution_durations);
