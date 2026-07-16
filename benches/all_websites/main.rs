@@ -178,6 +178,10 @@ impl PreprocessingResult {
 
 /// Timing data for fail-cache setup that can be shown separately from the
 /// steady-state matching time.
+// TODO: Would probably not like this to be its own struct.
+// TODO: Confusing with struct FailCacheMeasurements
+// TODO: may not want to have the version of this internal to stylo,
+// struct FailCacheBuildTimings.
 struct FailCachePreprocessingResult {
     interning: TimedResults<tsc_timer::Duration>,
 }
