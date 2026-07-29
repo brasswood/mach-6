@@ -3,9 +3,6 @@ use time::format_description::well_known::{iso8601, Iso8601};
 
 use super::*;
 
-const BASELINE_VARIANT_ID: usize = 0;
-const OPTIMIZED_VARIANT_ID: usize = 1;
-
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportJson {
     pub(crate) metadata: ReportMetadataJson,
@@ -35,21 +32,14 @@ pub(crate) struct VariantManifestEntryJson {
 
 // TODO: Generates temporary constant variant manifest, until benchmark machinery gets updated
 fn report_variants_manifest() -> Vec<VariantManifestEntryJson> {
-    vec![
-        VariantManifestEntryJson {
-            id: BASELINE_VARIANT_ID,
-            label: None,
-            optimizations: Optimizations::from_none(),
-        },
-        VariantManifestEntryJson {
-            id: OPTIMIZED_VARIANT_ID,
-            label: None,
-            optimizations: Optimizations {
-                is_conversion: true,
-                distribution: true,
-            },
-        },
-    ]
+    variant_specs()
+        .iter()
+        .map(|variant_spec| VariantManifestEntryJson {
+            id: variant_spec.id,
+            label: variant_spec.label.map(str::to_owned),
+            optimizations: variant_spec.optimizations,
+        })
+        .collect()
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -147,32 +137,25 @@ pub(crate) struct WebsiteJson {
 
 impl From<&WebsiteResult> for WebsiteJson {
     fn from(value: &WebsiteResult) -> Self {
+        assert_eq!(
+            value.variants.len(),
+            variant_specs().len(),
+            "website variant count did not match configured variant manifest",
+        );
         Self {
             website: value.website.clone(),
-            variants: vec![
-                WebsiteVariantJson {
-                    variant_id: BASELINE_VARIANT_ID,
-                    summary: overall_summary::BenchmarkRunSummaryJson::new(
-                        &value.before_preprocessing,
-                        None,
-                    ),
+            variants: variant_specs()
+                .iter()
+                .zip(value.variants.iter())
+                .map(|(variant_spec, variant)| WebsiteVariantJson {
+                    variant_id: variant_spec.id,
+                    summary: overall_summary::BenchmarkRunSummaryJson::new(variant),
                     selector_slow_rejects_summary: selector_summary::SelectorStatsJson::from(
-                        value.before_preprocessing.selector_slow_reject_times.as_slice(),
+                        variant.selector_slow_reject_times.as_slice(),
                     ),
-                    samples: samples::TimingsSamplesJson::from(&value.before_preprocessing),
-                },
-                WebsiteVariantJson {
-                    variant_id: OPTIMIZED_VARIANT_ID,
-                    summary: overall_summary::BenchmarkRunSummaryJson::new(
-                        &value.after_preprocessing,
-                        Some(&value.preprocessing),
-                    ),
-                    selector_slow_rejects_summary: selector_summary::SelectorStatsJson::from(
-                        value.after_preprocessing.selector_slow_reject_times.as_slice(),
-                    ),
-                    samples: samples::TimingsSamplesJson::from(&value.after_preprocessing),
-                },
-            ],
+                    samples: samples::TimingsSamplesJson::from(variant),
+                })
+                .collect(),
         }
     }
 }
@@ -180,7 +163,7 @@ impl From<&WebsiteResult> for WebsiteJson {
 mod overall_summary {
     use serde::{Deserialize, Serialize};
 
-    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, SegmentKindJson, SegmentSummaryJson, TimingStats};
+    use super::{CountingStats, Samples, SegmentKindJson, SegmentSummaryJson, VariantResult};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct BenchmarkRunSummaryJson {
@@ -190,19 +173,11 @@ mod overall_summary {
     }
 
     impl BenchmarkRunSummaryJson {
-        pub(crate) fn new(
-            value: &MatchBenchResult,
-            preprocessing: Option<&PreprocessingResult>,
-        ) -> Self {
-            let mut times = Vec::new();
-            if let Some(preprocessing) = preprocessing {
-                times.extend(preprocessing_segments(preprocessing));
-            }
-            times.extend(matching_timing_segments(&value.timing_stats));
+        pub(crate) fn new(value: &VariantResult) -> Self {
             Self {
                 mean_cycles: value.mean_duration().cycles(),
                 counts: CountingStatsJson::from(value.counting_stats),
-                times,
+                times: timing_segments(value),
             }
         }
     }
@@ -228,66 +203,43 @@ mod overall_summary {
         }
     }
 
-    fn preprocessing_segments(value: &PreprocessingResult) -> [SegmentSummaryJson; 3] {
-        [
-            SegmentSummaryJson {
-                kind: SegmentKindJson::Indexing,
-                mean_cycles: value.mean_indexing().cycles(),
-                stddev_cycles: None,
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::IsConversion,
-                mean_cycles: value.mean_non_indexing().cycles(),
-                stddev_cycles: None,
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::Distribution,
-                mean_cycles: value.mean_distributing().cycles(),
-                stddev_cycles: None,
-            },
-        ]
+    fn segment_summary_json(kind: SegmentKindJson, value: &Samples<tsc_timer::Duration>) -> SegmentSummaryJson {
+        SegmentSummaryJson {
+            kind,
+            mean_cycles: value.mean().cycles(),
+            stddev_cycles: Some(value.stddev().cycles()),
+        }
     }
 
-    fn matching_timing_segments(value: &Samples<TimingStats>) -> [SegmentSummaryJson; 7] {
-        let means = value.mean();
-        let stddevs = value.stddev();
-        [
-            SegmentSummaryJson {
-                kind: SegmentKindJson::UpdatingBloomFilter,
-                mean_cycles: means.updating_bloom_filter.cycles(),
-                stddev_cycles: Some(stddevs.updating_bloom_filter.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::CheckingStyleSharing,
-                mean_cycles: means.checking_style_sharing.cycles(),
-                stddev_cycles: Some(stddevs.checking_style_sharing.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::QueryingSelectorMap,
-                mean_cycles: means.querying_selector_map.cycles(),
-                stddev_cycles: Some(stddevs.querying_selector_map.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::FastRejecting,
-                mean_cycles: means.fast_rejecting.cycles(),
-                stddev_cycles: Some(stddevs.fast_rejecting.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::SlowRejecting,
-                mean_cycles: means.slow_rejecting.cycles(),
-                stddev_cycles: Some(stddevs.slow_rejecting.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::SlowAccepting,
-                mean_cycles: means.slow_accepting.cycles(),
-                stddev_cycles: Some(stddevs.slow_accepting.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::InsertingIntoSharingCache,
-                mean_cycles: means.inserting_into_sharing_cache.cycles(),
-                stddev_cycles: Some(stddevs.inserting_into_sharing_cache.cycles()),
-            },
-        ]
+    fn derived_segment_summary_json(kind: SegmentKindJson, mean: tsc_timer::Duration) -> SegmentSummaryJson {
+        SegmentSummaryJson {
+            kind,
+            mean_cycles: mean.cycles(),
+            stddev_cycles: None,
+        }
+    }
+
+    fn timing_segments(value: &VariantResult) -> Vec<SegmentSummaryJson> {
+        let mut segments = Vec::new();
+        if let Some(indexing) = value.timing_segments.indexing.as_ref() {
+            segments.push(segment_summary_json(SegmentKindJson::Indexing, indexing));
+        }
+        if let Some(is_conversion_mean) = value.timing_segments.derived_is_conversion_mean() {
+            segments.push(derived_segment_summary_json(SegmentKindJson::IsConversion, is_conversion_mean));
+        }
+        if let Some(distribution) = value.timing_segments.distribution.as_ref() {
+            segments.push(segment_summary_json(SegmentKindJson::Distribution, distribution));
+        }
+        segments.extend([
+            segment_summary_json(SegmentKindJson::UpdatingBloomFilter, &value.timing_segments.updating_bloom_filter),
+            segment_summary_json(SegmentKindJson::CheckingStyleSharing, &value.timing_segments.checking_style_sharing),
+            segment_summary_json(SegmentKindJson::QueryingSelectorMap, &value.timing_segments.querying_selector_map),
+            segment_summary_json(SegmentKindJson::FastRejecting, &value.timing_segments.fast_rejecting),
+            segment_summary_json(SegmentKindJson::SlowRejecting, &value.timing_segments.slow_rejecting),
+            segment_summary_json(SegmentKindJson::SlowAccepting, &value.timing_segments.slow_accepting),
+            segment_summary_json(SegmentKindJson::InsertingIntoSharingCache, &value.timing_segments.inserting_into_sharing_cache),
+        ]);
+        segments
     }
 
 }
@@ -324,13 +276,13 @@ mod selector_summary {
 mod samples {
     use std::collections::HashMap;
 
-    use selectors::matching::TimingStats;
     use serde::{Deserialize, Serialize};
+    #[cfg(feature = "serialize_selector_samples")]
     use tsc_timer::Duration;
 
-    use crate::{MatchBenchResult, SelectorString};
+    use crate::{SelectorString, VariantResult};
 
-    use super::{SegmentKindJson, SegmentSamplesJson};
+    use super::{Samples, SegmentKindJson, SegmentSamplesJson};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
@@ -338,47 +290,26 @@ mod samples {
         pub(crate) selector_slow_rejects_cycles: Option<HashMap<SelectorString, Vec<u64>>>,
     }
 
-    impl From<&MatchBenchResult> for TimingsSamplesJson {
-        fn from(value: &MatchBenchResult) -> Self {
-            // Codex taught me this `project` trick!
-            let get_cycles_samples = |project: fn(&TimingStats) -> Duration| -> Vec<u64> {
-                value
-                    .timing_stats
-                    .iter()
-                    .map(|sample| project(sample).cycles())
-                    .collect()
-            };
+    impl From<&VariantResult> for TimingsSamplesJson {
+        fn from(value: &VariantResult) -> Self {
+            let mut times = Vec::new();
+            if let Some(indexing) = value.timing_segments.indexing.as_ref() {
+                times.push(segment_samples_json(SegmentKindJson::Indexing, indexing));
+            }
+            if let Some(distribution) = value.timing_segments.distribution.as_ref() {
+                times.push(segment_samples_json(SegmentKindJson::Distribution, distribution));
+            }
+            times.extend([
+                segment_samples_json(SegmentKindJson::UpdatingBloomFilter, &value.timing_segments.updating_bloom_filter),
+                segment_samples_json(SegmentKindJson::CheckingStyleSharing, &value.timing_segments.checking_style_sharing),
+                segment_samples_json(SegmentKindJson::QueryingSelectorMap, &value.timing_segments.querying_selector_map),
+                segment_samples_json(SegmentKindJson::FastRejecting, &value.timing_segments.fast_rejecting),
+                segment_samples_json(SegmentKindJson::SlowRejecting, &value.timing_segments.slow_rejecting),
+                segment_samples_json(SegmentKindJson::SlowAccepting, &value.timing_segments.slow_accepting),
+                segment_samples_json(SegmentKindJson::InsertingIntoSharingCache, &value.timing_segments.inserting_into_sharing_cache),
+            ]);
             Self {
-                times: vec![
-                    SegmentSamplesJson {
-                        kind: SegmentKindJson::UpdatingBloomFilter,
-                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.updating_bloom_filter),
-                    },
-                    SegmentSamplesJson {
-                        kind: SegmentKindJson::CheckingStyleSharing,
-                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
-                    },
-                    SegmentSamplesJson {
-                        kind: SegmentKindJson::QueryingSelectorMap,
-                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.querying_selector_map),
-                    },
-                    SegmentSamplesJson {
-                        kind: SegmentKindJson::FastRejecting,
-                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
-                    },
-                    SegmentSamplesJson {
-                        kind: SegmentKindJson::SlowRejecting,
-                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
-                    },
-                    SegmentSamplesJson {
-                        kind: SegmentKindJson::SlowAccepting,
-                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
-                    },
-                    SegmentSamplesJson {
-                        kind: SegmentKindJson::InsertingIntoSharingCache,
-                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
-                    },
-                ],
+                times,
                 #[cfg(not(feature = "serialize_selector_samples"))]
                 selector_slow_rejects_cycles: None,
                 #[cfg(feature = "serialize_selector_samples")]
@@ -397,6 +328,13 @@ mod samples {
                     .collect()
                 ),
             }
+        }
+    }
+
+    fn segment_samples_json(kind: SegmentKindJson, value: &Samples<tsc_timer::Duration>) -> SegmentSamplesJson {
+        SegmentSamplesJson {
+            kind,
+            samples_cycles: value.iter().map(|duration| duration.cycles()).collect(),
         }
     }
 }

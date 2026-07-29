@@ -1,13 +1,13 @@
 use log::{error, warn};
 use mach_6::{self, MatchingContext, Optimizations, get_all_documents_and_selectors, stylesheet_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
-use mach_6::preprocessing::{self, concretize, distribute};
+use mach_6::preprocessing::{concretize, distribute};
 use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -22,15 +22,10 @@ mod json;
 mod stats;
 
 struct TimedResults<R> {
-    total_duration: tsc_timer::Duration,
     samples: Samples<R>,
-}
-
-impl<R> TimedResults<R> {
-    fn overall_mean(&self) -> tsc_timer::Duration {
-        assert!(self.samples.len() != 0, "tried to compute overall mean on result with no samples");
-        self.total_duration / u64::try_from(self.samples.len()).unwrap()
-    }
+    // measure duration of individual samples here;
+    // don't assume `Samples<R>` will do it.
+    sample_durations: Samples<tsc_timer::Duration>,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
@@ -50,29 +45,86 @@ struct SelectorSlowRejectSamples {
     aggregate_durations: Samples<tsc_timer::Duration>,
 }
 
-/// Aggregated data for one matching variant in the website report.
-///
-/// A "variant" here means one of the two selector-matching configurations we
-/// compare for a website, such as before preprocessing vs. after preprocessing.
-/// This is the per-variant payload consumed by both the HTML report and the
-/// per-website JSON output.
 #[derive(Clone, Debug)]
-struct MatchBenchResult {
-    /// The total duration of the benched website
-    total_duration: tsc_timer::Duration,
+struct VariantTimingSegments {
+    updating_bloom_filter: Samples<tsc_timer::Duration>,
+    checking_style_sharing: Samples<tsc_timer::Duration>,
+    querying_selector_map: Samples<tsc_timer::Duration>,
+    fast_rejecting: Samples<tsc_timer::Duration>,
+    slow_rejecting: Samples<tsc_timer::Duration>,
+    slow_accepting: Samples<tsc_timer::Duration>,
+    inserting_into_sharing_cache: Samples<tsc_timer::Duration>,
+    indexing: Option<Samples<tsc_timer::Duration>>,
+    overall_is_conversion: Option<Samples<tsc_timer::Duration>>,
+    distribution: Option<Samples<tsc_timer::Duration>>,
+}
+
+impl VariantTimingSegments {
+    fn from_matching_stats(value: &Samples<TimingStats>) -> Self {
+        let project = |project: fn(&TimingStats) -> tsc_timer::Duration| {
+            Samples::from_vec(
+                value.iter()
+                    .map(|sample| project(sample))
+                    .collect(),
+            )
+        };
+        Self {
+            updating_bloom_filter: project(|stats| stats.updating_bloom_filter),
+            checking_style_sharing: project(|stats| stats.checking_style_sharing),
+            querying_selector_map: project(|stats| stats.querying_selector_map),
+            fast_rejecting: project(|stats| stats.fast_rejecting),
+            slow_rejecting: project(|stats| stats.slow_rejecting),
+            slow_accepting: project(|stats| stats.slow_accepting),
+            inserting_into_sharing_cache: project(|stats| stats.inserting_into_sharing_cache),
+            indexing: None,
+            overall_is_conversion: None,
+            distribution: None,
+        }
+    }
+
+    fn mean_total_duration(&self) -> tsc_timer::Duration {
+        let mut total = self.updating_bloom_filter.mean()
+            + self.checking_style_sharing.mean()
+            + self.querying_selector_map.mean()
+            + self.fast_rejecting.mean()
+            + self.slow_rejecting.mean()
+            + self.slow_accepting.mean()
+            + self.inserting_into_sharing_cache.mean();
+        if let Some(indexing) = self.indexing.as_ref() {
+            total += indexing.mean();
+        }
+        if let Some(overall_is_conversion) = self.overall_is_conversion.as_ref() {
+            total += overall_is_conversion.mean();
+        }
+        if let Some(distribution) = self.distribution.as_ref() {
+            total += distribution.mean();
+        }
+        total
+    }
+
+    fn derived_is_conversion_mean(&self) -> Option<tsc_timer::Duration> {
+        let indexing = self.indexing.as_ref()?;
+        let overall_is_conversion = self.overall_is_conversion.as_ref()?;
+        Some(overall_is_conversion.mean() - indexing.mean())
+    }
+}
+
+/// Aggregated data for one benchmarked optimization variant.
+#[derive(Clone, Debug)]
+struct VariantResult {
     /// Counting stats of one sample (should be the same accross all samples)
     counting_stats: CountingStats,
-    /// Per-sample timing stats
-    timing_stats: Samples<TimingStats>,
+    /// Timing samples
+    timing_segments: VariantTimingSegments,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
 }
 
-impl MatchBenchResult {
+impl VariantResult {
     fn new(
         stats: TimedResults<Statistics>,
-        per_match_stats: TimedResults<SmallVec<[(&Selector, SelectorStats); 16]>>,
+        per_match_stats: Samples<SmallVec<[(&Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
             .samples
@@ -85,10 +137,10 @@ impl MatchBenchResult {
             .as_slice()
             .iter()
             .map(|stats| stats.times)
-            .collect();
+            .collect::<Vec<_>>();
 
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
-        for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
+        for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
                 let slow_reject_duration = match selector_stats {
                     SelectorStats::Bloom(bq) =>
@@ -101,7 +153,7 @@ impl MatchBenchResult {
                 // selector for this sample (samples.len() == i), push a new
                 // Duration onto the end. Otherwise, samples.len() == i + 1,
                 // which means we have already started building up an aggregate
-                // duration for this sample, so just accumulate that. 
+                // duration for this sample, so just accumulate that.
                 if samples.len() == i {
                     samples.push(slow_reject_duration);
                 } else {
@@ -114,58 +166,64 @@ impl MatchBenchResult {
             SelectorSlowRejectSamples { selector, aggregate_durations: Samples::from_vec(durations) }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
-        MatchBenchResult {
-            total_duration: stats.total_duration,
+        let result = VariantResult {
             counting_stats,
-            timing_stats: Samples::from_vec(timing_stats),
+            timing_segments: VariantTimingSegments::from_matching_stats(&Samples::from_vec(timing_stats)),
             selector_slow_reject_times: sorted,
-        }
+        };
+        result
+    }
+
+    fn add_indexing(&mut self, indexing: Samples<tsc_timer::Duration>) {
+        self.timing_segments.indexing = Some(indexing);
+    }
+
+    fn add_overall_is_conversion(&mut self, overall_is_conversion: Samples<tsc_timer::Duration>) {
+        self.timing_segments.overall_is_conversion = Some(overall_is_conversion);
+    }
+
+    fn add_distribution(&mut self, distribution: Samples<tsc_timer::Duration>) {
+        self.timing_segments.distribution = Some(distribution);
     }
 
     fn mean_duration(&self) -> tsc_timer::Duration {
-        self.total_duration / self.timing_stats.len() as u64
+        self.timing_segments.mean_total_duration()
     }
 }
 
-/// Timing data for the preprocessing stage that sits between the two matching
-/// variants in the report.
-struct PreprocessingResult {
-    /// The substring-indexing results
-    indexing: TimedResults<()>,
-    /// The total is conversion results. This has `indexing` included in it.
-    overall_is_conversion: TimedResults<()>,
-    /// The :is() distribution results
-    distribution: TimedResults<()>
-}
-impl PreprocessingResult {
-    fn new(indexing: TimedResults<()>, overall_is_conversion: TimedResults<()>, distribution: TimedResults<()>) -> Self {
-        Self {
-            indexing,
-            overall_is_conversion,
-            distribution,
-        }
-    }
-    fn mean_indexing(&self) -> tsc_timer::Duration {
-        self.indexing.total_duration / self.indexing.samples.len() as u64
-    }
-    fn mean_is_conversion(&self) -> tsc_timer::Duration {
-        self.overall_is_conversion.total_duration / self.overall_is_conversion.samples.len() as u64
-    }
-    fn mean_non_indexing(&self) -> tsc_timer::Duration {
-        self.mean_is_conversion() - self.mean_indexing()
-    }
-    fn mean_distributing(&self) -> tsc_timer::Duration {
-        self.distribution.total_duration / self.distribution.samples.len() as u64
-    }
+#[derive(Clone, Copy)]
+struct VariantSpec {
+    id: usize,
+    label: Option<&'static str>,
+    optimizations: Optimizations,
 }
 
-/// All report data for one website: the baseline matching variant, the
-/// preprocessing step, and the post-preprocessing matching variant.
+const VARIANT_SPECS: [VariantSpec; 2] = [
+    VariantSpec {
+        id: 0,
+        label: None,
+        optimizations: Optimizations {
+            is_conversion: false,
+            distribution: false,
+        },
+    },
+    VariantSpec {
+        id: 1,
+        label: None,
+        optimizations: Optimizations {
+            is_conversion: true,
+            distribution: true,
+        },
+    },
+];
+
+fn variant_specs() -> &'static [VariantSpec] {
+    &VARIANT_SPECS
+}
+
 struct WebsiteResult {
     website: String,
-    before_preprocessing: MatchBenchResult,
-    preprocessing: PreprocessingResult,
-    after_preprocessing: MatchBenchResult,
+    variants: Vec<VariantResult>,
 }
 
 const NUM_SAMPLES: u64 = 25;
@@ -186,59 +244,13 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let matching_context = w.get_matcher();
-        let before_preprocessing = bench_website(
-            &format!("{} before preprocessing", w.name),
-            w.document(),
-            &matching_context,
-        );
-        let selectors = matching_context.get_selectors();
-        let substrings =
-          concretize::substrings_from_selectors(selectors.iter());
-        let indexing_results = bench_function(
-          &format!("{} indexing", w.name),
-          || { concretize::build_substr_selector_index(w.document(), substrings.clone()); },
-          NUM_SAMPLES,
-        );
-        drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
-        let overall_is_conversion_results = bench_function(
-          &format!("{} :is() conversion", w.name),
-          || { concretize::convert_to_is_selectors(w.document(), &selectors); },
-          NUM_SAMPLES,
-        );
-        let is = concretize::convert_to_is_selectors(w.document(), &selectors);
-        let distribute = || {
-            let _: Vec<_> = is
-                .iter()
-                .flat_map(distribute::DistributedSelectors::from_selector)
-                .collect();
-        };
-        let distributing_results = bench_function(
-            &format!("{} :is() distribution", w.name),
-            distribute,
-            NUM_SAMPLES,
-        );
-        let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
-        let (preprocessed_stylesheet, preprocessed_lock) =
-            stylesheet_from_selectors(preprocessed_selectors.iter());
-        let preprocessed_context = MatchingContext::new(
-            std::iter::once(&preprocessed_stylesheet),
-            preprocessed_lock,
-        );
-        let after_preprocessing = bench_website(
-            &format!("{} after preprocessing", w.name),
-            w.document(),
-            &preprocessed_context,
-        );
+        let variants = variant_specs()
+            .iter()
+            .map(|variant_spec| bench_variant(&w, variant_spec))
+            .collect();
         let result = WebsiteResult {
             website: w.name,
-            before_preprocessing,
-            preprocessing: PreprocessingResult::new(
-                indexing_results,
-                overall_is_conversion_results,
-                distributing_results,
-            ),
-            after_preprocessing,
+            variants,
         };
         result
     });
@@ -270,11 +282,93 @@ fn main() {
     };
 }
 
+fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> VariantResult {
+    // TODO: Html will not be able to be reused
+    // between variant runs once we add fail caches back
+    // in
+    let document = website.document();
+    let matching_context = website.get_matcher();
+    let benchmark_name = format!("{} variant {}", website.name, variant_spec.id);
+
+    if !variant_spec.optimizations.is_conversion && !variant_spec.optimizations.distribution {
+        return bench_website(&benchmark_name, document, &matching_context);
+    }
+
+    let selectors = matching_context.get_selectors();
+    let mut variant_result;
+    let preprocessed_selectors = preprocess_selectors(document, &selectors, variant_spec.optimizations);
+    let (preprocessed_stylesheet, preprocessed_lock) =
+        stylesheet_from_selectors(preprocessed_selectors.iter());
+    let preprocessed_context = MatchingContext::new(
+        std::iter::once(&preprocessed_stylesheet),
+        preprocessed_lock,
+    );
+    variant_result = bench_website(
+        &benchmark_name,
+        document,
+        &preprocessed_context,
+    );
+
+    let selectors_after_is_conversion = if variant_spec.optimizations.is_conversion {
+        let substrings = concretize::substrings_from_selectors(selectors.iter());
+        let indexing_results = bench_function(
+            &format!("{} indexing", website.name),
+            || { concretize::build_substr_selector_index(document, substrings.clone()); },
+            NUM_SAMPLES,
+        );
+        let overall_is_conversion_results = bench_function(
+            &format!("{} :is() conversion", website.name),
+            || { concretize::convert_to_is_selectors(document, &selectors); },
+            NUM_SAMPLES,
+        );
+        let converted_selectors = concretize::convert_to_is_selectors(document, &selectors);
+        variant_result.add_indexing(indexing_results.sample_durations);
+        variant_result.add_overall_is_conversion(overall_is_conversion_results.sample_durations);
+        converted_selectors
+    } else {
+        selectors.to_vec()
+    };
+
+    if variant_spec.optimizations.distribution {
+        let distribution_input = selectors_after_is_conversion.clone();
+        let distributing_results = bench_function(
+            &format!("{} :is() distribution", website.name),
+            || {
+                let _: Vec<_> = distribution_input
+                    .iter()
+                    .flat_map(distribute::DistributedSelectors::from_selector)
+                    .collect();
+            },
+            NUM_SAMPLES,
+        );
+        variant_result.add_distribution(distributing_results.sample_durations);
+    }
+
+    variant_result
+}
+
+fn preprocess_selectors(document: &Html, selectors: &[Selector], optimizations: Optimizations) -> Vec<Selector> {
+    let selectors = if optimizations.is_conversion {
+        concretize::convert_to_is_selectors(document, selectors)
+    } else {
+        selectors.to_vec()
+    };
+
+    if optimizations.distribution {
+        selectors
+            .iter()
+            .flat_map(distribute::DistributedSelectors::from_selector)
+            .collect()
+    } else {
+        selectors
+    }
+}
+
 fn bench_website(
     benchmark_name: &str,
     document: &Html,
     matching_context: &MatchingContext,
-) -> MatchBenchResult {
+) -> VariantResult {
     let overall_stats = bench_function(
         benchmark_name,
         || {
@@ -298,11 +392,7 @@ fn bench_website(
         Some(&mut per_match_stats),
     );
     println!("done.");
-    let results = TimedResults {
-        total_duration: tsc_timer::Duration::from_cycles(0), // whatever
-        samples: Samples::from_vec(vec![per_match_stats]),
-    };
-    MatchBenchResult::new(overall_stats, results)
+    VariantResult::new(overall_stats, Samples::from_vec(vec![per_match_stats]))
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
@@ -352,18 +442,21 @@ where
     const WARM_UP_ITERATIONS: usize = 100;
     const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
+    let mut sample_durations = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
     warm_up_time(&WARM_UP_TIME, &func);
     eprint!("measuring {num_samples} samples...");
-    let start = tsc_timer::Start::now();
     for _ in 0..num_samples {
+      let sample_start = tsc_timer::Start::now();
       samples_vec.push(func());
+      sample_durations.push(sample_start.elapsed());
     }
-    let total_duration = start.elapsed();
-    eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
+    let total_duration = sample_durations.iter().fold(Default::default(), |acc, elt| acc + *elt);
+    let sample_durations = Samples::from_vec(sample_durations);
+    eprintln!("done. ({}, {} total)", format_duration(sample_durations.mean()), format_duration(total_duration));
     TimedResults {
-        total_duration,
         samples: Samples::from_vec(samples_vec),
+        sample_durations: sample_durations,
     }
 }
 
@@ -515,4 +608,3 @@ fn copy_html_js() -> io::Result<()> {
         )?;
     Ok(())
 }
-
