@@ -836,14 +836,14 @@ mod tests {
         }
     }
 
-    fn universal_tail_matches(enabled: bool) -> SetDocumentMatches {
+    fn universal_tail_matches(enabled: bool) -> (SetDocumentMatches, super::Statistics) {
         let document = scraper::Html::parse_document(
             "<main class='a'><section><span id='deep'></span></section><p id='sibling'></p></main><footer id='outside'></footer>",
         );
         let selectors = [".a *", ".a > *", ".missing *"].map(parse_selector);
         let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
         let context = super::MatchingContext::new(std::iter::once(&stylesheet), lock, false);
-        let (matches, _) = super::match_selectors_with_style_sharing(
+        let (matches, stats) = super::match_selectors_with_style_sharing(
             &document,
             &context,
             Optimizations {
@@ -852,16 +852,26 @@ mod tests {
             },
             None,
         );
-        SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&matches))
+        (
+            SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&matches)),
+            stats,
+        )
     }
 
     #[test]
     fn universal_tail_bless_lists_match_descendants() {
-        let matches = universal_tail_matches(true);
+        let (matches, blessed_stats) = universal_tail_matches(true);
         assert_eq!(selectors_for_element(&matches, "id=\"deep\""), BTreeSet::from([".a *".to_string()]));
         assert_eq!(selectors_for_element(&matches, "id=\"sibling\""), BTreeSet::from([".a *".to_string(), ".a > *".to_string()]));
         assert!(selectors_for_element(&matches, "id=\"outside\"").is_empty());
-        assert_eq!(universal_tail_matches(false), matches);
+        let (ordinary_matches, ordinary_stats) = universal_tail_matches(false);
+        assert_eq!(ordinary_matches, matches);
+        assert!(
+            blessed_stats.counts.selector_map_hits < ordinary_stats.counts.selector_map_hits,
+            "bless lists should reduce selector-map hits: {} >= {}",
+            blessed_stats.counts.selector_map_hits,
+            ordinary_stats.counts.selector_map_hits,
+        );
     }
 
     #[test]
