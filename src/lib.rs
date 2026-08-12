@@ -82,6 +82,7 @@ pub struct Optimizations {
     pub is_conversion: bool,
     pub distribution: bool,
     pub fail_caches: bool,
+    pub universal_tail_bless_lists: bool,
 }
 
 impl Optimizations {
@@ -471,6 +472,9 @@ fn collect_selectors_from_map(
     for rule in &map.other {
         push_rule(rule);
     }
+    for rule in &map.universal_tails {
+        push_rule(rule);
+    }
     for (_, bucket) in map.id_hash.iter() {
         for rule in bucket {
             push_rule(rule);
@@ -511,10 +515,12 @@ pub fn match_selectors_with_style_sharing<'document>(
         matches: &mut Vec<ElementMatches<'a>>,
         mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
         selector_map: &'a SelectorMap<Rule>,
-        cascade_data: &CascadeData,
+        cascade_data: &'a CascadeData,
+        bless_list: &mut SmallVec<[&'a Selector; 16]>,
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
+        let inherited_bless_list_len = bless_list.len();
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
@@ -529,7 +535,11 @@ pub fn match_selectors_with_style_sharing<'document>(
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Start::now();
-        let style_sharing_result = target.share_style_if_possible(context);
+        let style_sharing_result = if inherited_bless_list_len != 0 {
+            None
+        } else {
+            target.share_style_if_possible(context)
+        };
         stats.times.checking_style_sharing += start.elapsed();
         match style_sharing_result {
             Some((other_element, shared_styles)) => {
@@ -566,7 +576,6 @@ pub fn match_selectors_with_style_sharing<'document>(
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
-                // 1.3.1: create a MatchingContext (after updating style_bloom to avoid borrow check error)
                 let mut matching_context = matching::MatchingContext::new(
                     matching::MatchingMode::Normal,
                     Some(context.thread_local.bloom_filter.filter()),
@@ -577,9 +586,12 @@ pub fn match_selectors_with_style_sharing<'document>(
                 );
                 matching_context.set_use_fail_caches(optimizations.fail_caches);
                 // 1.3.2: Use the selector map to get matching rules
-                let mut matched_selectors = SmallVec::new();
+                let mut matched_selectors = bless_list[..inherited_bless_list_len]
+                    .iter()
+                    .copied()
+                    .collect();
                 let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
-                *stats += selector_map.get_all_matching_rules(
+                *stats += selector_map.get_all_matching_rules_with_universal_tails(
                     element,
                     element, // TODO: ????
                     &mut SmallVec::new(),
@@ -589,6 +601,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     CascadeLevel::same_tree_author_normal(),
                     cascade_data,
                     context.shared.stylist,
+                    false,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
                 // 1.3.3: add the matched selectors to the list
@@ -602,16 +615,18 @@ pub fn match_selectors_with_style_sharing<'document>(
                     selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                let start = Start::now();
-                context.thread_local.sharing_cache.insert_if_possible(
-                    &element ,
-                    &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
-                    // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
-                    None,
-                    element_depth,
-                    &context.shared,
-                );
-                stats.times.inserting_into_sharing_cache += start.elapsed();
+                if inherited_bless_list_len == 0 {
+                    let start = Start::now();
+                    context.thread_local.sharing_cache.insert_if_possible(
+                        &element ,
+                        &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
+                        // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
+                        None,
+                        element_depth,
+                        &context.shared,
+                    );
+                    stats.times.inserting_into_sharing_cache += start.elapsed();
+                }
             }
         }
         // 2. traverse children
@@ -624,10 +639,12 @@ pub fn match_selectors_with_style_sharing<'document>(
                 selector_stats.as_deref_mut(),
                 selector_map,
                 cascade_data,
+                bless_list,
                 optimizations,
                 stats
             );
         }
+        bless_list.truncate(inherited_bless_list_len);
     }
     let author_guard = matching_context.stylesheet_lock().read();
     let ua_or_user_lock = SharedRwLock::new();
@@ -662,6 +679,7 @@ pub fn match_selectors_with_style_sharing<'document>(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
+    let mut bless_list = SmallVec::new();
 
     let root = document.root_element();
     preorder_traversal(
@@ -672,6 +690,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_stats,
         selector_map,
         cascade_data,
+        &mut bless_list,
         _optimizations,
         &mut stats
     );
