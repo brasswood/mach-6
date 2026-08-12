@@ -230,6 +230,7 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
             &matching_context,
             Optimizations {
                 fail_caches: true,
+                universal_tail_bless_lists: true,
                 ..Optimizations::from_none()
             },
             None,
@@ -292,6 +293,7 @@ fn main() {
             &fail_cache_matching_context,
             Optimizations {
                 fail_caches: true,
+                universal_tail_bless_lists: true,
                 ..Optimizations::from_none()
             },
         );
