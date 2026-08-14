@@ -70,6 +70,7 @@ use crate::structs::{
 pub enum Algorithm {
     Naive,
     WithStyleSharing,
+    WithBlessList,
     WithIsConversion,
     WithDistribution,
     Mach7,
@@ -324,6 +325,19 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     &website.document(),
                     &matching_context,
                     Optimizations::from_none(),
+                    None,
+                );
+            (OwnedDocumentMatches::from(&matches), stats)
+        },
+        Algorithm::WithBlessList => {
+            let (matches, stats) =
+                match_selectors_with_style_sharing(
+                    &website.document(),
+                    &matching_context,
+                    Optimizations {
+                        universal_tail_bless_lists: true,
+                        ..Optimizations::from_none()
+                    },
                     None,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
