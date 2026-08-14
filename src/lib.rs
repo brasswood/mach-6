@@ -72,6 +72,7 @@ pub enum Algorithm {
     Naive,
     WithStyleSharing,
     WithFailCaches,
+    WithBlessList,
     WithIsConversion,
     WithDistribution,
     Mach7,
@@ -349,6 +350,20 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     &matching_context,
                     Optimizations {
                         fail_caches: true,
+                        ..Optimizations::from_none()
+                    },
+                    None,
+                );
+            (OwnedDocumentMatches::from(&matches), stats)
+        },
+        Algorithm::WithBlessList => {
+            let (matches, stats) =
+                match_selectors_with_style_sharing(
+                    &website.document(),
+                    &matching_context,
+                    Optimizations {
+                        fail_caches: true,
+                        universal_tail_bless_lists: true,
                         ..Optimizations::from_none()
                     },
                     None,
