@@ -550,7 +550,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         if optimizations.universal_tail_bless_lists {
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
-                Some(context.thread_local.bloom_filter.filter()),
+                None,
                 &mut context.thread_local.selector_caches,
                 matching::QuirksMode::NoQuirks,
                 matching::NeedsSelectorFlags::No,
@@ -606,10 +606,10 @@ pub fn match_selectors_with_style_sharing<'document>(
                 stats.counts.sharing_instances += 1;
             },
             None => {
-                // If we can't share styles, go through the selector map and bloom filter.
+                // If we can't share styles, go through the selector map without a bloom filter.
                 let mut matching_context = matching::MatchingContext::new(
                     matching::MatchingMode::Normal,
-                    Some(context.thread_local.bloom_filter.filter()),
+                    None,
                     &mut context.thread_local.selector_caches,
                     matching::QuirksMode::NoQuirks,
                     matching::NeedsSelectorFlags::No,
