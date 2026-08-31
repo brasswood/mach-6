@@ -531,7 +531,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
         selector_map: &'a SelectorMap<Rule>,
         cascade_data: &'a CascadeData,
-        bless_list: &mut SmallVec<[&'a Selector; 16]>,
+        bless_list: &mut SmallVec<[&'a Rule; 16]>,
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
@@ -617,11 +617,26 @@ pub fn match_selectors_with_style_sharing<'document>(
                 );
                 matching_context.set_use_fail_caches(optimizations.fail_caches);
                 // 1.3.2: Use the selector map to get matching rules
-                let mut matched_selectors = bless_list[..inherited_bless_list_len]
-                    .iter()
-                    .copied()
-                    .collect();
+                let mut matched_selectors = SmallVec::new();
                 let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
+                for rule in &bless_list[..inherited_bless_list_len] {
+                    let (matched, rule_stats) = matching::matches_selector(
+                        &rule.selector,
+                        0,
+                        Some(&rule.hashes),
+                        rule.fail_cache_prefix_ids.as_deref(),
+                        &element,
+                        &mut matching_context,
+                    );
+                    if let Some(selector_stats) = sel_stats.as_mut() {
+                        selector_stats.push((&rule.selector, SelectorStats::Bloom(rule_stats)));
+                    }
+                    *stats += rule_stats;
+                    if matched {
+                        matched_selectors.push(&rule.selector);
+                    }
+                }
+                stats.counts.selector_map_hits += inherited_bless_list_len;
                 *stats += selector_map.get_all_matching_rules_with_universal_tails(
                     element,
                     element, // TODO: ????
