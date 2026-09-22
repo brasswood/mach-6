@@ -218,6 +218,23 @@ mod overall_summary {
         }
     }
 
+    fn timing_segments(value: &VariantResult) -> Vec<SegmentSummaryJson> {
+        let mut segments = Vec::new();
+        if let Some(indexing) = value.timing_segments.indexing.as_ref() {
+            segments.push(segment_summary_json(SegmentKindJson::Indexing, indexing));
+        }
+        if let Some(is_conversion_mean) = value.timing_segments.derived_is_conversion_mean() {
+            segments.push(derived_segment_summary_json(SegmentKindJson::IsConversion, is_conversion_mean));
+        }
+        if let Some(distribution) = value.timing_segments.distribution.as_ref() {
+            segments.push(segment_summary_json(SegmentKindJson::Distribution, distribution));
+        }
+        segments.extend([
+            // TODO: Add matching timing segments in the next commits.
+        ]);
+        segments
+    }
+
     fn matching_timing_segments(value: &Samples<TimingStats>) -> [SegmentSummaryJson; 7] {
         let means = value.mean();
         let stddevs = value.stddev();
