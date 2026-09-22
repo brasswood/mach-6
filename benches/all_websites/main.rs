@@ -379,6 +379,23 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     variant_result
 }
 
+fn preprocess_selectors(document: &Html, selectors: &[Selector], optimizations: Optimizations) -> Vec<Selector> {
+    let selectors = if optimizations.is_conversion {
+        concretize::convert_to_is_selectors(document, selectors)
+    } else {
+        selectors.to_vec()
+    };
+
+    if optimizations.distribution {
+        selectors
+            .iter()
+            .flat_map(distribute::DistributedSelectors::from_selector)
+            .collect()
+    } else {
+        selectors
+    }
+}
+
 fn bench_website(
     benchmark_name: &str,
     document: &Html,
