@@ -233,6 +233,10 @@ mod overall_summary {
             segment_summary_json(SegmentKindJson::UpdatingBloomFilter, &value.timing_segments.updating_bloom_filter),
             segment_summary_json(SegmentKindJson::CheckingStyleSharing, &value.timing_segments.checking_style_sharing),
             segment_summary_json(SegmentKindJson::QueryingSelectorMap, &value.timing_segments.querying_selector_map),
+            segment_summary_json(SegmentKindJson::FastRejecting, &value.timing_segments.fast_rejecting),
+            segment_summary_json(SegmentKindJson::SlowRejecting, &value.timing_segments.slow_rejecting),
+            segment_summary_json(SegmentKindJson::SlowAccepting, &value.timing_segments.slow_accepting),
+            segment_summary_json(SegmentKindJson::InsertingIntoSharingCache, &value.timing_segments.inserting_into_sharing_cache),
         ]);
         segments
     }
