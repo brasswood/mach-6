@@ -181,55 +181,29 @@ mod overall_summary {
 
     use crate::WebsiteResult;
 
-    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
-
-    #[derive(Clone, Serialize, Deserialize)]
-    pub(crate) struct SummaryJson {
-        pub(crate) before_preprocessing: BenchmarkRunSummaryJson,
-        pub(crate) preprocessing: PreprocessingSummaryJson,
-        pub(crate) after_preprocessing: BenchmarkRunSummaryJson,
-    }
-
-    impl From<&WebsiteResult> for SummaryJson {
-        fn from(value: &WebsiteResult) -> Self {
-            Self {
-                before_preprocessing: BenchmarkRunSummaryJson::from(&value.before_preprocessing),
-                preprocessing: PreprocessingSummaryJson::from(&value.preprocessing),
-                after_preprocessing: BenchmarkRunSummaryJson::from(&value.after_preprocessing),
-            }
-        }
-    }
-
-    #[derive(Clone, Serialize, Deserialize)]
-    pub(crate) struct PreprocessingSummaryJson {
-        pub(crate) mean_indexing_cycles: u64,
-        pub(crate) mean_is_conversion_cycles: u64,
-        pub(crate) mean_distributing_cycles: u64,
-    }
-
-    impl From<&PreprocessingResult> for PreprocessingSummaryJson {
-        fn from(value: &PreprocessingResult) -> Self {
-            Self {
-                mean_indexing_cycles: value.mean_indexing().cycles(),
-                mean_is_conversion_cycles: value.mean_is_conversion().cycles(),
-                mean_distributing_cycles: value.mean_distributing().cycles(),
-            }
-        }
-    }
+    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, SegmentKindJson, SegmentSummaryJson, TimingStats};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct BenchmarkRunSummaryJson {
         pub(crate) mean_cycles: u64,
         pub(crate) counts: CountingStatsJson,
-        pub(crate) times: TimingStatsJson,
+        pub(crate) times: Vec<SegmentSummaryJson>,
     }
 
-    impl From<&MatchBenchResult> for BenchmarkRunSummaryJson {
-        fn from(value: &MatchBenchResult) -> Self {
+    impl BenchmarkRunSummaryJson {
+        pub(crate) fn new(
+            value: &MatchBenchResult,
+            preprocessing: Option<&PreprocessingResult>,
+        ) -> Self {
+            let mut times = Vec::new();
+            if let Some(preprocessing) = preprocessing {
+                times.extend(preprocessing_segments(preprocessing));
+            }
+            times.extend(matching_timing_segments(&value.timing_stats));
             Self {
                 mean_cycles: value.mean_duration().cycles(),
                 counts: CountingStatsJson::from(value.counting_stats),
-                times: TimingStatsJson::from(&value.timing_stats),
+                times,
             }
         }
     }
