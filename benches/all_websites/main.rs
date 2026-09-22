@@ -400,7 +400,7 @@ fn bench_website(
     benchmark_name: &str,
     document: &Html,
     matching_context: &MatchingContext,
-) -> MatchBenchResult {
+) -> VariantResult {
     let overall_stats = bench_function(
         benchmark_name,
         || {
@@ -424,11 +424,7 @@ fn bench_website(
         Some(&mut per_match_stats),
     );
     println!("done.");
-    let results = TimedResults {
-        total_duration: tsc_timer::Duration::from_cycles(0), // whatever
-        samples: Samples::from_vec(vec![per_match_stats]),
-    };
-    MatchBenchResult::new(overall_stats, results)
+    VariantResult::new(overall_stats, Samples::from_vec(vec![per_match_stats]))
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
