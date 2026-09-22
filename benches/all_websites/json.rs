@@ -241,29 +241,6 @@ mod overall_summary {
         segments
     }
 
-    fn matching_timing_segments(value: &Samples<TimingStats>) -> [SegmentSummaryJson; 7] {
-        let means = value.mean();
-        let stddevs = value.stddev();
-        [
-            // TODO: Remove this obsolete fixed-shape helper.
-            SegmentSummaryJson {
-                kind: SegmentKindJson::SlowRejecting,
-                mean_cycles: means.slow_rejecting.cycles(),
-                stddev_cycles: Some(stddevs.slow_rejecting.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::SlowAccepting,
-                mean_cycles: means.slow_accepting.cycles(),
-                stddev_cycles: Some(stddevs.slow_accepting.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::InsertingIntoSharingCache,
-                mean_cycles: means.inserting_into_sharing_cache.cycles(),
-                stddev_cycles: Some(stddevs.inserting_into_sharing_cache.cycles()),
-            },
-        ]
-    }
-
 }
 
 mod selector_summary {
