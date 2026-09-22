@@ -321,23 +321,18 @@ mod selector_summary {
 }
 
 mod samples {
-    use tsc_timer::Duration;
     use std::collections::HashMap;
 
     use selectors::matching::TimingStats;
     use serde::{Deserialize, Serialize};
+    use tsc_timer::Duration;
 
     use crate::{MatchBenchResult, SelectorString};
+    use super::{SegmentKindJson, SegmentSamplesJson};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
-        pub(crate) updating_bloom_filter_cycles: Vec<u64>,
-        pub(crate) slow_rejecting_cycles: Vec<u64>,
-        pub(crate) slow_accepting_cycles: Vec<u64>,
-        pub(crate) fast_rejecting_cycles: Vec<u64>,
-        pub(crate) checking_style_sharing_cycles: Vec<u64>,
-        pub(crate) inserting_into_sharing_cache_cycles: Vec<u64>,
-        pub(crate) querying_selector_map_cycles: Vec<u64>,
+        pub(crate) times: Vec<SegmentSamplesJson>,
         pub(crate) selector_slow_rejects_cycles: Option<HashMap<SelectorString, Vec<u64>>>,
     }
 
