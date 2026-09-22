@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+if [ -f "$HOME/.cargo/env" ]; then
+    # shellcheck disable=SC1091
+    . "$HOME/.cargo/env"
+fi
+
+for command_name in cargo rustc node npm; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        printf 'Required command is unavailable after orb resume: %s\n' "$command_name" >&2
+        exit 1
+    fi
+done
+
+if [ ! -x node_modules/.bin/tsc ]; then
+    printf 'TypeScript dependencies are unavailable after orb resume.\n' >&2
+    exit 1
+fi
+
+if [ ! -e stylo/.git ] || [ ! -e websites/.git ]; then
+    printf 'Git submodules are unavailable after orb resume.\n' >&2
+    exit 1
+fi

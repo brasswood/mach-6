@@ -5,3 +5,4 @@
 node_modules/
 *.tsbuildinfo
 __pycache__/
+.amp/portals/*
