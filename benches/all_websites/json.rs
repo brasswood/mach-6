@@ -275,13 +275,13 @@ mod selector_summary {
 mod samples {
     use std::collections::HashMap;
 
-    use selectors::matching::TimingStats;
     use serde::{Deserialize, Serialize};
+    #[cfg(feature = "serialize_selector_samples")]
     use tsc_timer::Duration;
 
-    use crate::{MatchBenchResult, SelectorString};
+    use crate::{SelectorString, VariantResult};
 
-    use super::{SegmentKindJson, SegmentSamplesJson};
+    use super::{Samples, SegmentKindJson, SegmentSamplesJson};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
@@ -289,8 +289,9 @@ mod samples {
         pub(crate) selector_slow_rejects_cycles: Option<HashMap<SelectorString, Vec<u64>>>,
     }
 
-    impl From<&MatchBenchResult> for TimingsSamplesJson {
-        fn from(value: &MatchBenchResult) -> Self {
+    impl From<&VariantResult> for TimingsSamplesJson {
+        fn from(value: &VariantResult) -> Self {
+            // TODO: Rewrite extraction for VariantTimingSegments.
             // Codex taught me this `project` trick!
             let get_cycles_samples = |project: fn(&TimingStats) -> Duration| -> Vec<u64> {
                 value
