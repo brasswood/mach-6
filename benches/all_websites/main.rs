@@ -124,7 +124,7 @@ struct VariantResult {
 impl VariantResult {
     fn new(
         stats: TimedResults<Statistics>,
-        per_match_stats: TimedResults<SmallVec<[(&Selector, SelectorStats); 16]>>,
+        per_match_stats: Samples<SmallVec<[(&Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
             .samples
@@ -137,10 +137,10 @@ impl VariantResult {
             .as_slice()
             .iter()
             .map(|stats| stats.times)
-            .collect();
+            .collect::<Vec<_>>();
 
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
-        for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
+        for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
                 let slow_reject_duration = match selector_stats {
                     SelectorStats::Bloom(bq) =>
@@ -153,7 +153,7 @@ impl VariantResult {
                 // selector for this sample (samples.len() == i), push a new
                 // Duration onto the end. Otherwise, samples.len() == i + 1,
                 // which means we have already started building up an aggregate
-                // duration for this sample, so just accumulate that. 
+                // duration for this sample, so just accumulate that.
                 if samples.len() == i {
                     samples.push(slow_reject_duration);
                 } else {
@@ -166,16 +166,28 @@ impl VariantResult {
             SelectorSlowRejectSamples { selector, aggregate_durations: Samples::from_vec(durations) }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
-        VariantResult {
-            total_duration: stats.total_duration,
+        let result = VariantResult {
             counting_stats,
-            timing_stats: Samples::from_vec(timing_stats),
+            timing_segments: VariantTimingSegments::from_matching_stats(&Samples::from_vec(timing_stats)),
             selector_slow_reject_times: sorted,
-        }
+        };
+        result
+    }
+
+    fn add_indexing(&mut self, indexing: Samples<tsc_timer::Duration>) {
+        self.timing_segments.indexing = Some(indexing);
+    }
+
+    fn add_overall_is_conversion(&mut self, overall_is_conversion: Samples<tsc_timer::Duration>) {
+        self.timing_segments.overall_is_conversion = Some(overall_is_conversion);
+    }
+
+    fn add_distribution(&mut self, distribution: Samples<tsc_timer::Duration>) {
+        self.timing_segments.distribution = Some(distribution);
     }
 
     fn mean_duration(&self) -> tsc_timer::Duration {
-        self.total_duration / self.timing_stats.len() as u64
+        self.timing_segments.mean_total_duration()
     }
 }
 
