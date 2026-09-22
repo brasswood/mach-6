@@ -162,7 +162,7 @@ impl From<&WebsiteResult> for WebsiteJson {
 mod overall_summary {
     use serde::{Deserialize, Serialize};
 
-    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, SegmentKindJson, SegmentSummaryJson, TimingStats};
+    use super::{CountingStats, Samples, SegmentKindJson, SegmentSummaryJson, VariantResult};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct BenchmarkRunSummaryJson {
@@ -172,19 +172,11 @@ mod overall_summary {
     }
 
     impl BenchmarkRunSummaryJson {
-        pub(crate) fn new(
-            value: &MatchBenchResult,
-            preprocessing: Option<&PreprocessingResult>,
-        ) -> Self {
-            let mut times = Vec::new();
-            if let Some(preprocessing) = preprocessing {
-                times.extend(preprocessing_segments(preprocessing));
-            }
-            times.extend(matching_timing_segments(&value.timing_stats));
+        pub(crate) fn new(value: &VariantResult) -> Self {
             Self {
                 mean_cycles: value.mean_duration().cycles(),
                 counts: CountingStatsJson::from(value.counting_stats),
-                times,
+                times: timing_segments(value),
             }
         }
     }
