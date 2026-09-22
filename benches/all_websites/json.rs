@@ -3,6 +3,9 @@ use time::format_description::well_known::{iso8601, Iso8601};
 
 use super::*;
 
+const BASELINE_VARIANT_ID: usize = 0;
+const OPTIMIZED_VARIANT_ID: usize = 1;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportJson {
     pub(crate) metadata: ReportMetadataJson,
@@ -24,6 +27,32 @@ const FORMAT: Iso8601<CONFIG> = Iso8601::<CONFIG>;
 time::serde::format_description!(rfc3339_nodecimal, OffsetDateTime, FORMAT);
 
 #[derive(Clone, Serialize, Deserialize)]
+pub(crate) struct VariantManifestEntryJson {
+    pub(crate) id: usize,
+    pub(crate) label: Option<String>,
+    pub(crate) optimizations: Optimizations,
+}
+
+// TODO: Generates temporary constant variant manifest, until benchmark machinery gets updated
+fn report_variants_manifest() -> Vec<VariantManifestEntryJson> {
+    vec![
+        VariantManifestEntryJson {
+            id: BASELINE_VARIANT_ID,
+            label: None,
+            optimizations: Optimizations::from_none(),
+        },
+        VariantManifestEntryJson {
+            id: OPTIMIZED_VARIANT_ID,
+            label: None,
+            optimizations: Optimizations {
+                is_conversion: true,
+                distribution: true,
+            },
+        },
+    ]
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportMetadataJson {
     #[serde(with = "rfc3339_nodecimal")]
     pub(crate) time_start: time::OffsetDateTime,
@@ -35,6 +64,7 @@ pub(crate) struct ReportMetadataJson {
     pub(crate) message: Option<String>,
     pub(crate) dirty: Option<bool>,
     pub(crate) branch: Option<String>,
+    pub(crate) variants: Vec<VariantManifestEntryJson>,
 }
 
 impl ReportMetadataJson {
@@ -44,6 +74,7 @@ impl ReportMetadataJson {
         time_start: time::OffsetDateTime,
         time_end: time::OffsetDateTime
     ) -> Self {
+        let variants = report_variants_manifest();
         match git_metadata {
             Some(git) => Self {
                 time_start,
@@ -54,6 +85,7 @@ impl ReportMetadataJson {
                 message: Some(git.message),
                 dirty: Some(git.dirty),
                 branch: git.branch,
+                variants,
             },
             None => Self {
                 time_start,
