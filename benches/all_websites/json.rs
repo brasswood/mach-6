@@ -249,6 +249,29 @@ mod overall_summary {
         ]
     }
 
+    fn matching_timing_segments(value: &Samples<TimingStats>) -> [SegmentSummaryJson; 7] {
+        let means = value.mean();
+        let stddevs = value.stddev();
+        [
+            SegmentSummaryJson {
+                kind: SegmentKindJson::UpdatingBloomFilter,
+                mean_cycles: means.updating_bloom_filter.cycles(),
+                stddev_cycles: Some(stddevs.updating_bloom_filter.cycles()),
+            },
+            SegmentSummaryJson {
+                kind: SegmentKindJson::CheckingStyleSharing,
+                mean_cycles: means.checking_style_sharing.cycles(),
+                stddev_cycles: Some(stddevs.checking_style_sharing.cycles()),
+            },
+            SegmentSummaryJson {
+                kind: SegmentKindJson::QueryingSelectorMap,
+                mean_cycles: means.querying_selector_map.cycles(),
+                stddev_cycles: Some(stddevs.querying_selector_map.cycles()),
+            },
+            // TODO: Add the remaining matching timing segments.
+        ]
+    }
+
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingStatsJson {
         pub(crate) means: TimingsJsonBody,
