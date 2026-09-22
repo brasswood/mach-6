@@ -268,7 +268,26 @@ mod overall_summary {
                 mean_cycles: means.querying_selector_map.cycles(),
                 stddev_cycles: Some(stddevs.querying_selector_map.cycles()),
             },
-            // TODO: Add the remaining matching timing segments.
+            SegmentSummaryJson {
+                kind: SegmentKindJson::FastRejecting,
+                mean_cycles: means.fast_rejecting.cycles(),
+                stddev_cycles: Some(stddevs.fast_rejecting.cycles()),
+            },
+            SegmentSummaryJson {
+                kind: SegmentKindJson::SlowRejecting,
+                mean_cycles: means.slow_rejecting.cycles(),
+                stddev_cycles: Some(stddevs.slow_rejecting.cycles()),
+            },
+            SegmentSummaryJson {
+                kind: SegmentKindJson::SlowAccepting,
+                mean_cycles: means.slow_accepting.cycles(),
+                stddev_cycles: Some(stddevs.slow_accepting.cycles()),
+            },
+            SegmentSummaryJson {
+                kind: SegmentKindJson::InsertingIntoSharingCache,
+                mean_cycles: means.inserting_into_sharing_cache.cycles(),
+                stddev_cycles: Some(stddevs.inserting_into_sharing_cache.cycles()),
+            },
         ]
     }
 
