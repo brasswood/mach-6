@@ -101,12 +101,47 @@ impl ReportMetadataJson {
     }
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SegmentKindJson {
+    Indexing,
+    IsConversion,
+    Distribution,
+    UpdatingBloomFilter,
+    CheckingStyleSharing,
+    QueryingSelectorMap,
+    FastRejecting,
+    SlowRejecting,
+    SlowAccepting,
+    InsertingIntoSharingCache,
+    Other,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub(crate) struct SegmentSummaryJson {
+    pub(crate) kind: SegmentKindJson,
+    pub(crate) mean_cycles: u64,
+    pub(crate) stddev_cycles: Option<u64>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub(crate) struct SegmentSamplesJson {
+    pub(crate) kind: SegmentKindJson,
+    pub(crate) samples_cycles: Vec<u64>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub(crate) struct WebsiteVariantJson {
+    pub(crate) variant_id: usize,
+    pub(crate) summary: overall_summary::BenchmarkRunSummaryJson,
+    pub(crate) selector_slow_rejects_summary: selector_summary::SelectorStatsJson,
+    pub(crate) samples: samples::TimingsSamplesJson,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct WebsiteJson {
     pub(crate) website: String,
-    pub(crate) summary: overall_summary::SummaryJson,
-    pub(crate) selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson,
-    pub(crate) samples: samples::SamplesJson,
+    pub(crate) variants: Vec<WebsiteVariantJson>,
 }
 
 impl From<&WebsiteResult> for WebsiteJson {
