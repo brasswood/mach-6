@@ -30,6 +30,7 @@ pub(crate) struct VariantManifestEntryJson {
     pub(crate) optimizations: Optimizations,
 }
 
+// TODO: Generates temporary constant variant manifest, until benchmark machinery gets updated
 fn report_variants_manifest() -> Vec<VariantManifestEntryJson> {
     variant_specs()
         .iter()
