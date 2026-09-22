@@ -329,4 +329,11 @@ mod samples {
             }
         }
     }
+
+    fn segment_samples_json(kind: SegmentKindJson, value: &Samples<tsc_timer::Duration>) -> SegmentSamplesJson {
+        SegmentSamplesJson {
+            kind,
+            samples_cycles: value.iter().map(|duration| duration.cycles()).collect(),
+        }
+    }
 }
