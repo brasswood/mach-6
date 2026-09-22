@@ -276,28 +276,13 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        // TODO: Replace the fixed website benchmark pipeline with variant dispatch.
-        let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
-        let (preprocessed_stylesheet, preprocessed_lock) =
-            stylesheet_from_selectors(preprocessed_selectors.iter());
-        let preprocessed_context = MatchingContext::new(
-            std::iter::once(&preprocessed_stylesheet),
-            preprocessed_lock,
-        );
-        let after_preprocessing = bench_website(
-            &format!("{} after preprocessing", w.name),
-            w.document(),
-            &preprocessed_context,
-        );
+        let variants = variant_specs()
+            .iter()
+            .map(|variant_spec| bench_variant(&w, variant_spec))
+            .collect();
         let result = WebsiteResult {
             website: w.name,
-            before_preprocessing,
-            preprocessing: PreprocessingResult::new(
-                indexing_results,
-                overall_is_conversion_results,
-                distributing_results,
-            ),
-            after_preprocessing,
+            variants,
         };
         result
     });
