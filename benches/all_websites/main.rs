@@ -1,13 +1,13 @@
 use log::{error, warn};
 use mach_6::{self, MatchingContext, Optimizations, get_all_documents_and_selectors, stylesheet_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
-use mach_6::preprocessing::{self, concretize, distribute};
+use mach_6::preprocessing::{concretize, distribute};
 use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
