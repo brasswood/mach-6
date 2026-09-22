@@ -3,9 +3,6 @@ use time::format_description::well_known::{iso8601, Iso8601};
 
 use super::*;
 
-const BASELINE_VARIANT_ID: usize = 0;
-const OPTIMIZED_VARIANT_ID: usize = 1;
-
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ReportJson {
     pub(crate) metadata: ReportMetadataJson,
@@ -33,23 +30,15 @@ pub(crate) struct VariantManifestEntryJson {
     pub(crate) optimizations: Optimizations,
 }
 
-// TODO: Generates temporary constant variant manifest, until benchmark machinery gets updated
 fn report_variants_manifest() -> Vec<VariantManifestEntryJson> {
-    vec![
-        VariantManifestEntryJson {
-            id: BASELINE_VARIANT_ID,
-            label: None,
-            optimizations: Optimizations::from_none(),
-        },
-        VariantManifestEntryJson {
-            id: OPTIMIZED_VARIANT_ID,
-            label: None,
-            optimizations: Optimizations {
-                is_conversion: true,
-                distribution: true,
-            },
-        },
-    ]
+    variant_specs()
+        .iter()
+        .map(|variant_spec| VariantManifestEntryJson {
+            id: variant_spec.id,
+            label: variant_spec.label.map(str::to_owned),
+            optimizations: variant_spec.optimizations,
+        })
+        .collect()
 }
 
 #[derive(Clone, Serialize, Deserialize)]
