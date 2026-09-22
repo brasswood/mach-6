@@ -45,6 +45,20 @@ struct SelectorSlowRejectSamples {
     aggregate_durations: Samples<tsc_timer::Duration>,
 }
 
+#[derive(Clone, Debug)]
+struct VariantTimingSegments {
+    updating_bloom_filter: Samples<tsc_timer::Duration>,
+    checking_style_sharing: Samples<tsc_timer::Duration>,
+    querying_selector_map: Samples<tsc_timer::Duration>,
+    fast_rejecting: Samples<tsc_timer::Duration>,
+    slow_rejecting: Samples<tsc_timer::Duration>,
+    slow_accepting: Samples<tsc_timer::Duration>,
+    inserting_into_sharing_cache: Samples<tsc_timer::Duration>,
+    indexing: Option<Samples<tsc_timer::Duration>>,
+    overall_is_conversion: Option<Samples<tsc_timer::Duration>>,
+    distribution: Option<Samples<tsc_timer::Duration>>,
+}
+
 /// Aggregated data for one benchmarked optimization variant.
 #[derive(Clone, Debug)]
 struct VariantResult {
