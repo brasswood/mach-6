@@ -291,30 +291,6 @@ mod overall_summary {
         ]
     }
 
-    #[derive(Clone, Serialize, Deserialize)]
-    pub(crate) struct TimingsJsonBody {
-        pub(crate) updating_bloom_filter_cycles: u64,
-        pub(crate) slow_rejecting_cycles: u64,
-        pub(crate) slow_accepting_cycles: u64,
-        pub(crate) fast_rejecting_cycles: u64,
-        pub(crate) checking_style_sharing_cycles: u64,
-        pub(crate) inserting_into_sharing_cache_cycles: u64,
-        pub(crate) querying_selector_map_cycles: u64,
-    }
-
-    impl From<TimingStats> for TimingsJsonBody {
-        fn from(value: TimingStats) -> Self {
-            Self {
-                updating_bloom_filter_cycles: value.updating_bloom_filter.cycles(),
-                slow_rejecting_cycles: value.slow_rejecting.cycles(),
-                slow_accepting_cycles: value.slow_accepting.cycles(),
-                fast_rejecting_cycles: value.fast_rejecting.cycles(),
-                checking_style_sharing_cycles: value.checking_style_sharing.cycles(),
-                inserting_into_sharing_cache_cycles: value.inserting_into_sharing_cache.cycles(),
-                querying_selector_map_cycles: value.querying_selector_map.cycles(),
-            }
-        }
-    }
 }
 
 mod selector_summary {
