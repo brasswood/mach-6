@@ -474,18 +474,21 @@ where
     const WARM_UP_ITERATIONS: usize = 100;
     const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
+    let mut sample_durations = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
     warm_up_time(&WARM_UP_TIME, &func);
     eprint!("measuring {num_samples} samples...");
-    let start = tsc_timer::Start::now();
     for _ in 0..num_samples {
+      let sample_start = tsc_timer::Start::now();
       samples_vec.push(func());
+      sample_durations.push(sample_start.elapsed());
     }
-    let total_duration = start.elapsed();
-    eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
+    let total_duration = sample_durations.iter().fold(Default::default(), |acc, elt| acc + *elt);
+    let sample_durations = Samples::from_vec(sample_durations);
+    eprintln!("done. ({}, {} total)", format_duration(sample_durations.mean()), format_duration(total_duration));
     TimedResults {
-        total_duration,
         samples: Samples::from_vec(samples_vec),
+        sample_durations: sample_durations,
     }
 }
 
