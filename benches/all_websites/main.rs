@@ -22,15 +22,10 @@ mod json;
 mod stats;
 
 struct TimedResults<R> {
-    total_duration: tsc_timer::Duration,
     samples: Samples<R>,
-}
-
-impl<R> TimedResults<R> {
-    fn overall_mean(&self) -> tsc_timer::Duration {
-        assert!(self.samples.len() != 0, "tried to compute overall mean on result with no samples");
-        self.total_duration / u64::try_from(self.samples.len()).unwrap()
-    }
+    // measure duration of individual samples here;
+    // don't assume `Samples<R>` will do it.
+    sample_durations: Samples<tsc_timer::Duration>,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
@@ -515,4 +510,3 @@ fn copy_html_js() -> io::Result<()> {
         )?;
     Ok(())
 }
-
