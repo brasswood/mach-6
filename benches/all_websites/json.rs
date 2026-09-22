@@ -229,6 +229,26 @@ mod overall_summary {
         }
     }
 
+    fn preprocessing_segments(value: &PreprocessingResult) -> [SegmentSummaryJson; 3] {
+        [
+            SegmentSummaryJson {
+                kind: SegmentKindJson::Indexing,
+                mean_cycles: value.mean_indexing().cycles(),
+                stddev_cycles: None,
+            },
+            SegmentSummaryJson {
+                kind: SegmentKindJson::IsConversion,
+                mean_cycles: value.mean_non_indexing().cycles(),
+                stddev_cycles: None,
+            },
+            SegmentSummaryJson {
+                kind: SegmentKindJson::Distribution,
+                mean_cycles: value.mean_distributing().cycles(),
+                stddev_cycles: None,
+            },
+        ]
+    }
+
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingStatsJson {
         pub(crate) means: TimingsJsonBody,
