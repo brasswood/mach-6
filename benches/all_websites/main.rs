@@ -81,6 +81,32 @@ impl VariantTimingSegments {
             distribution: None,
         }
     }
+
+    fn mean_total_duration(&self) -> tsc_timer::Duration {
+        let mut total = self.updating_bloom_filter.mean()
+            + self.checking_style_sharing.mean()
+            + self.querying_selector_map.mean()
+            + self.fast_rejecting.mean()
+            + self.slow_rejecting.mean()
+            + self.slow_accepting.mean()
+            + self.inserting_into_sharing_cache.mean();
+        if let Some(indexing) = self.indexing.as_ref() {
+            total += indexing.mean();
+        }
+        if let Some(overall_is_conversion) = self.overall_is_conversion.as_ref() {
+            total += overall_is_conversion.mean();
+        }
+        if let Some(distribution) = self.distribution.as_ref() {
+            total += distribution.mean();
+        }
+        total
+    }
+
+    fn derived_is_conversion_mean(&self) -> Option<tsc_timer::Duration> {
+        let indexing = self.indexing.as_ref()?;
+        let overall_is_conversion = self.overall_is_conversion.as_ref()?;
+        Some(overall_is_conversion.mean() - indexing.mean())
+    }
 }
 
 /// Aggregated data for one benchmarked optimization variant.
