@@ -245,26 +245,7 @@ mod overall_summary {
         let means = value.mean();
         let stddevs = value.stddev();
         [
-            SegmentSummaryJson {
-                kind: SegmentKindJson::UpdatingBloomFilter,
-                mean_cycles: means.updating_bloom_filter.cycles(),
-                stddev_cycles: Some(stddevs.updating_bloom_filter.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::CheckingStyleSharing,
-                mean_cycles: means.checking_style_sharing.cycles(),
-                stddev_cycles: Some(stddevs.checking_style_sharing.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::QueryingSelectorMap,
-                mean_cycles: means.querying_selector_map.cycles(),
-                stddev_cycles: Some(stddevs.querying_selector_map.cycles()),
-            },
-            SegmentSummaryJson {
-                kind: SegmentKindJson::FastRejecting,
-                mean_cycles: means.fast_rejecting.cycles(),
-                stddev_cycles: Some(stddevs.fast_rejecting.cycles()),
-            },
+            // TODO: Remove this obsolete fixed-shape helper.
             SegmentSummaryJson {
                 kind: SegmentKindJson::SlowRejecting,
                 mean_cycles: means.slow_rejecting.cycles(),
