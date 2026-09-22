@@ -136,32 +136,25 @@ pub(crate) struct WebsiteJson {
 
 impl From<&WebsiteResult> for WebsiteJson {
     fn from(value: &WebsiteResult) -> Self {
+        assert_eq!(
+            value.variants.len(),
+            variant_specs().len(),
+            "website variant count did not match configured variant manifest",
+        );
         Self {
             website: value.website.clone(),
-            variants: vec![
-                WebsiteVariantJson {
-                    variant_id: BASELINE_VARIANT_ID,
-                    summary: overall_summary::BenchmarkRunSummaryJson::new(
-                        &value.before_preprocessing,
-                        None,
-                    ),
+            variants: variant_specs()
+                .iter()
+                .zip(value.variants.iter())
+                .map(|(variant_spec, variant)| WebsiteVariantJson {
+                    variant_id: variant_spec.id,
+                    summary: overall_summary::BenchmarkRunSummaryJson::new(variant),
                     selector_slow_rejects_summary: selector_summary::SelectorStatsJson::from(
-                        value.before_preprocessing.selector_slow_reject_times.as_slice(),
+                        variant.selector_slow_reject_times.as_slice(),
                     ),
-                    samples: samples::TimingsSamplesJson::from(&value.before_preprocessing),
-                },
-                WebsiteVariantJson {
-                    variant_id: OPTIMIZED_VARIANT_ID,
-                    summary: overall_summary::BenchmarkRunSummaryJson::new(
-                        &value.after_preprocessing,
-                        Some(&value.preprocessing),
-                    ),
-                    selector_slow_rejects_summary: selector_summary::SelectorStatsJson::from(
-                        value.after_preprocessing.selector_slow_reject_times.as_slice(),
-                    ),
-                    samples: samples::TimingsSamplesJson::from(&value.after_preprocessing),
-                },
-            ],
+                    samples: samples::TimingsSamplesJson::from(variant),
+                })
+                .collect(),
         }
     }
 }
