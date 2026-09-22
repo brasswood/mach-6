@@ -314,6 +314,33 @@ fn main() {
     };
 }
 
+fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> VariantResult {
+    // TODO: Html will not be able to be reused
+    // between variant runs once we add fail caches back
+    // in
+    let document = website.document();
+    let matching_context = website.get_matcher();
+    let benchmark_name = format!("{} variant {}", website.name, variant_spec.id);
+
+    if !variant_spec.optimizations.is_conversion && !variant_spec.optimizations.distribution {
+        return bench_website(&benchmark_name, document, &matching_context);
+    }
+
+    let selectors = matching_context.get_selectors();
+    let mut variant_result;
+    let preprocessed_selectors = preprocess_selectors(document, &selectors, variant_spec.optimizations);
+    let (preprocessed_stylesheet, preprocessed_lock) =
+        stylesheet_from_selectors(preprocessed_selectors.iter());
+    let preprocessed_context = MatchingContext::new(
+        std::iter::once(&preprocessed_stylesheet),
+        preprocessed_lock,
+    );
+    variant_result = bench_website(
+        &benchmark_name,
+        document,
+        &preprocessed_context,
+    );
+
 fn bench_website(
     benchmark_name: &str,
     document: &Html,
