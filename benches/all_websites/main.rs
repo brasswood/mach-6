@@ -45,20 +45,13 @@ struct SelectorSlowRejectSamples {
     aggregate_durations: Samples<tsc_timer::Duration>,
 }
 
-/// Aggregated data for one matching variant in the website report.
-///
-/// A "variant" here means one of the two selector-matching configurations we
-/// compare for a website, such as before preprocessing vs. after preprocessing.
-/// This is the per-variant payload consumed by both the HTML report and the
-/// per-website JSON output.
+/// Aggregated data for one benchmarked optimization variant.
 #[derive(Clone, Debug)]
 struct VariantResult {
-    /// The total duration of the benched website
-    total_duration: tsc_timer::Duration,
     /// Counting stats of one sample (should be the same accross all samples)
     counting_stats: CountingStats,
-    /// Per-sample timing stats
-    timing_stats: Samples<TimingStats>,
+    /// Timing samples
+    timing_segments: VariantTimingSegments,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
