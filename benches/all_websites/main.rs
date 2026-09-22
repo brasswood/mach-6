@@ -223,13 +223,39 @@ impl PreprocessingResult {
     }
 }
 
-/// All report data for one website: the baseline matching variant, the
-/// preprocessing step, and the post-preprocessing matching variant.
+#[derive(Clone, Copy)]
+struct VariantSpec {
+    id: usize,
+    label: Option<&'static str>,
+    optimizations: Optimizations,
+}
+
+const VARIANT_SPECS: [VariantSpec; 2] = [
+    VariantSpec {
+        id: 0,
+        label: None,
+        optimizations: Optimizations {
+            is_conversion: false,
+            distribution: false,
+        },
+    },
+    VariantSpec {
+        id: 1,
+        label: None,
+        optimizations: Optimizations {
+            is_conversion: true,
+            distribution: true,
+        },
+    },
+];
+
+fn variant_specs() -> &'static [VariantSpec] {
+    &VARIANT_SPECS
+}
+
 struct WebsiteResult {
     website: String,
-    before_preprocessing: MatchBenchResult,
-    preprocessing: PreprocessingResult,
-    after_preprocessing: MatchBenchResult,
+    variants: Vec<VariantResult>,
 }
 
 const NUM_SAMPLES: u64 = 25;
