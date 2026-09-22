@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+timed() {
+    local name="$1"; shift; local started=$SECONDS
+    printf '\n==> %s\n' "$name"; "$@"
+    printf '<== %s (%ss)\n' "$name" "$((SECONDS - started))"
+}
+
+system_packages() {
+    local -a packages=()
+    for requirement in cc:build-essential curl:curl node:nodejs npm:npm pkg-config:pkg-config python3:python3; do
+        local command_name="${requirement%%:*}" package="${requirement#*:}"
+        command -v "$command_name" >/dev/null 2>&1 || packages+=("$package")
+    done
+    if ((${#packages[@]})); then
+        local -a apt=(apt-get); ((EUID != 0)) && apt=(sudo apt-get)
+        DEBIAN_FRONTEND=noninteractive "${apt[@]}" update
+        DEBIAN_FRONTEND=noninteractive "${apt[@]}" install -y --no-install-recommends "${packages[@]}"
+    fi
+}
+rust_toolchain() {
+    local marker='# mach-6 Rust toolchain'
+    if ! grep -Fqx "$marker" "$HOME/.bash_profile" 2>/dev/null; then
+        printf '%s\n' '' "$marker" 'if [ -f "$HOME/.cargo/env" ]; then' '    . "$HOME/.cargo/env"' 'fi' >> "$HOME/.bash_profile"
+    fi
+    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"; if ! command -v rustup >/dev/null 2>&1; then
+        curl --proto '=https' --tlsv1.2 --silent --show-error --fail https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    fi
+    . "$HOME/.cargo/env"; if ! rustup toolchain list | grep -Eq '^stable(-|[[:space:]])'; then rustup toolchain install stable --profile minimal; fi
+    rustup default stable
+}
+
+timed 'Install system packages' system_packages
+timed 'Install the stable Rust toolchain' rust_toolchain
+timed 'Initialize Git submodules' git submodule update --init --recursive
+timed 'Install npm dependencies' npm install --no-audit --no-fund --prefer-offline
+timed 'Fetch locked Cargo dependencies' cargo fetch --locked
