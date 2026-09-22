@@ -327,22 +327,7 @@ mod samples {
     use selectors::matching::TimingStats;
     use serde::{Deserialize, Serialize};
 
-    use crate::{MatchBenchResult, SelectorString, WebsiteResult};
-
-    #[derive(Clone, Serialize, Deserialize)]
-    pub(crate) struct SamplesJson {
-        pub(crate) before_preprocessing: TimingsSamplesJson,
-        pub(crate) after_preprocessing: TimingsSamplesJson,
-    }
-
-    impl From<&WebsiteResult> for SamplesJson {
-        fn from(value: &WebsiteResult) -> Self {
-            Self {
-                before_preprocessing: TimingsSamplesJson::from(&value.before_preprocessing),
-                after_preprocessing: TimingsSamplesJson::from(&value.after_preprocessing),
-            }
-        }
-    }
+    use crate::{MatchBenchResult, SelectorString};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
