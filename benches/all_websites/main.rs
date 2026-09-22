@@ -59,6 +59,30 @@ struct VariantTimingSegments {
     distribution: Option<Samples<tsc_timer::Duration>>,
 }
 
+impl VariantTimingSegments {
+    fn from_matching_stats(value: &Samples<TimingStats>) -> Self {
+        let project = |project: fn(&TimingStats) -> tsc_timer::Duration| {
+            Samples::from_vec(
+                value.iter()
+                    .map(|sample| project(sample))
+                    .collect(),
+            )
+        };
+        Self {
+            updating_bloom_filter: project(|stats| stats.updating_bloom_filter),
+            checking_style_sharing: project(|stats| stats.checking_style_sharing),
+            querying_selector_map: project(|stats| stats.querying_selector_map),
+            fast_rejecting: project(|stats| stats.fast_rejecting),
+            slow_rejecting: project(|stats| stats.slow_rejecting),
+            slow_accepting: project(|stats| stats.slow_accepting),
+            inserting_into_sharing_cache: project(|stats| stats.inserting_into_sharing_cache),
+            indexing: None,
+            overall_is_conversion: None,
+            distribution: None,
+        }
+    }
+}
+
 /// Aggregated data for one benchmarked optimization variant.
 #[derive(Clone, Debug)]
 struct VariantResult {
