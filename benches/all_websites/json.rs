@@ -148,9 +148,30 @@ impl From<&WebsiteResult> for WebsiteJson {
     fn from(value: &WebsiteResult) -> Self {
         Self {
             website: value.website.clone(),
-            summary: overall_summary::SummaryJson::from(value),
-            selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson::from(value),
-            samples: samples::SamplesJson::from(value),
+            variants: vec![
+                WebsiteVariantJson {
+                    variant_id: BASELINE_VARIANT_ID,
+                    summary: overall_summary::BenchmarkRunSummaryJson::new(
+                        &value.before_preprocessing,
+                        None,
+                    ),
+                    selector_slow_rejects_summary: selector_summary::SelectorStatsJson::from(
+                        value.before_preprocessing.selector_slow_reject_times.as_slice(),
+                    ),
+                    samples: samples::TimingsSamplesJson::from(&value.before_preprocessing),
+                },
+                WebsiteVariantJson {
+                    variant_id: OPTIMIZED_VARIANT_ID,
+                    summary: overall_summary::BenchmarkRunSummaryJson::new(
+                        &value.after_preprocessing,
+                        Some(&value.preprocessing),
+                    ),
+                    selector_slow_rejects_summary: selector_summary::SelectorStatsJson::from(
+                        value.after_preprocessing.selector_slow_reject_times.as_slice(),
+                    ),
+                    samples: samples::TimingsSamplesJson::from(&value.after_preprocessing),
+                },
+            ],
         }
     }
 }
