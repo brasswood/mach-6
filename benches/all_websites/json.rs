@@ -96,6 +96,7 @@ impl ReportMetadataJson {
                 message: None,
                 dirty: None,
                 branch: None,
+                variants,
             }
         }
     }
@@ -328,6 +329,7 @@ mod samples {
     use tsc_timer::Duration;
 
     use crate::{MatchBenchResult, SelectorString};
+
     use super::{SegmentKindJson, SegmentSamplesJson};
 
     #[derive(Clone, Serialize, Deserialize)]
