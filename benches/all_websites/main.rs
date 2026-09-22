@@ -191,38 +191,6 @@ impl VariantResult {
     }
 }
 
-/// Timing data for the preprocessing stage that sits between the two matching
-/// variants in the report.
-struct PreprocessingResult {
-    /// The substring-indexing results
-    indexing: TimedResults<()>,
-    /// The total is conversion results. This has `indexing` included in it.
-    overall_is_conversion: TimedResults<()>,
-    /// The :is() distribution results
-    distribution: TimedResults<()>
-}
-impl PreprocessingResult {
-    fn new(indexing: TimedResults<()>, overall_is_conversion: TimedResults<()>, distribution: TimedResults<()>) -> Self {
-        Self {
-            indexing,
-            overall_is_conversion,
-            distribution,
-        }
-    }
-    fn mean_indexing(&self) -> tsc_timer::Duration {
-        self.indexing.total_duration / self.indexing.samples.len() as u64
-    }
-    fn mean_is_conversion(&self) -> tsc_timer::Duration {
-        self.overall_is_conversion.total_duration / self.overall_is_conversion.samples.len() as u64
-    }
-    fn mean_non_indexing(&self) -> tsc_timer::Duration {
-        self.mean_is_conversion() - self.mean_indexing()
-    }
-    fn mean_distributing(&self) -> tsc_timer::Duration {
-        self.distribution.total_duration / self.distribution.samples.len() as u64
-    }
-}
-
 #[derive(Clone, Copy)]
 struct VariantSpec {
     id: usize,
