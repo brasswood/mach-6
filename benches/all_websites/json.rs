@@ -179,8 +179,6 @@ impl From<&WebsiteResult> for WebsiteJson {
 mod overall_summary {
     use serde::{Deserialize, Serialize};
 
-    use crate::WebsiteResult;
-
     use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, SegmentKindJson, SegmentSummaryJson, TimingStats};
 
     #[derive(Clone, Serialize, Deserialize)]
@@ -298,24 +296,7 @@ mod selector_summary {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::WebsiteResult;
-
     use super::{SelectorSlowRejectSamples, SelectorString};
-
-    #[derive(Clone, Serialize, Deserialize)]
-    pub(crate) struct SelectorsSummaryJson {
-        pub(crate) before_preprocessing: SelectorStatsJson,
-        pub(crate) after_preprocessing: SelectorStatsJson,
-    }
-
-    impl From<&WebsiteResult> for SelectorsSummaryJson {
-        fn from(value: &WebsiteResult) -> Self {
-            Self {
-                before_preprocessing: SelectorStatsJson::from(value.before_preprocessing.selector_slow_reject_times.as_slice()),
-                after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.selector_slow_reject_times.as_slice())
-            }
-        }
-    }
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorStatsJson {
