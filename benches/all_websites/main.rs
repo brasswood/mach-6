@@ -276,38 +276,7 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let matching_context = w.get_matcher();
-        let before_preprocessing = bench_website(
-            &format!("{} before preprocessing", w.name),
-            w.document(),
-            &matching_context,
-        );
-        let selectors = matching_context.get_selectors();
-        let substrings =
-          concretize::substrings_from_selectors(selectors.iter());
-        let indexing_results = bench_function(
-          &format!("{} indexing", w.name),
-          || { concretize::build_substr_selector_index(w.document(), substrings.clone()); },
-          NUM_SAMPLES,
-        );
-        drop(substrings); // Why doesn't the compiler do this automatically? I don't know.
-        let overall_is_conversion_results = bench_function(
-          &format!("{} :is() conversion", w.name),
-          || { concretize::convert_to_is_selectors(w.document(), &selectors); },
-          NUM_SAMPLES,
-        );
-        let is = concretize::convert_to_is_selectors(w.document(), &selectors);
-        let distribute = || {
-            let _: Vec<_> = is
-                .iter()
-                .flat_map(distribute::DistributedSelectors::from_selector)
-                .collect();
-        };
-        let distributing_results = bench_function(
-            &format!("{} :is() distribution", w.name),
-            distribute,
-            NUM_SAMPLES,
-        );
+        // TODO: Replace the fixed website benchmark pipeline with variant dispatch.
         let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
         let (preprocessed_stylesheet, preprocessed_lock) =
             stylesheet_from_selectors(preprocessed_selectors.iter());
