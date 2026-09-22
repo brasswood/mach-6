@@ -230,7 +230,9 @@ mod overall_summary {
             segments.push(segment_summary_json(SegmentKindJson::Distribution, distribution));
         }
         segments.extend([
-            // TODO: Add matching timing segments in the next commits.
+            segment_summary_json(SegmentKindJson::UpdatingBloomFilter, &value.timing_segments.updating_bloom_filter),
+            segment_summary_json(SegmentKindJson::CheckingStyleSharing, &value.timing_segments.checking_style_sharing),
+            segment_summary_json(SegmentKindJson::QueryingSelectorMap, &value.timing_segments.querying_selector_map),
         ]);
         segments
     }
