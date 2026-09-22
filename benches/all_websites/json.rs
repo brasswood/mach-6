@@ -347,13 +347,36 @@ mod samples {
                     .collect()
             };
             Self {
-                updating_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.updating_bloom_filter),
-                slow_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
-                slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
-                fast_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
-                checking_style_sharing_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
-                inserting_into_sharing_cache_cycles: get_cycles_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
-                querying_selector_map_cycles: get_cycles_samples(|timing_stats| timing_stats.querying_selector_map),
+                times: vec![
+                    SegmentSamplesJson {
+                        kind: SegmentKindJson::UpdatingBloomFilter,
+                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.updating_bloom_filter),
+                    },
+                    SegmentSamplesJson {
+                        kind: SegmentKindJson::CheckingStyleSharing,
+                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
+                    },
+                    SegmentSamplesJson {
+                        kind: SegmentKindJson::QueryingSelectorMap,
+                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.querying_selector_map),
+                    },
+                    SegmentSamplesJson {
+                        kind: SegmentKindJson::FastRejecting,
+                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
+                    },
+                    SegmentSamplesJson {
+                        kind: SegmentKindJson::SlowRejecting,
+                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
+                    },
+                    SegmentSamplesJson {
+                        kind: SegmentKindJson::SlowAccepting,
+                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
+                    },
+                    SegmentSamplesJson {
+                        kind: SegmentKindJson::InsertingIntoSharingCache,
+                        samples_cycles: get_cycles_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
+                    },
+                ],
                 #[cfg(not(feature = "serialize_selector_samples"))]
                 selector_slow_rejects_cycles: None,
                 #[cfg(feature = "serialize_selector_samples")]
