@@ -318,19 +318,47 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
             (selectors.to_vec(), None, None)
         };
 
-    if variant_spec.optimizations.distribution {
-        let distribution_input = selectors_after_is_conversion.clone();
+    let (preprocessed_selectors, distribution_durations) =
+        if variant_spec.optimizations.distribution {
         let distributing_results = bench_function(
             &format!("{} :is() distribution", website.name),
             || {
-                let _: Vec<_> = distribution_input
+                let _: Vec<_> = selectors_after_is_conversion
                     .iter()
                     .flat_map(distribute::DistributedSelectors::from_selector)
                     .collect();
             },
             NUM_SAMPLES,
         );
-        variant_result.add_distribution(distributing_results.sample_durations);
+            let preprocessed_selectors = selectors_after_is_conversion
+                .iter()
+                .flat_map(distribute::DistributedSelectors::from_selector)
+                .collect();
+            (preprocessed_selectors, Some(distributing_results.sample_durations))
+        } else {
+            (selectors_after_is_conversion, None)
+        };
+
+    let (preprocessed_stylesheet, preprocessed_lock) =
+        stylesheet_from_selectors(preprocessed_selectors.iter());
+    let preprocessed_context = MatchingContext::new(
+        std::iter::once(&preprocessed_stylesheet),
+        preprocessed_lock,
+    );
+    let mut variant_result = bench_website(
+        &benchmark_name,
+        document,
+        &preprocessed_context,
+    );
+
+    if let Some(indexing_durations) = indexing_durations {
+        variant_result.add_indexing(indexing_durations);
+    }
+    if let Some(overall_is_conversion_durations) = overall_is_conversion_durations {
+        variant_result.add_overall_is_conversion(overall_is_conversion_durations);
+    }
+    if let Some(distribution_durations) = distribution_durations {
+        variant_result.add_distribution(distribution_durations);
     }
 
     variant_result
