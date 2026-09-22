@@ -341,6 +341,44 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
         &preprocessed_context,
     );
 
+    let selectors_after_is_conversion = if variant_spec.optimizations.is_conversion {
+        let substrings = concretize::substrings_from_selectors(selectors.iter());
+        let indexing_results = bench_function(
+            &format!("{} indexing", website.name),
+            || { concretize::build_substr_selector_index(document, substrings.clone()); },
+            NUM_SAMPLES,
+        );
+        let overall_is_conversion_results = bench_function(
+            &format!("{} :is() conversion", website.name),
+            || { concretize::convert_to_is_selectors(document, &selectors); },
+            NUM_SAMPLES,
+        );
+        let converted_selectors = concretize::convert_to_is_selectors(document, &selectors);
+        variant_result.add_indexing(indexing_results.sample_durations);
+        variant_result.add_overall_is_conversion(overall_is_conversion_results.sample_durations);
+        converted_selectors
+    } else {
+        selectors.to_vec()
+    };
+
+    if variant_spec.optimizations.distribution {
+        let distribution_input = selectors_after_is_conversion.clone();
+        let distributing_results = bench_function(
+            &format!("{} :is() distribution", website.name),
+            || {
+                let _: Vec<_> = distribution_input
+                    .iter()
+                    .flat_map(distribute::DistributedSelectors::from_selector)
+                    .collect();
+            },
+            NUM_SAMPLES,
+        );
+        variant_result.add_distribution(distributing_results.sample_durations);
+    }
+
+    variant_result
+}
+
 fn bench_website(
     benchmark_name: &str,
     document: &Html,
