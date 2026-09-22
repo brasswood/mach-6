@@ -52,7 +52,7 @@ struct SelectorSlowRejectSamples {
 /// This is the per-variant payload consumed by both the HTML report and the
 /// per-website JSON output.
 #[derive(Clone, Debug)]
-struct MatchBenchResult {
+struct VariantResult {
     /// The total duration of the benched website
     total_duration: tsc_timer::Duration,
     /// Counting stats of one sample (should be the same accross all samples)
@@ -64,7 +64,7 @@ struct MatchBenchResult {
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
 }
 
-impl MatchBenchResult {
+impl VariantResult {
     fn new(
         stats: TimedResults<Statistics>,
         per_match_stats: TimedResults<SmallVec<[(&Selector, SelectorStats); 16]>>,
@@ -109,7 +109,7 @@ impl MatchBenchResult {
             SelectorSlowRejectSamples { selector, aggregate_durations: Samples::from_vec(durations) }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
-        MatchBenchResult {
+        VariantResult {
             total_duration: stats.total_duration,
             counting_stats,
             timing_stats: Samples::from_vec(timing_stats),
