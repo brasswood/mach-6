@@ -295,21 +295,8 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     }
 
     let selectors = matching_context.get_selectors();
-    let mut variant_result;
-    let preprocessed_selectors = preprocess_selectors(document, &selectors, variant_spec.optimizations);
-    let (preprocessed_stylesheet, preprocessed_lock) =
-        stylesheet_from_selectors(preprocessed_selectors.iter());
-    let preprocessed_context = MatchingContext::new(
-        std::iter::once(&preprocessed_stylesheet),
-        preprocessed_lock,
-    );
-    variant_result = bench_website(
-        &benchmark_name,
-        document,
-        &preprocessed_context,
-    );
-
-    let selectors_after_is_conversion = if variant_spec.optimizations.is_conversion {
+    let (selectors_after_is_conversion, indexing_durations, overall_is_conversion_durations) =
+        if variant_spec.optimizations.is_conversion {
         let substrings = concretize::substrings_from_selectors(selectors.iter());
         let indexing_results = bench_function(
             &format!("{} indexing", website.name),
@@ -322,12 +309,14 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
             NUM_SAMPLES,
         );
         let converted_selectors = concretize::convert_to_is_selectors(document, &selectors);
-        variant_result.add_indexing(indexing_results.sample_durations);
-        variant_result.add_overall_is_conversion(overall_is_conversion_results.sample_durations);
-        converted_selectors
-    } else {
-        selectors.to_vec()
-    };
+            (
+                converted_selectors,
+                Some(indexing_results.sample_durations),
+                Some(overall_is_conversion_results.sample_durations),
+            )
+        } else {
+            (selectors.to_vec(), None, None)
+        };
 
     if variant_spec.optimizations.distribution {
         let distribution_input = selectors_after_is_conversion.clone();
