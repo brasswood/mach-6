@@ -297,18 +297,18 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     let selectors = matching_context.get_selectors();
     let (selectors_after_is_conversion, indexing_durations, overall_is_conversion_durations) =
         if variant_spec.optimizations.is_conversion {
-        let substrings = concretize::substrings_from_selectors(selectors.iter());
-        let indexing_results = bench_function(
-            &format!("{} indexing", website.name),
-            || { concretize::build_substr_selector_index(document, substrings.clone()); },
-            NUM_SAMPLES,
-        );
-        let overall_is_conversion_results = bench_function(
-            &format!("{} :is() conversion", website.name),
-            || { concretize::convert_to_is_selectors(document, &selectors); },
-            NUM_SAMPLES,
-        );
-        let converted_selectors = concretize::convert_to_is_selectors(document, &selectors);
+            let substrings = concretize::substrings_from_selectors(selectors.iter());
+            let indexing_results = bench_function(
+                &format!("{} indexing", website.name),
+                || { concretize::build_substr_selector_index(document, substrings.clone()); },
+                NUM_SAMPLES,
+            );
+            let overall_is_conversion_results = bench_function(
+                &format!("{} :is() conversion", website.name),
+                || { concretize::convert_to_is_selectors(document, &selectors); },
+                NUM_SAMPLES,
+            );
+            let converted_selectors = concretize::convert_to_is_selectors(document, &selectors);
             (
                 converted_selectors,
                 Some(indexing_results.sample_durations),
@@ -320,16 +320,16 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
 
     let (preprocessed_selectors, distribution_durations) =
         if variant_spec.optimizations.distribution {
-        let distributing_results = bench_function(
-            &format!("{} :is() distribution", website.name),
-            || {
-                let _: Vec<_> = selectors_after_is_conversion
-                    .iter()
-                    .flat_map(distribute::DistributedSelectors::from_selector)
-                    .collect();
-            },
-            NUM_SAMPLES,
-        );
+            let distributing_results = bench_function(
+                &format!("{} :is() distribution", website.name),
+                || {
+                    let _: Vec<_> = selectors_after_is_conversion
+                        .iter()
+                        .flat_map(distribute::DistributedSelectors::from_selector)
+                        .collect();
+                },
+                NUM_SAMPLES,
+            );
             let preprocessed_selectors = selectors_after_is_conversion
                 .iter()
                 .flat_map(distribute::DistributedSelectors::from_selector)
