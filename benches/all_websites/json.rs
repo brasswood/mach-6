@@ -292,21 +292,6 @@ mod overall_summary {
     }
 
     #[derive(Clone, Serialize, Deserialize)]
-    pub(crate) struct TimingStatsJson {
-        pub(crate) means: TimingsJsonBody,
-        pub(crate) stddevs: TimingsJsonBody,
-    }
-
-    impl From<&Samples<TimingStats>> for TimingStatsJson {
-        fn from(value: &Samples<TimingStats>) -> Self {
-            Self {
-                means: TimingsJsonBody::from(value.mean()),
-                stddevs: TimingsJsonBody::from(value.stddev()),
-            }
-        }
-    }
-
-    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsJsonBody {
         pub(crate) updating_bloom_filter_cycles: u64,
         pub(crate) slow_rejecting_cycles: u64,
