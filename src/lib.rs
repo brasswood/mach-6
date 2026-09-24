@@ -780,6 +780,39 @@ mod tests {
         ));
     }
 
+    fn first_fail_cache_id(context: &super::MatchingContext) -> Option<u16> {
+        let cascade_data = context.stylist().cascade_data().borrow_for_origin(style::stylesheets::Origin::Author);
+        cascade_data.normal_rules(&[]).unwrap().class_hash.iter()
+            .flat_map(|(_, rules)| rules)
+            .find_map(|rule| rule.fail_cache_prefix_ids())
+            .and_then(|ids| ids.get(0))
+    }
+
+    #[test]
+    fn fail_cache_prefix_modes_match_and_intern_at_expected_time() {
+        let selector = parse_selector(".outer > .missing .target");
+        let (stylesheet, lock) = super::stylesheet_from_selectors([&selector].into_iter());
+        let eager = Optimizations { fail_caches: true, ..Optimizations::default() };
+        let lazy = Optimizations { fail_caches: true, lazy_fail_cache_prefixes: true, ..Optimizations::default() };
+        let html = "<div class='outer'><div><div class='missing'><i class='target'></i></div></div></div>";
+        let eager_website = crate::parse::ParsedWebsite::new(
+            "eager".into(), scraper::Html::parse_document(html), vec![stylesheet.clone()], lock.clone());
+        let lazy_website = crate::parse::ParsedWebsite::new(
+            "lazy".into(), scraper::Html::parse_document(html), vec![stylesheet], lock);
+        let eager_context = eager_website.get_matcher(eager);
+        let lazy_context = lazy_website.get_matcher(lazy);
+        assert!(first_fail_cache_id(&eager_context).is_some());
+        assert!(first_fail_cache_id(&lazy_context).is_none());
+
+        let eager_matches = super::match_selectors_with_style_sharing(eager_website.document(), &eager_context, eager, None).0;
+        let lazy_matches = super::match_selectors_with_style_sharing(lazy_website.document(), &lazy_context, lazy, None).0;
+        assert_eq!(
+            SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&eager_matches)),
+            SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&lazy_matches)),
+        );
+        assert!(first_fail_cache_id(&lazy_context).is_some());
+    }
+
     #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
