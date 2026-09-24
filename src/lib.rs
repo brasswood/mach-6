@@ -756,6 +756,44 @@ mod tests {
     }
 
     #[test]
+    fn selector_map_profiles_match_naive_results() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("distribute_test")
+        )?.unwrap();
+        let selectors = website.get_matcher().get_selectors();
+        let naive = SetDocumentMatches::from(OwnedDocumentMatches::from(
+            &super::match_selectors(website.document(), &selectors),
+        ));
+        let profiles = [
+            Optimizations {
+                selector_map: true,
+                ..Default::default()
+            },
+            Optimizations {
+                selector_map: true,
+                none_bucket: true,
+                ..Default::default()
+            },
+            Optimizations {
+                selector_map: true,
+                common_pseudo_class_bucket: true,
+                ..Default::default()
+            },
+            Optimizations {
+                selector_map: true,
+                none_bucket: true,
+                common_pseudo_class_bucket: true,
+                ..Default::default()
+            },
+        ];
+        for profile in profiles {
+            let (_, actual, _) = do_website(&website, profile);
+            assert_eq!(actual, naive);
+        }
+        Ok(())
+    }
+
+    #[test]
     // looks like bad grammar, but this tests that the conversion to "is()" selectors works
     fn is_conversion_works() -> Result<()> {
         let website = get_document_and_selectors(
