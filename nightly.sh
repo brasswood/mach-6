@@ -10,6 +10,9 @@ npm ci
 
 # Get the websites suite
 git submodule update --init
+rm -rf websites/google.com
+unzip -q websites/google.com.zip -d websites
+trap 'rm -rf websites/google.com' EXIT
 
 # clean the benchmarks directory
 rm -r target/all_websites_report
