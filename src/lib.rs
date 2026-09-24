@@ -95,8 +95,10 @@ impl Optimizations {
         let dependencies = [
             (self.none_bucket, self.selector_map, "none_bucket", "selector_map"),
             (self.common_pseudo_class_bucket, self.selector_map, "common_pseudo_class_bucket", "selector_map"),
+            (self.bloom_filter, self.selector_map, "bloom_filter", "selector_map"),
             (self.common_pseudo_class_bloom_hash, self.bloom_filter, "common_pseudo_class_bloom_hash", "bloom_filter"),
             (self.edge_child_bloom_hashes, self.bloom_filter, "edge_child_bloom_hashes", "bloom_filter"),
+            (self.style_sharing_cache, self.bloom_filter, "style_sharing_cache", "bloom_filter"),
             (self.fail_caches, self.selector_map, "fail_caches", "selector_map"),
             (self.lazy_fail_cache_prefixes, self.fail_caches, "lazy_fail_cache_prefixes", "fail_caches"),
             (self.universal_tail_bless_lists, self.selector_map, "universal_tail_bless_lists", "selector_map"),
