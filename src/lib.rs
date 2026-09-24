@@ -682,12 +682,30 @@ mod tests {
         let profile = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(
             profile.path(),
-            r#"{"is_conversion":true,"distribution":false}"#,
+            r#"{"is_conversion":true,"distribution":false,"bloom_filter":true,"common_pseudo_class_bloom_hash":true,"edge_child_bloom_hashes":false}"#,
         ).unwrap();
 
         let optimizations = super::load_optimizations(profile.path()).unwrap();
         assert!(optimizations.is_conversion);
         assert!(!optimizations.distribution);
+        assert!(optimizations.bloom_filter);
+        assert!(optimizations.common_pseudo_class_bloom_hash);
+        assert!(!optimizations.edge_child_bloom_hashes);
+    }
+
+    #[test]
+    fn load_optimizations_rejects_bloom_extensions_without_filter() {
+        for extension in [
+            r#""common_pseudo_class_bloom_hash":true,"edge_child_bloom_hashes":false"#,
+            r#""common_pseudo_class_bloom_hash":false,"edge_child_bloom_hashes":true"#,
+        ] {
+            let profile = tempfile::NamedTempFile::new().unwrap();
+            std::fs::write(
+                profile.path(),
+                format!(r#"{{"is_conversion":false,"distribution":false,"bloom_filter":false,{extension}}}"#),
+            ).unwrap();
+            assert!(super::load_optimizations(profile.path()).is_err());
+        }
     }
 
     #[test]
@@ -695,7 +713,7 @@ mod tests {
         let profile = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(
             profile.path(),
-            r#"{"is_conversion":false,"distribution":false,"other":true}"#,
+            r#"{"is_conversion":false,"distribution":false,"bloom_filter":false,"common_pseudo_class_bloom_hash":false,"edge_child_bloom_hashes":false,"other":true}"#,
         ).unwrap();
 
         assert!(super::load_optimizations(profile.path()).is_err());
