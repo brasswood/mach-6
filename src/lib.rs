@@ -1052,7 +1052,7 @@ mod tests {
 
     fn universal_tail_matches(enabled: bool) -> (SetDocumentMatches, super::Statistics) {
         let document = scraper::Html::parse_document(
-            "<main class='a'><section><span id='deep'></span></section><p id='sibling'></p></main><footer id='outside'></footer>",
+            "<main class='a'><section><span id='deep'></span><i></i><i></i></section><p id='sibling'></p></main><footer id='outside'></footer>",
         );
         let selectors = [".a *", ".a > *", ".missing *"].map(parse_selector);
         let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
@@ -1081,7 +1081,16 @@ mod tests {
         assert!(selectors_for_element(&matches, "id=\"outside\"").is_empty());
 
         let (ordinary_matches, ordinary_stats) = universal_tail_matches(false);
-        assert_eq!(ordinary_matches, matches);
+        for id in matches.0.keys() {
+            assert_eq!(matches.find_selectors(*id), ordinary_matches.find_selectors(*id));
+        }
+        assert!(matches.0.values().filter(|m| m.element.html == "<i>").all(|m| {
+            matches!(m.selectors, SetSelectorsOrSharedStyles::Selectors(_))
+        }));
+        assert!(ordinary_matches.0.values().any(|m| {
+            m.element.html == "<i>" && matches!(m.selectors, SetSelectorsOrSharedStyles::SharedWithElement(_))
+        }));
+        assert!(blessed_stats.counts.sharing_instances < ordinary_stats.counts.sharing_instances);
         assert!(
             blessed_stats.counts.selector_map_hits < ordinary_stats.counts.selector_map_hits,
             "bless lists should reduce selector-map hits: {} >= {}",
