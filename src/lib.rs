@@ -794,6 +794,21 @@ mod tests {
     }
 
     #[test]
+    fn selector_map_disabled_preserves_naive_matching() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("distribute_test")
+        )?.unwrap();
+        let (_, actual, stats) = do_website(&website, Optimizations::default());
+        let selectors = website.get_matcher().get_selectors();
+        let naive = SetDocumentMatches::from(OwnedDocumentMatches::from(
+            &super::match_selectors(website.document(), &selectors),
+        ));
+        assert_eq!(actual, naive);
+        assert_eq!(stats, selectors::matching::Statistics::default());
+        Ok(())
+    }
+
+    #[test]
     // looks like bad grammar, but this tests that the conversion to "is()" selectors works
     fn is_conversion_works() -> Result<()> {
         let website = get_document_and_selectors(
