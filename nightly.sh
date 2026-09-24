@@ -8,7 +8,7 @@ export PATH=~/.cargo/bin:$PATH
 git submodule update --init
 
 # Run benchmarks
-cargo bench
+cargo bench -- '^(cnn\.com|amazon\.com|google\.com|shopify\.com)/With SelectorMap$'
 
 # copy criterion report to its own report directory
 rsync -a --delete target/criterion/ criterion_report/
