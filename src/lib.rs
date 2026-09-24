@@ -1074,6 +1074,23 @@ mod tests {
     }
 
     #[test]
+    fn universal_tail_bless_lists_match_and_filter_descendants() {
+        let (matches, blessed_stats) = universal_tail_matches(true);
+        assert_eq!(selectors_for_element(&matches, "id=\"deep\""), BTreeSet::from([".a *".to_string()]));
+        assert_eq!(selectors_for_element(&matches, "id=\"sibling\""), BTreeSet::from([".a *".to_string(), ".a > *".to_string()]));
+        assert!(selectors_for_element(&matches, "id=\"outside\"").is_empty());
+
+        let (ordinary_matches, ordinary_stats) = universal_tail_matches(false);
+        assert_eq!(ordinary_matches, matches);
+        assert!(
+            blessed_stats.counts.selector_map_hits < ordinary_stats.counts.selector_map_hits,
+            "bless lists should reduce selector-map hits: {} >= {}",
+            blessed_stats.counts.selector_map_hits,
+            ordinary_stats.counts.selector_map_hits,
+        );
+    }
+
+    #[test]
     fn prepare_selectors_without_optimizations_preserves_identity() {
         let selector = parse_selector(".foo");
         let selectors = vec![selector.clone()];
