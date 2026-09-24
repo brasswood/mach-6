@@ -778,6 +778,7 @@ mod tests {
             Optimizations {
                 is_conversion: true,
                 distribution: false,
+                ..Optimizations::default()
             },
         );
         let reverse_map: HashMap<_, Vec<_>> = prepared
@@ -812,6 +813,7 @@ mod tests {
             Optimizations {
                 is_conversion: false,
                 distribution: true,
+                ..Optimizations::default()
             },
         );
         let prepared_css: BTreeSet<_> = prepared.selectors.iter().map(Selector::to_css_string).collect();
@@ -839,6 +841,7 @@ mod tests {
             Optimizations {
                 is_conversion: true,
                 distribution: true,
+                ..Optimizations::default()
             },
         );
         let actual = selectors_for_element(
