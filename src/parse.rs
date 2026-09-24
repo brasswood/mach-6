@@ -59,8 +59,12 @@ impl ParsedWebsite {
         &self.stylesheets
     }
 
-    pub fn get_matcher(&self) -> MatchingContext {
-        MatchingContext::new(self.stylesheets.iter(), self.stylesheet_lock.clone())
+    pub fn get_matcher(&self, optimizations: crate::Optimizations) -> MatchingContext {
+        MatchingContext::new(
+            self.stylesheets.iter(),
+            self.stylesheet_lock.clone(),
+            optimizations,
+        )
     }
 }
 
@@ -328,6 +332,7 @@ mod tests {
         let context = crate::MatchingContext::new(
             std::iter::once(&stylesheet),
             lock,
+            crate::Optimizations::default(),
         );
         let selectors = context.get_selectors();
         let mut res = String::new();
@@ -351,7 +356,7 @@ mod tests {
         let website = get_document_and_selectors(website_path)?
             .expect("expected parsed website");
         let selectors: Vec<_> = website
-            .get_matcher()
+            .get_matcher(crate::Optimizations::default())
             .get_selectors()
             .iter()
             .map(Selector::to_css_string)

@@ -304,14 +304,14 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     // between variant runs once we add fail caches back
     // in
     let document = website.document();
-    let matching_context = website.get_matcher();
+    let matching_context = website.get_matcher(variant_spec.optimizations);
     let benchmark_name = format!("{} variant {}", website.name, variant_spec.id);
 
     if !variant_spec.optimizations.is_conversion && !variant_spec.optimizations.distribution {
         if variant_spec.optimizations.selector_map {
             let selectors = matching_context.get_selectors();
             let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(selectors.iter());
-            let matching_context = MatchingContext::new_with_optimizations(
+            let matching_context = MatchingContext::new(
                 std::iter::once(&stylesheet),
                 stylesheet_lock,
                 variant_spec.optimizations,
@@ -378,7 +378,7 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
 
     let (preprocessed_stylesheet, preprocessed_lock) =
         stylesheet_from_selectors(preprocessed_selectors.iter());
-    let preprocessed_context = MatchingContext::new_with_optimizations(
+    let preprocessed_context = MatchingContext::new(
         std::iter::once(&preprocessed_stylesheet),
         preprocessed_lock,
         variant_spec.optimizations,

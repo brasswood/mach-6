@@ -248,7 +248,7 @@ fn do_website_with_configured_optimizations(
         .validate()
         .expect("invalid optimization combination");
     let document = website.document();
-    let selectors = website.get_matcher().get_selectors();
+    let selectors = website.get_matcher(optimizations).get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
     if !optimizations.selector_map {
         let matches = match_selectors(document, &prepared.selectors);
@@ -264,7 +264,7 @@ fn do_website_with_configured_optimizations(
         return (owned, Statistics::default());
     }
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
-    let matching_context = MatchingContext::new_with_optimizations(
+    let matching_context = MatchingContext::new(
         std::iter::once(&stylesheet),
         stylesheet_lock,
         optimizations,
@@ -298,23 +298,14 @@ impl MatchingContext {
     pub fn new<'a>(
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
-    ) -> Self {
-        Self::new_with_optimizations(
-            stylesheets,
-            stylesheet_lock,
-            Default::default(),
-        )
-    }
-
-    pub fn new_with_optimizations<'a>(
-        stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
-        stylesheet_lock: SharedRwLock,
         optimizations: Optimizations,
     ) -> Self {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
             optimizations.bloom_hash_options(),
+            optimizations.fail_caches,
+            optimizations.lazy_fail_cache_prefixes,
         );
         stylist.set_selector_map_options(SelectorMapOptions {
             none_bucket: optimizations.none_bucket,
@@ -844,7 +835,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("distribute_test")
         )?.unwrap();
-        let selectors = website.get_matcher().get_selectors();
+        let selectors = website.get_matcher(Optimizations::default()).get_selectors();
         let naive = SetDocumentMatches::from(OwnedDocumentMatches::from(
             &super::match_selectors(website.document(), &selectors),
         ));
@@ -883,7 +874,7 @@ mod tests {
             &websites_path().join("distribute_test")
         )?.unwrap();
         let (_, actual, stats) = do_website(&website, Optimizations::default());
-        let selectors = website.get_matcher().get_selectors();
+        let selectors = website.get_matcher(Optimizations::default()).get_selectors();
         let naive = SetDocumentMatches::from(OwnedDocumentMatches::from(
             &super::match_selectors(website.document(), &selectors),
         ));
@@ -899,7 +890,10 @@ mod tests {
             &websites_path().join("is_conversion_test")
         )?.unwrap();
         let converted: Vec<_> =
-            convert_to_is_selectors(&website.document(), &website.get_matcher().get_selectors())
+            convert_to_is_selectors(
+                &website.document(),
+                &website.get_matcher(Optimizations::default()).get_selectors(),
+            )
                 .iter()
                 .map(Selector::to_css_string)
                 .collect();
@@ -968,7 +962,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("is_conversion_test")
         )?.unwrap();
-        let selectors = website.get_matcher().get_selectors();
+        let selectors = website.get_matcher(Optimizations::default()).get_selectors();
         let prepared = super::prepare_selectors(
             &website.document(),
             &selectors,
