@@ -84,6 +84,13 @@ pub struct Optimizations {
 }
 
 impl Optimizations {
+    fn bloom_hash_options(self) -> BloomHashOptions {
+        BloomHashOptions {
+            common_pseudo_class: self.common_pseudo_class_bloom_hash,
+            edge_children: self.edge_child_bloom_hashes,
+        }
+    }
+
     pub fn validate(self) -> Result<Self> {
         let dependencies = [
             (self.none_bucket, self.selector_map, "none_bucket", "selector_map"),
@@ -306,10 +313,7 @@ impl MatchingContext {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
-            BloomHashOptions {
-                common_pseudo_class: optimizations.common_pseudo_class_bloom_hash,
-                edge_children: optimizations.edge_child_bloom_hashes,
-            },
+            optimizations.bloom_hash_options(),
         );
         stylist.set_selector_map_options(SelectorMapOptions {
             none_bucket: optimizations.none_bucket,
@@ -506,6 +510,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
         selector_map: &'a SelectorMap<Rule>,
         cascade_data: &CascadeData,
+        bloom_filter: bool,
         stats: &mut Statistics,
     ) {
         // 0. debug element if applicable
@@ -516,9 +521,11 @@ pub fn match_selectors_with_style_sharing<'document>(
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
         // 1.2: update the bloom filter with the current element
-        let start = tsc_timer::Start::now();
-        context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
-        stats.times.updating_bloom_filter += start.elapsed();
+        if bloom_filter {
+            let start = tsc_timer::Start::now();
+            context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
+            stats.times.updating_bloom_filter += start.elapsed();
+        }
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Start::now();
@@ -562,7 +569,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                 // 1.3.1: create a MatchingContext (after updating style_bloom to avoid borrow check error)
                 let mut matching_context = matching::MatchingContext::new(
                     matching::MatchingMode::Normal,
-                    Some(context.thread_local.bloom_filter.filter()),
+                    bloom_filter.then(|| context.thread_local.bloom_filter.filter()),
                     &mut context.thread_local.selector_caches,
                     matching::QuirksMode::NoQuirks,
                     matching::NeedsSelectorFlags::No,
@@ -616,6 +623,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                 selector_stats.as_deref_mut(),
                 selector_map,
                 cascade_data,
+                bloom_filter,
                 stats
             );
         }
@@ -649,7 +657,9 @@ pub fn match_selectors_with_style_sharing<'document>(
     };
     let mut style_context = StyleContext {
         shared: &shared_style_context,
-        thread_local: &mut ThreadLocalStyleContext::new(),
+        thread_local: &mut ThreadLocalStyleContext::new(
+            matching_context.optimizations.bloom_hash_options(),
+        ),
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
@@ -663,6 +673,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_stats,
         selector_map,
         cascade_data,
+        matching_context.optimizations.bloom_filter,
         &mut stats
     );
     (DocumentMatches(result), stats)
