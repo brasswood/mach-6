@@ -515,10 +515,12 @@ pub fn match_selectors_with_style_sharing<'document>(
         matches: &mut Vec<ElementMatches<'a>>,
         mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
         selector_map: &'a SelectorMap<Rule>,
-        cascade_data: &CascadeData,
+        cascade_data: &'a CascadeData,
+        bless_list: &mut SmallVec<[&'a Selector; 16]>,
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
+        let inherited_bless_list_len = bless_list.len();
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
@@ -533,7 +535,9 @@ pub fn match_selectors_with_style_sharing<'document>(
             stats.times.updating_bloom_filter += start.elapsed();
         }
         // 1.3: Check if we can share styles
-        let style_sharing_result = (optimizations.bloom_filter && optimizations.style_sharing_cache)
+        let style_sharing_result = (inherited_bless_list_len == 0
+            && optimizations.bloom_filter
+            && optimizations.style_sharing_cache)
             .then(|| {
                 let mut target = StyleSharingTarget::new(element);
                 let start = Start::now();
@@ -588,7 +592,10 @@ pub fn match_selectors_with_style_sharing<'document>(
                 );
                 matching_context.set_use_fail_caches(optimizations.fail_caches);
                 // 1.3.2: Use the selector map to get matching rules
-                let mut matched_selectors = SmallVec::new();
+                let mut matched_selectors = bless_list[..inherited_bless_list_len]
+                    .iter()
+                    .copied()
+                    .collect();
                 let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
                 *stats += selector_map.get_all_matching_rules(
                     element,
@@ -613,7 +620,10 @@ pub fn match_selectors_with_style_sharing<'document>(
                     selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                if optimizations.bloom_filter && optimizations.style_sharing_cache {
+                if inherited_bless_list_len == 0
+                    && optimizations.bloom_filter
+                    && optimizations.style_sharing_cache
+                {
                     let start = Start::now();
                     context.thread_local.sharing_cache.insert_if_possible(
                         &element ,
@@ -637,10 +647,12 @@ pub fn match_selectors_with_style_sharing<'document>(
                 selector_stats.as_deref_mut(),
                 selector_map,
                 cascade_data,
+                bless_list,
                 optimizations,
                 stats
             );
         }
+        bless_list.truncate(inherited_bless_list_len);
     }
     let author_guard = matching_context.stylesheet_lock().read();
     let ua_or_user_lock = SharedRwLock::new();
@@ -678,6 +690,7 @@ pub fn match_selectors_with_style_sharing<'document>(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
+    let mut bless_list = SmallVec::new();
 
     let root = document.root_element();
     preorder_traversal(
@@ -688,6 +701,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_stats,
         selector_map,
         cascade_data,
+        &mut bless_list,
         optimizations,
         &mut stats
     );
