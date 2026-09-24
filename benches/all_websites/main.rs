@@ -1,4 +1,5 @@
 use log::{error, warn};
+use clap::Parser;
 use mach_6::{self, MatchingContext, Optimizations, get_all_documents_and_selectors, stylesheet_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{concretize, distribute};
@@ -199,27 +200,27 @@ struct VariantSpec {
     optimizations: Optimizations,
 }
 
-const VARIANT_SPECS: [VariantSpec; 2] = [
-    VariantSpec {
-        id: 0,
-        label: None,
-        optimizations: Optimizations {
-            is_conversion: false,
-            distribution: false,
-        },
-    },
-    VariantSpec {
-        id: 1,
-        label: None,
-        optimizations: Optimizations {
-            is_conversion: true,
-            distribution: true,
-        },
-    },
-];
+fn variant_specs(profiles: Vec<Optimizations>) -> Vec<VariantSpec> {
+    profiles
+        .into_iter()
+        .enumerate()
+        .map(|(id, optimizations)| VariantSpec {
+            id,
+            label: None,
+            optimizations,
+        })
+        .collect()
+}
 
-fn variant_specs() -> &'static [VariantSpec] {
-    &VARIANT_SPECS
+#[derive(Debug, Parser)]
+struct Args {
+    /// JSON files describing the optimizations to benchmark
+    #[arg(long = "profile", value_name = "FILE", required = true, action = clap::ArgAction::Append)]
+    profiles: Vec<PathBuf>,
+
+    /// Website directory names to benchmark; defaults to all websites
+    #[arg(value_name = "WEBSITE")]
+    websites: Vec<String>,
 }
 
 struct WebsiteResult {
@@ -231,6 +232,19 @@ const NUM_SAMPLES: u64 = 25;
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
+    let Args { profiles, websites } = Args::parse();
+    let optimizations = match profiles
+        .iter()
+        .map(|profile| mach_6::load_optimizations(profile))
+        .collect::<mach_6::result::Result<Vec<_>>>()
+    {
+        Ok(optimizations) => optimizations,
+        Err(error) => {
+            error!("{error}");
+            std::process::exit(1);
+        }
+    };
+    let variant_specs = variant_specs(optimizations);
     let git_metadata = match collect_report_git_metadata() {
         Ok(git) => Some(git),
         Err(e) => {
@@ -239,13 +253,9 @@ fn main() {
         },
     };
     let time_start = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
-    let website_filter: Vec<String> = std::env::args()
-        .skip(1) // the executable name
-        .filter(|a| !a.starts_with("--"))
-        .collect();
-    let websites = get_documents(website_filter.iter().map(String::as_str));
+    let websites = get_documents(websites.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let variants = variant_specs()
+        let variants = variant_specs
             .iter()
             .map(|variant_spec| bench_variant(&w, variant_spec))
             .collect();
@@ -256,11 +266,17 @@ fn main() {
         result
     });
     let websites_json = results
-        .map(|res| WebsiteJson::from(&res))
+        .map(|res| WebsiteJson::from_result(&res, &variant_specs))
         .collect::<Vec<_>>();
 
     let time_end = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
-    let metadata = ReportMetadataJson::new(report_source_from_env(), git_metadata, time_start, time_end);
+    let metadata = ReportMetadataJson::new(
+        report_source_from_env(),
+        git_metadata,
+        time_start,
+        time_end,
+        &variant_specs,
+    );
 
     let report_json = ReportJson {
         metadata,
@@ -379,7 +395,6 @@ fn bench_website(
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     matching_context,
-                    Optimizations::from_none(),
                     None,
                 );
             overall_stats
@@ -391,7 +406,6 @@ fn bench_website(
     mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
-        Optimizations::from_none(),
         Some(&mut per_match_stats),
     );
     println!("done.");
