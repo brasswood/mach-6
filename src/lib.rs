@@ -776,6 +776,16 @@ mod tests {
     }
 
     #[test]
+    fn bless_lists_require_only_selector_map() {
+        let bless_lists = Optimizations {
+            universal_tail_bless_lists: true,
+            ..Optimizations::default()
+        };
+        assert!(bless_lists.validate().is_err());
+        assert!(Optimizations { selector_map: true, ..bless_lists }.validate().is_ok());
+    }
+
+    #[test]
     fn load_optimizations_rejects_lazy_cache_without_cache() {
         let profile = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(
