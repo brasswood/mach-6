@@ -7,8 +7,13 @@ export PATH=~/.cargo/bin:$PATH
 # Get the websites suite
 git submodule update --init
 
+# Google is archived in the controlled snapshot; expose it to the benchmark.
+rm -rf websites/google.com
+unzip -q websites/google.com.zip -d websites
+trap 'rm -rf websites/google.com' EXIT
+
 # Run benchmarks
-cargo bench
+cargo bench -- '^(cnn\.com|amazon\.com|google\.com|shopify\.com)/With SelectorMap and Bloom Filter$'
 
 # copy criterion report to its own report directory
 rsync -a --delete target/criterion/ criterion_report/
