@@ -1050,6 +1050,29 @@ mod tests {
         }
     }
 
+    fn universal_tail_matches(enabled: bool) -> (SetDocumentMatches, super::Statistics) {
+        let document = scraper::Html::parse_document(
+            "<main class='a'><section><span id='deep'></span></section><p id='sibling'></p></main><footer id='outside'></footer>",
+        );
+        let selectors = [".a *", ".a > *", ".missing *"].map(parse_selector);
+        let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
+        let context = super::MatchingContext::new(std::iter::once(&stylesheet), lock);
+        let (matches, stats) = super::match_selectors_with_style_sharing(
+            &document,
+            &context,
+            Optimizations {
+                selector_map: true,
+                universal_tail_bless_lists: enabled,
+                ..Optimizations::default()
+            },
+            None,
+        );
+        (
+            SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&matches)),
+            stats,
+        )
+    }
+
     #[test]
     fn prepare_selectors_without_optimizations_preserves_identity() {
         let selector = parse_selector(".foo");
