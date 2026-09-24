@@ -667,6 +667,7 @@ mod tests {
 
     use crate::result::Result;
     use crate::parse::{get_document_and_selectors, websites_path};
+    use crate::structs::owned::OwnedDocumentMatches;
     use crate::structs::set::{SetDocumentMatches, SetSelectorsOrSharedStyles};
     use crate::structs::Selector;
     use crate::{Optimizations, do_website};
