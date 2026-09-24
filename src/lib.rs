@@ -767,6 +767,20 @@ mod tests {
     }
 
     #[test]
+    fn load_optimizations_rejects_lazy_cache_without_cache() {
+        let profile = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(
+            profile.path(),
+            r#"{"lazy_fail_cache_prefixes":true}"#,
+        ).unwrap();
+
+        let error = super::load_optimizations(profile.path()).unwrap_err();
+        assert!(error.to_string().contains(
+            "`lazy_fail_cache_prefixes` requires `fail_caches`"
+        ));
+    }
+
+    #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
