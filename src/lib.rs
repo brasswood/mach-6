@@ -534,6 +534,21 @@ pub fn match_selectors_with_style_sharing<'document>(
             context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
             stats.times.updating_bloom_filter += start.elapsed();
         }
+        if optimizations.universal_tail_bless_lists {
+            let mut activation_context = matching::MatchingContext::new(
+                matching::MatchingMode::Normal,
+                optimizations.bloom_filter.then(|| context.thread_local.bloom_filter.filter()),
+                &mut context.thread_local.selector_caches,
+                matching::QuirksMode::NoQuirks,
+                matching::NeedsSelectorFlags::No,
+                matching::MatchingForInvalidation::No,
+            );
+            *stats += cascade_data.universal_tail_rules().get_matching_universal_tails(
+                element,
+                bless_list,
+                &mut activation_context,
+            );
+        }
         // 1.3: Check if we can share styles
         let style_sharing_result = (inherited_bless_list_len == 0
             && optimizations.bloom_filter
@@ -612,7 +627,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     }
                 }
                 stats.counts.selector_map_hits += inherited_bless_list_len;
-                *stats += selector_map.get_all_matching_rules(
+                *stats += selector_map.get_all_matching_rules_with_universal_tails(
                     element,
                     element, // TODO: ????
                     &mut SmallVec::new(),
@@ -622,6 +637,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     CascadeLevel::same_tree_author_normal(),
                     cascade_data,
                     context.shared.stylist,
+                    optimizations.universal_tail_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
                 // 1.3.3: add the matched selectors to the list
