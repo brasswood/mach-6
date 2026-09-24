@@ -7,7 +7,7 @@
 use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
 use mach_6::{
-    Algorithm,
+    Optimizations,
     parse::get_document_and_selectors,
     result::Result,
     structs::{ser::SerDocumentMatches, set::SetDocumentMatches},
@@ -26,9 +26,9 @@ struct Args {
     #[arg(long, conflicts_with = "websites")]
     website: Option<PathBuf>,
 
-    /// Which matching algorithm to run
-    #[arg(long, value_enum, default_value_t = Algorithm::Naive)]
-    algorithm: Algorithm,
+    /// JSON file describing the optimizations to enable
+    #[arg(long, value_name = "FILE")]
+    profile: PathBuf,
 }
 
 fn main() -> mach_6::result::Result<()> {
@@ -36,15 +36,16 @@ fn main() -> mach_6::result::Result<()> {
     let Args {
         websites,
         website,
-        algorithm,
+        profile,
     } = Args::parse();
+    let optimizations: Optimizations = mach_6::load_optimizations(&profile)?;
     let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = if let Some(website) = website {
         Ok(get_document_and_selectors(&website)?
-            .map(|website| vec![mach_6::do_website(&website, algorithm, None)])
+            .map(|website| vec![mach_6::do_website(&website, optimizations)])
             .unwrap_or_default())
     } else {
         let websites = websites.unwrap_or_else(|| PathBuf::from("websites"));
-        mach_6::do_all_websites(&websites, algorithm)?.collect()
+        mach_6::do_all_websites(&websites, optimizations)?.collect()
     };
     let result: HashMap<String, SerDocumentMatches> = result?
         .into_iter()
