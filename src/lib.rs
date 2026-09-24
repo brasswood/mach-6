@@ -4,9 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use clap::ValueEnum;
 use ::cssparser::ToCss as _;
-use derive_more::Display;
 use rustc_hash::FxBuildHasher;
 use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
@@ -25,8 +23,9 @@ use style::traversal_flags::TraversalFlags;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
@@ -66,27 +65,24 @@ use crate::structs::{
     set::SetDocumentMatches,
 };
 
-#[derive(Debug, Display, Clone, Copy, ValueEnum)]
-pub enum Algorithm {
-    Naive,
-    WithStyleSharing,
-    WithIsConversion,
-    WithDistribution,
-    Mach7,
-}
-
 #[derive(Debug, Default, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Optimizations {
     pub is_conversion: bool,
     pub distribution: bool,
 }
 
-impl Optimizations {
-    pub fn from_none() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
+pub fn load_optimizations(path: &Path) -> Result<Optimizations> {
+    let contents = fs::read_to_string(path).map_err(|error| crate::result::Error {
+        path: Some(PathBuf::from(path)),
+        error: crate::result::ErrorKind::Io(error),
+    })?;
+    serde_json::from_str(&contents).map_err(|error| {
+        crate::result::Error::other(format!(
+            "failed to parse optimization profile {}: {error}",
+            path.display()
+        ))
+    })
 }
 
 struct PreparedSelectors<'selector> {
@@ -215,7 +211,6 @@ fn do_website_with_configured_optimizations(
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
         &matching_context,
-        optimizations,
         None,
     );
     let owned = OwnedDocumentMatches(
@@ -302,63 +297,16 @@ fn assert_childrens_parent_is_me(parent: &ElementRef) {
     }
 }
 
-pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
+pub fn do_all_websites(websites: &Path, optimizations: Optimizations) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
     Ok(get_all_documents_and_selectors(websites)?
         .map(move |r| {
-            r.map(|w| do_website(&w, algorithm, None))
+            r.map(|w| do_website(&w, optimizations))
         })
     )
 }
 
-pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: Option<&DocumentMatches>) -> (String, SetDocumentMatches, Statistics){
-    let matching_context = website.get_matcher();
-    let (matches, stats) = match algorithm {
-        Algorithm::Naive => (
-            OwnedDocumentMatches::from(&match_selectors(&website.document(), &matching_context.get_selectors())),
-            Statistics::default()
-        ),
-        Algorithm::WithStyleSharing => {
-            let (matches, stats) =
-                match_selectors_with_style_sharing(
-                    &website.document(),
-                    &matching_context,
-                    Optimizations::from_none(),
-                    None,
-                );
-            (OwnedDocumentMatches::from(&matches), stats)
-        },
-        Algorithm::WithIsConversion =>
-            do_website_with_configured_optimizations(
-                website,
-                Optimizations {
-                    is_conversion: true,
-                    distribution: false,
-                },
-            ),
-        Algorithm::WithDistribution =>
-            do_website_with_configured_optimizations(
-                website,
-                Optimizations {
-                    is_conversion: true,
-                    distribution: true,
-                },
-            ),
-        Algorithm::Mach7 => {
-            if let Some(document_matches) = mach7_oracle {
-                (
-                    OwnedDocumentMatches::from(&mach_7(document_matches)),
-                    Statistics::default()
-                )
-            } else {
-                let selectors = matching_context.get_selectors();
-                let document_matches = match_selectors(&website.document(), &selectors);
-                (
-                    OwnedDocumentMatches::from(&mach_7(&document_matches)),
-                    Statistics::default()
-                )
-            }
-        },
-    };
+pub fn do_website(website: &ParsedWebsite, optimizations: Optimizations) -> (String, SetDocumentMatches, Statistics){
+    let (matches, stats) = do_website_with_configured_optimizations(website, optimizations);
     (website.name.clone(), matches.into(), stats)
 }
 // TODO: figure out why iteration yields more elements than traversal
@@ -472,7 +420,6 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     matching_context: &'document MatchingContext,
-    _optimizations: Optimizations,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
     fn preorder_traversal<'a>(
@@ -645,43 +592,6 @@ pub fn match_selectors_with_style_sharing<'document>(
     (DocumentMatches(result), stats)
 }
 
-pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
-    let mut res = Vec::new();
-    let mut caches: SelectorCaches = Default::default();
-    for element_matches in &matches.0 {
-        let mut context = matching::MatchingContext::new(
-            matching::MatchingMode::Normal,
-            None,
-            &mut caches,
-            matching::QuirksMode::NoQuirks,
-            matching::NeedsSelectorFlags::No,
-            matching::MatchingForInvalidation::No,
-        );
-        let SelectorsOrSharedStyles::Selectors(selectors) = &element_matches.selectors else {
-            panic!("Unexpected shared style passed to mach-7.") 
-        };
-        let element = element_matches.element;
-        let matched_selectors = selectors
-            .into_iter()
-            .filter(|s| {
-                let (res, stats) = matching::matches_selector(
-                    s,
-                    0,
-                    None,
-                    &element,
-                    &mut context
-                );
-                debug_assert!(res);
-                debug_assert_eq!(stats.time_fast_rejecting, None);
-                res
-            })
-            .cloned()
-            .collect();
-        res.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
-    }
-    DocumentMatches(res)
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::{BTreeSet, HashMap};
@@ -692,18 +602,41 @@ mod tests {
     use crate::structs::Selector;
     use crate::{Optimizations, do_website};
     use crate::preprocessing::concretize::convert_to_is_selectors;
-    use crate::Algorithm;
     use cssparser::ToCss as _;
     use style::selector_parser::SelectorParser;
     use style::stylesheets::UrlExtraData;
     use test_log::test;
 
     #[test]
+    fn load_optimizations_reads_json_profile() {
+        let profile = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(
+            profile.path(),
+            r#"{"is_conversion":true,"distribution":false}"#,
+        ).unwrap();
+
+        let optimizations = super::load_optimizations(profile.path()).unwrap();
+        assert!(optimizations.is_conversion);
+        assert!(!optimizations.distribution);
+    }
+
+    #[test]
+    fn load_optimizations_rejects_unknown_fields() {
+        let profile = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(
+            profile.path(),
+            r#"{"is_conversion":false,"distribution":false,"other":true}"#,
+        ).unwrap();
+
+        assert!(super::load_optimizations(profile.path()).is_err());
+    }
+
+    #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        let (_, _, stats) = do_website(&website, Optimizations::default());
         assert_eq!(stats.counts.sharing_instances, 9);
         Ok(())
     }
@@ -714,7 +647,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        let (_, _, stats) = do_website(&website, Optimizations::default());
         assert_eq!(stats.counts.sharing_instances, 5);
         Ok(())
     }
@@ -772,7 +705,7 @@ mod tests {
         let selector = parse_selector(".foo");
         let selectors = vec![selector.clone()];
         let document = scraper::Html::parse_document("<html><body><div class='foo'></div></body></html>");
-        let prepared = super::prepare_selectors(&document, &selectors, Optimizations::from_none());
+        let prepared = super::prepare_selectors(&document, &selectors, Optimizations::default());
         let reverse_map: HashMap<_, Vec<_>> = prepared
             .reverse_map
             .iter()
@@ -858,7 +791,13 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("distribute_test")
         )?.unwrap();
-        let (_, distributed_matches, _) = do_website(&website, Algorithm::WithDistribution, None);
+        let (_, distributed_matches, _) = do_website(
+            &website,
+            Optimizations {
+                is_conversion: true,
+                distribution: true,
+            },
+        );
         let actual = selectors_for_element(
             &distributed_matches,
             "masonry-up",
