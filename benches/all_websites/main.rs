@@ -221,6 +221,9 @@ struct Args {
     /// Website directory names to benchmark; defaults to all websites
     #[arg(value_name = "WEBSITE")]
     websites: Vec<String>,
+
+    #[arg(long = "bench", hide = true)]
+    _bench: bool,
 }
 
 struct WebsiteResult {
@@ -232,7 +235,7 @@ const NUM_SAMPLES: u64 = 25;
 
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
-    let Args { profiles, websites } = Args::parse();
+    let Args { profiles, websites, .. } = Args::parse();
     let optimizations = match profiles
         .iter()
         .map(|profile| mach_6::load_optimizations(profile))
