@@ -300,10 +300,10 @@ fn main() {
 }
 
 fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> VariantResult {
-    // TODO: Html will not be able to be reused
-    // between variant runs once we add fail caches back
-    // in
     let document = website.document();
+    if variant_spec.optimizations.fail_caches {
+        mach_6::clear_fail_caches(document);
+    }
     let matching_context = website.get_matcher(variant_spec.optimizations);
     let benchmark_name = format!("{} variant {}", website.name, variant_spec.id);
 

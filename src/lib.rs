@@ -248,6 +248,9 @@ fn do_website_with_configured_optimizations(
         .validate()
         .expect("invalid optimization combination");
     let document = website.document();
+    if optimizations.fail_caches {
+        clear_fail_caches(document);
+    }
     let selectors = website.get_matcher(optimizations).get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
     if !optimizations.selector_map {
@@ -285,6 +288,12 @@ fn do_website_with_configured_optimizations(
             .collect(),
     );
     (owned, stats)
+}
+
+pub fn clear_fail_caches(document: &Html) {
+    for element in document.tree.nodes().filter_map(ElementRef::wrap) {
+        element.value().mutate_data().fail_cache = Default::default();
+    }
 }
 
 
