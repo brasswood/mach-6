@@ -30,6 +30,7 @@ use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
 use selectors::matching::{self, Statistics};
+use selectors::parser::BloomHashOptions;
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMapElement as _;
@@ -256,13 +257,10 @@ fn do_website_with_configured_optimizations(
         return (owned, Statistics::default());
     }
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
-    let matching_context = MatchingContext::new_with_selector_map_options(
+    let matching_context = MatchingContext::new_with_optimizations(
         std::iter::once(&stylesheet),
         stylesheet_lock,
-        SelectorMapOptions {
-            none_bucket: optimizations.none_bucket,
-            common_pseudo_class_bucket: optimizations.common_pseudo_class_bucket,
-        },
+        optimizations,
     );
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
@@ -285,6 +283,7 @@ fn do_website_with_configured_optimizations(
 pub struct MatchingContext {
     stylesheet_lock: SharedRwLock,
     stylist: Stylist,
+    optimizations: Optimizations,
 }
 
 impl MatchingContext {
@@ -292,23 +291,30 @@ impl MatchingContext {
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
     ) -> Self {
-        Self::new_with_selector_map_options(
+        Self::new_with_optimizations(
             stylesheets,
             stylesheet_lock,
             Default::default(),
         )
     }
 
-    pub fn new_with_selector_map_options<'a>(
+    pub fn new_with_optimizations<'a>(
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
-        selector_map_options: SelectorMapOptions,
+        optimizations: Optimizations,
     ) -> Self {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
+            BloomHashOptions {
+                common_pseudo_class: optimizations.common_pseudo_class_bloom_hash,
+                edge_children: optimizations.edge_child_bloom_hashes,
+            },
         );
-        stylist.set_selector_map_options(selector_map_options);
+        stylist.set_selector_map_options(SelectorMapOptions {
+            none_bucket: optimizations.none_bucket,
+            common_pseudo_class_bucket: optimizations.common_pseudo_class_bucket,
+        });
         for sheet in stylesheets {
             stylist.append_stylesheet(sheet.clone(), &stylesheet_lock.read());
         }
@@ -321,6 +327,7 @@ impl MatchingContext {
         Self {
             stylesheet_lock,
             stylist,
+            optimizations,
         }
     }
 

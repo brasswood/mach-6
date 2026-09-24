@@ -7,7 +7,6 @@ use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
-use style::selector_map::SelectorMapOptions;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::fs;
@@ -312,13 +311,10 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
         if variant_spec.optimizations.selector_map {
             let selectors = matching_context.get_selectors();
             let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(selectors.iter());
-            let matching_context = MatchingContext::new_with_selector_map_options(
+            let matching_context = MatchingContext::new_with_optimizations(
                 std::iter::once(&stylesheet),
                 stylesheet_lock,
-                SelectorMapOptions {
-                    none_bucket: variant_spec.optimizations.none_bucket,
-                    common_pseudo_class_bucket: variant_spec.optimizations.common_pseudo_class_bucket,
-                },
+                variant_spec.optimizations,
             );
             return bench_website(&benchmark_name, document, &matching_context, true);
         }
@@ -372,13 +368,10 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
 
     let (preprocessed_stylesheet, preprocessed_lock) =
         stylesheet_from_selectors(preprocessed_selectors.iter());
-    let preprocessed_context = MatchingContext::new_with_selector_map_options(
+    let preprocessed_context = MatchingContext::new_with_optimizations(
         std::iter::once(&preprocessed_stylesheet),
         preprocessed_lock,
-        SelectorMapOptions {
-            none_bucket: variant_spec.optimizations.none_bucket,
-            common_pseudo_class_bucket: variant_spec.optimizations.common_pseudo_class_bucket,
-        },
+        variant_spec.optimizations,
     );
     let mut variant_result = bench_website(
         &benchmark_name,
