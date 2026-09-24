@@ -33,7 +33,7 @@ use selectors::matching::{self, Statistics};
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMapElement as _;
-use style::selector_map::SelectorMap;
+use style::selector_map::{SelectorMap, SelectorMapOptions};
 use style::servo_arc::Arc;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
@@ -240,7 +240,14 @@ fn do_website_with_configured_optimizations(
     let selectors = website.get_matcher().get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
-    let matching_context = MatchingContext::new(std::iter::once(&stylesheet), stylesheet_lock);
+    let matching_context = MatchingContext::new_with_selector_map_options(
+        std::iter::once(&stylesheet),
+        stylesheet_lock,
+        SelectorMapOptions {
+            none_bucket: optimizations.none_bucket,
+            common_pseudo_class_bucket: optimizations.common_pseudo_class_bucket,
+        },
+    );
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
         &matching_context,
@@ -269,10 +276,23 @@ impl MatchingContext {
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
     ) -> Self {
+        Self::new_with_selector_map_options(
+            stylesheets,
+            stylesheet_lock,
+            Default::default(),
+        )
+    }
+
+    pub fn new_with_selector_map_options<'a>(
+        stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
+        stylesheet_lock: SharedRwLock,
+        selector_map_options: SelectorMapOptions,
+    ) -> Self {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
         );
+        stylist.set_selector_map_options(selector_map_options);
         for sheet in stylesheets {
             stylist.append_stylesheet(sheet.clone(), &stylesheet_lock.read());
         }
