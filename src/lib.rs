@@ -66,7 +66,7 @@ use crate::structs::{
 };
 
 #[derive(Debug, Default, Clone, Copy, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct Optimizations {
     pub selector_map: bool,
     pub none_bucket: bool,
@@ -82,17 +82,40 @@ pub struct Optimizations {
     pub universal_tail_bless_lists: bool,
 }
 
+impl Optimizations {
+    pub fn validate(self) -> Result<Self> {
+        let dependencies = [
+            (self.none_bucket, self.selector_map, "none_bucket", "selector_map"),
+            (self.common_pseudo_class_bucket, self.selector_map, "common_pseudo_class_bucket", "selector_map"),
+            (self.common_pseudo_class_bloom_hash, self.bloom_filter, "common_pseudo_class_bloom_hash", "bloom_filter"),
+            (self.edge_child_bloom_hashes, self.bloom_filter, "edge_child_bloom_hashes", "bloom_filter"),
+            (self.fail_caches, self.selector_map, "fail_caches", "selector_map"),
+            (self.lazy_fail_cache_prefixes, self.fail_caches, "lazy_fail_cache_prefixes", "fail_caches"),
+            (self.universal_tail_bless_lists, self.selector_map, "universal_tail_bless_lists", "selector_map"),
+        ];
+        for (enabled, dependency_enabled, optimization, dependency) in dependencies {
+            if enabled && !dependency_enabled {
+                return Err(crate::result::Error::other(format!(
+                    "optimization `{optimization}` requires `{dependency}`"
+                )));
+            }
+        }
+        Ok(self)
+    }
+}
+
 pub fn load_optimizations(path: &Path) -> Result<Optimizations> {
     let contents = fs::read_to_string(path).map_err(|error| crate::result::Error {
         path: Some(PathBuf::from(path)),
         error: crate::result::ErrorKind::Io(error),
     })?;
-    serde_json::from_str(&contents).map_err(|error| {
+    let optimizations = serde_json::from_str(&contents).map_err(|error| {
         crate::result::Error::other(format!(
             "failed to parse optimization profile {}: {error}",
             path.display()
         ))
-    })
+    })?;
+    Optimizations::validate(optimizations)
 }
 
 struct PreparedSelectors<'selector> {
@@ -639,6 +662,16 @@ mod tests {
         ).unwrap();
 
         assert!(super::load_optimizations(profile.path()).is_err());
+    }
+
+    #[test]
+    fn optimization_dependencies_are_validated() {
+        let invalid = Optimizations {
+            none_bucket: true,
+            ..Optimizations::default()
+        };
+        let error = invalid.validate().unwrap_err();
+        assert!(error.to_string().contains("`none_bucket` requires `selector_map`"));
     }
 
     #[test]
