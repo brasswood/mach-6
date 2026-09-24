@@ -308,21 +308,6 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     let benchmark_name = format!("{} variant {}", website.name, variant_spec.id);
 
     if !variant_spec.optimizations.is_conversion && !variant_spec.optimizations.distribution {
-        if variant_spec.optimizations.selector_map {
-            let selectors = matching_context.get_selectors();
-            let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(selectors.iter());
-            let matching_context = MatchingContext::new(
-                std::iter::once(&stylesheet),
-                stylesheet_lock,
-                variant_spec.optimizations,
-            );
-            return bench_website(
-                &benchmark_name,
-                document,
-                &matching_context,
-                variant_spec.optimizations,
-            );
-        }
         return bench_website(
             &benchmark_name,
             document,

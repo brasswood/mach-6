@@ -407,7 +407,8 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 // Debug element if applicable
                 #[cfg(feature = "debug_element")]
                 debug_element_selector(element, &element_to_string(element), s);
-                let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
+                let (res, stats) =
+                    matching::matches_selector(s, 0, None, None, &element, &mut context);
                 debug_assert_eq!(stats.time_fast_rejecting, None);
                 res
             })
@@ -573,6 +574,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     matching::NeedsSelectorFlags::No,
                     matching::MatchingForInvalidation::No,
                 );
+                matching_context.set_use_fail_caches(optimizations.fail_caches);
                 // 1.3.2: Use the selector map to get matching rules
                 let mut matched_selectors = SmallVec::new();
                 let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
