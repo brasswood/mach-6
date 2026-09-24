@@ -762,7 +762,7 @@ mod tests {
         let profile = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(
             profile.path(),
-            r#"{"is_conversion":true,"distribution":false,"bloom_filter":true,"common_pseudo_class_bloom_hash":true,"edge_child_bloom_hashes":false}"#,
+            r#"{"selector_map":true,"is_conversion":true,"distribution":false,"bloom_filter":true,"common_pseudo_class_bloom_hash":true,"edge_child_bloom_hashes":false}"#,
         ).unwrap();
 
         let optimizations = super::load_optimizations(profile.path()).unwrap();
@@ -773,7 +773,7 @@ mod tests {
         assert!(!optimizations.edge_child_bloom_hashes);
         assert!(!optimizations.style_sharing_cache);
 
-        std::fs::write(profile.path(), r#"{"style_sharing_cache":true}"#).unwrap();
+        std::fs::write(profile.path(), r#"{"selector_map":true,"bloom_filter":true,"style_sharing_cache":true}"#).unwrap();
         assert!(super::load_optimizations(profile.path()).unwrap().style_sharing_cache);
     }
 
@@ -822,6 +822,25 @@ mod tests {
         let error = invalid.validate().unwrap_err();
         assert!(error.to_string().contains(
             "`common_pseudo_class_bucket` requires `selector_map`"
+        ));
+    }
+
+    #[test]
+    fn bloom_and_style_sharing_dependencies_are_validated() {
+        let bloom_without_map = Optimizations {
+            bloom_filter: true,
+            ..Optimizations::default()
+        };
+        assert!(bloom_without_map.validate().unwrap_err().to_string().contains(
+            "`bloom_filter` requires `selector_map`"
+        ));
+        let sharing_without_bloom = Optimizations {
+            selector_map: true,
+            style_sharing_cache: true,
+            ..Optimizations::default()
+        };
+        assert!(sharing_without_bloom.validate().unwrap_err().to_string().contains(
+            "`style_sharing_cache` requires `bloom_filter`"
         ));
     }
 
