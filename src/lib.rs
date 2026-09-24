@@ -68,8 +68,18 @@ use crate::structs::{
 #[derive(Debug, Default, Clone, Copy, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Optimizations {
+    pub selector_map: bool,
+    pub none_bucket: bool,
+    pub common_pseudo_class_bucket: bool,
+    pub bloom_filter: bool,
+    pub common_pseudo_class_bloom_hash: bool,
+    pub edge_child_bloom_hashes: bool,
+    pub style_sharing_cache: bool,
     pub is_conversion: bool,
     pub distribution: bool,
+    pub fail_caches: bool,
+    pub lazy_fail_cache_prefixes: bool,
+    pub universal_tail_bless_lists: bool,
 }
 
 pub fn load_optimizations(path: &Path) -> Result<Optimizations> {
