@@ -30,9 +30,9 @@ pub(crate) struct VariantManifestEntryJson {
     pub(crate) optimizations: Optimizations,
 }
 
-// TODO: Generates temporary constant variant manifest, until benchmark machinery gets updated
-fn report_variants_manifest() -> Vec<VariantManifestEntryJson> {
-    variant_specs()
+// Keep the report manifest aligned with the profiles used for this run.
+fn report_variants_manifest(variant_specs: &[VariantSpec]) -> Vec<VariantManifestEntryJson> {
+    variant_specs
         .iter()
         .map(|variant_spec| VariantManifestEntryJson {
             id: variant_spec.id,
@@ -62,9 +62,10 @@ impl ReportMetadataJson {
         report_source: ReportSourceJson,
         git_metadata: Option<ReportGitMetadata>,
         time_start: time::OffsetDateTime,
-        time_end: time::OffsetDateTime
+        time_end: time::OffsetDateTime,
+        variant_specs: &[VariantSpec],
     ) -> Self {
-        let variants = report_variants_manifest();
+        let variants = report_variants_manifest(variant_specs);
         match git_metadata {
             Some(git) => Self {
                 time_start,
@@ -135,16 +136,16 @@ pub(crate) struct WebsiteJson {
     pub(crate) variants: Vec<WebsiteVariantJson>,
 }
 
-impl From<&WebsiteResult> for WebsiteJson {
-    fn from(value: &WebsiteResult) -> Self {
+impl WebsiteJson {
+    pub(crate) fn from_result(value: &WebsiteResult, variant_specs: &[VariantSpec]) -> Self {
         assert_eq!(
             value.variants.len(),
-            variant_specs().len(),
+            variant_specs.len(),
             "website variant count did not match configured variant manifest",
         );
         Self {
             website: value.website.clone(),
-            variants: variant_specs()
+            variants: variant_specs
                 .iter()
                 .zip(value.variants.iter())
                 .map(|(variant_spec, variant)| WebsiteVariantJson {
