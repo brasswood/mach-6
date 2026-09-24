@@ -316,9 +316,19 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
                 stylesheet_lock,
                 variant_spec.optimizations,
             );
-            return bench_website(&benchmark_name, document, &matching_context, true);
+            return bench_website(
+                &benchmark_name,
+                document,
+                &matching_context,
+                variant_spec.optimizations,
+            );
         }
-        return bench_website(&benchmark_name, document, &matching_context, false);
+        return bench_website(
+            &benchmark_name,
+            document,
+            &matching_context,
+            variant_spec.optimizations,
+        );
     }
 
     let selectors = matching_context.get_selectors();
@@ -377,7 +387,7 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
         &benchmark_name,
         document,
         &preprocessed_context,
-        variant_spec.optimizations.selector_map,
+        variant_spec.optimizations,
     );
 
     if let (Some(indexing_durations), Some(overall_is_conversion_durations)) =
@@ -399,9 +409,9 @@ fn bench_website(
     benchmark_name: &str,
     document: &Html,
     matching_context: &MatchingContext,
-    selector_map: bool,
+    optimizations: Optimizations,
 ) -> VariantResult {
-    if !selector_map {
+    if !optimizations.selector_map {
         let selectors = matching_context.get_selectors();
         let overall_stats = bench_function(
             benchmark_name,
@@ -420,6 +430,7 @@ fn bench_website(
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     matching_context,
+                    optimizations,
                     None,
                 );
             overall_stats
@@ -431,6 +442,7 @@ fn bench_website(
     mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
+        optimizations,
         Some(&mut per_match_stats),
     );
     println!("done.");

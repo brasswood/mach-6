@@ -272,6 +272,7 @@ fn do_website_with_configured_optimizations(
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
         &matching_context,
+        optimizations,
         None,
     );
     let owned = OwnedDocumentMatches(
@@ -500,6 +501,7 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     matching_context: &'document MatchingContext,
+    optimizations: Optimizations,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
     fn preorder_traversal<'a>(
@@ -510,7 +512,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
         selector_map: &'a SelectorMap<Rule>,
         cascade_data: &CascadeData,
-        bloom_filter: bool,
+        optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
         // 0. debug element if applicable
@@ -521,13 +523,13 @@ pub fn match_selectors_with_style_sharing<'document>(
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
         // 1.2: update the bloom filter with the current element
-        if bloom_filter {
+        if optimizations.bloom_filter {
             let start = tsc_timer::Start::now();
             context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
             stats.times.updating_bloom_filter += start.elapsed();
         }
         // 1.3: Check if we can share styles
-        let style_sharing_result = bloom_filter
+        let style_sharing_result = (optimizations.bloom_filter && optimizations.style_sharing_cache)
             .then(|| {
                 let mut target = StyleSharingTarget::new(element);
                 let start = Start::now();
@@ -574,7 +576,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                 // 1.3.1: create a MatchingContext (after updating style_bloom to avoid borrow check error)
                 let mut matching_context = matching::MatchingContext::new(
                     matching::MatchingMode::Normal,
-                    bloom_filter.then(|| context.thread_local.bloom_filter.filter()),
+                    optimizations.bloom_filter.then(|| context.thread_local.bloom_filter.filter()),
                     &mut context.thread_local.selector_caches,
                     matching::QuirksMode::NoQuirks,
                     matching::NeedsSelectorFlags::No,
@@ -606,7 +608,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                if bloom_filter {
+                if optimizations.bloom_filter && optimizations.style_sharing_cache {
                     let start = Start::now();
                     context.thread_local.sharing_cache.insert_if_possible(
                         &element ,
@@ -630,7 +632,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                 selector_stats.as_deref_mut(),
                 selector_map,
                 cascade_data,
-                bloom_filter,
+                optimizations,
                 stats
             );
         }
@@ -646,7 +648,8 @@ pub fn match_selectors_with_style_sharing<'document>(
         stylist,
         visited_styles_enabled: true,
         options: StyleSystemOptions {
-            disable_style_sharing_cache: false,
+            disable_style_sharing_cache: !optimizations.bloom_filter
+                || !optimizations.style_sharing_cache,
             dump_style_statistics: false, // TODO: maybe change this later
             style_statistics_threshold: 0, // TODO: maybe change this later
         },
@@ -680,7 +683,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_stats,
         selector_map,
         cascade_data,
-        matching_context.optimizations.bloom_filter,
+        optimizations,
         &mut stats
     );
     (DocumentMatches(result), stats)
