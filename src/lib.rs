@@ -719,6 +719,10 @@ mod tests {
         assert!(optimizations.bloom_filter);
         assert!(optimizations.common_pseudo_class_bloom_hash);
         assert!(!optimizations.edge_child_bloom_hashes);
+        assert!(!optimizations.style_sharing_cache);
+
+        std::fs::write(profile.path(), r#"{"style_sharing_cache":true}"#).unwrap();
+        assert!(super::load_optimizations(profile.path()).unwrap().style_sharing_cache);
     }
 
     #[test]
@@ -778,10 +782,41 @@ mod tests {
             &website,
             Optimizations {
                 selector_map: true,
+                bloom_filter: true,
+                style_sharing_cache: true,
                 ..Default::default()
             },
         );
         assert_eq!(stats.counts.sharing_instances, 9);
+        Ok(())
+    }
+
+    #[test]
+    fn disabled_style_sharing_cache_preserves_matches_and_zeroes_stats() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("ten_divs_style_sharing")
+        )?.unwrap();
+        let enabled = Optimizations {
+            selector_map: true,
+            bloom_filter: true,
+            style_sharing_cache: true,
+            ..Default::default()
+        };
+        let (_, enabled_matches, enabled_stats) = do_website(&website, enabled);
+        let disabled = Optimizations {
+            selector_map: true,
+            bloom_filter: true,
+            ..Default::default()
+        };
+        let (_, disabled_matches, disabled_stats) = do_website(&website, disabled);
+        assert_eq!(
+            crate::structs::ser::SerDocumentMatches::from(&enabled_matches),
+            crate::structs::ser::SerDocumentMatches::from(&disabled_matches),
+        );
+        assert_eq!(enabled_stats.counts.sharing_instances, 9);
+        assert_eq!(disabled_stats.counts.sharing_instances, 0);
+        assert_eq!(disabled_stats.times.checking_style_sharing, Default::default());
+        assert_eq!(disabled_stats.times.inserting_into_sharing_cache, Default::default());
         Ok(())
     }
 
@@ -795,6 +830,8 @@ mod tests {
             &website,
             Optimizations {
                 selector_map: true,
+                bloom_filter: true,
+                style_sharing_cache: true,
                 ..Default::default()
             },
         );
