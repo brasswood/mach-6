@@ -711,6 +711,18 @@ mod tests {
     }
 
     #[test]
+    fn common_pseudo_bucket_requires_selector_map() {
+        let invalid = Optimizations {
+            common_pseudo_class_bucket: true,
+            ..Optimizations::default()
+        };
+        let error = invalid.validate().unwrap_err();
+        assert!(error.to_string().contains(
+            "`common_pseudo_class_bucket` requires `selector_map`"
+        ));
+    }
+
+    #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
