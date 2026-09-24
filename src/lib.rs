@@ -527,10 +527,15 @@ pub fn match_selectors_with_style_sharing<'document>(
             stats.times.updating_bloom_filter += start.elapsed();
         }
         // 1.3: Check if we can share styles
-        let mut target = StyleSharingTarget::new(element);
-        let start = Start::now();
-        let style_sharing_result = target.share_style_if_possible(context);
-        stats.times.checking_style_sharing += start.elapsed();
+        let style_sharing_result = bloom_filter
+            .then(|| {
+                let mut target = StyleSharingTarget::new(element);
+                let start = Start::now();
+                let result = target.share_style_if_possible(context);
+                stats.times.checking_style_sharing += start.elapsed();
+                result
+            })
+            .flatten();
         match style_sharing_result {
             Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
@@ -601,16 +606,18 @@ pub fn match_selectors_with_style_sharing<'document>(
                     selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                let start = Start::now();
-                context.thread_local.sharing_cache.insert_if_possible(
-                    &element ,
-                    &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
-                    // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
-                    None,
-                    element_depth,
-                    &context.shared,
-                );
-                stats.times.inserting_into_sharing_cache += start.elapsed();
+                if bloom_filter {
+                    let start = Start::now();
+                    context.thread_local.sharing_cache.insert_if_possible(
+                        &element ,
+                        &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
+                        // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
+                        None,
+                        element_depth,
+                        &context.shared,
+                    );
+                    stats.times.inserting_into_sharing_cache += start.elapsed();
+                }
             }
         }
         // 2. traverse children
