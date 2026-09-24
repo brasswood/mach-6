@@ -1056,15 +1056,20 @@ mod tests {
         );
         let selectors = [".a *", ".a > *", ".missing *"].map(parse_selector);
         let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
-        let context = super::MatchingContext::new(std::iter::once(&stylesheet), lock);
+        let optimizations = Optimizations {
+            selector_map: true,
+            universal_tail_bless_lists: enabled,
+            ..Optimizations::default()
+        };
+        let context = super::MatchingContext::new(
+            std::iter::once(&stylesheet),
+            lock,
+            optimizations,
+        );
         let (matches, stats) = super::match_selectors_with_style_sharing(
             &document,
             &context,
-            Optimizations {
-                selector_map: true,
-                universal_tail_bless_lists: enabled,
-                ..Optimizations::default()
-            },
+            optimizations,
             None,
         );
         (
