@@ -236,9 +236,25 @@ fn do_website_with_configured_optimizations(
     optimizations: Optimizations,
 ) -> (OwnedDocumentMatches, Statistics) {
     // must return OwnedDocumentMatches, because the list of input selectors will be owned by this function
+    optimizations
+        .validate()
+        .expect("invalid optimization combination");
     let document = website.document();
     let selectors = website.get_matcher().get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
+    if !optimizations.selector_map {
+        let matches = match_selectors(document, &prepared.selectors);
+        let owned = OwnedDocumentMatches(
+            matches
+                .0
+                .iter()
+                .map(|element_matches| {
+                    translate_element_matches_to_original(element_matches, &prepared.reverse_map)
+                })
+                .collect(),
+        );
+        return (owned, Statistics::default());
+    }
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
     let matching_context = MatchingContext::new_with_selector_map_options(
         std::iter::once(&stylesheet),
@@ -699,7 +715,13 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Optimizations::default());
+        let (_, _, stats) = do_website(
+            &website,
+            Optimizations {
+                selector_map: true,
+                ..Default::default()
+            },
+        );
         assert_eq!(stats.counts.sharing_instances, 9);
         Ok(())
     }
@@ -710,7 +732,13 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Optimizations::default());
+        let (_, _, stats) = do_website(
+            &website,
+            Optimizations {
+                selector_map: true,
+                ..Default::default()
+            },
+        );
         assert_eq!(stats.counts.sharing_instances, 5);
         Ok(())
     }
