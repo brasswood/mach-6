@@ -1079,6 +1079,8 @@ mod tests {
         let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
         let optimizations = Optimizations {
             selector_map: true,
+            bloom_filter: true,
+            style_sharing_cache: true,
             universal_tail_bless_lists: enabled,
             ..Optimizations::default()
         };
