@@ -783,37 +783,38 @@ function buildBar(variant: WebsiteVariantJson, manifest: VariantManifestEntryJso
   if (unmeasuredCycles !== 0n) {
     segments.push({ kind: "other", meanCycles: unmeasuredCycles, stddevCycles: null });
   }
-  segments.push(...measuredMatchDurations);
 
-  const totalCycles = segments.reduce((sum, segment) => {
-    return sum + segment.meanCycles;
-  }, 0n);
+  const totalCycles = toBigInt(variant.summary.mean_cycles);
   const totalLengthCycles = segments.reduce((sum, segment) => {
     return sum + (segment.meanCycles > 0n ? segment.meanCycles : 0n);
   }, 0n);
   const slowRejectSegment = segments.find((segment) => segment.kind === "slowRejecting");
   if (!slowRejectSegment) {
-    throw new Error("Missing slow-reject segment for " + label);
+    throw new Error("Missing slow-reject segment for " + variantLabel(manifest));
   }
 
   return {
-    label,
+    variantId: manifest.id,
+    label: variantLabel(manifest),
+    optimizationTooltip: optimizationTooltip(manifest),
     segments,
     totalCycles,
     totalLengthCycles,
     slowRejectCycles: slowRejectSegment.meanCycles,
-    counts: summary.counts,
-    topSlowRejectSelectors: buildSelectorRows(selectorsSummary),
-    showExpandedDetails
+    counts: variant.summary.counts,
+    topSlowRejectSelectors: buildSelectorRows(variant.selector_slow_rejects_summary),
+    showExpandedDetails: true
   };
 }
 
-function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView] {
-  return [
-    buildBar("Before Preprocessing", website.summary.before_preprocessing, website.selector_slow_rejects_summary.before_preprocessing, null),
-    buildBar("After Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, false),
-    buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, website.summary.preprocessing)
-  ];
+function buildWebsiteBars(website: WebsiteJson, manifests: VariantManifestEntryJson[]): BarView[] {
+  return website.variants.map((variant) => {
+    const manifest = manifests.find((entry) => entry.id === variant.variant_id);
+    if (!manifest) {
+      throw new Error("Missing manifest for profile " + variant.variant_id.toString());
+    }
+    return buildBar(variant, manifest);
+  });
 }
 
 function buildWebsiteView(
