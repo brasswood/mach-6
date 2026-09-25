@@ -819,17 +819,20 @@ function buildWebsiteBars(website: WebsiteJson, manifests: VariantManifestEntryJ
 
 function buildWebsiteView(
   website: WebsiteJson,
+  manifests: VariantManifestEntryJson[],
   aggregateBars: readonly BarView[],
   isAggregate = false
 ): WebsiteView {
-  const bars = buildWebsiteBars(website);
-  const contextBars = bars.map((bar, index) => {
-    const aggregateBar = aggregateBars[index];
+  const bars = buildWebsiteBars(website, manifests);
+  const contextBars = bars.map((bar) => {
+    const aggregateBar = aggregateBars.find((candidate) => candidate.variantId === bar.variantId);
     if (!aggregateBar) {
       throw new Error("Missing aggregate bar for " + bar.label);
     }
     return {
+      variantId: bar.variantId,
       label: bar.label,
+      optimizationTooltip: bar.optimizationTooltip,
       totalLengthCycles: bar.totalLengthCycles,
       aggregateTotalLengthCycles: aggregateBar.totalLengthCycles
     };
