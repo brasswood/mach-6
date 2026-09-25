@@ -905,6 +905,7 @@ dependencies = [
  "stylo",
  "tempfile",
  "thiserror",
+ "tsc-timer",
 ]
 
 [[package]]
@@ -1712,6 +1713,10 @@ dependencies = [
  "syn",
  "synstructure",
 ]
+
+[[package]]
+name = "tsc-timer"
+version = "0.1.5"
 
 [[package]]
 name = "uluru"

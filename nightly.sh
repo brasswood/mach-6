@@ -7,19 +7,14 @@ export PATH=~/.cargo/bin:$PATH
 # Get the websites suite
 git submodule update --init
 
-# Google is archived in the controlled snapshot; expose it to the benchmark.
-rm -rf websites/google.com
-unzip -q websites/google.com.zip -d websites
-trap 'rm -rf websites/google.com' EXIT
-
 # Run benchmarks
-cargo bench -- '^(cnn\.com|amazon\.com|google\.com|shopify\.com)/With SelectorMap, Bloom Filter, and Style Sharing$'
+cargo bench -- '^(cnn\.com|amazon\.com|youtube\.com|shopify\.com)/With SelectorMap, Bloom Filter, and Style Sharing$'
 
-# copy criterion report to its own report directory
-rsync -a --delete target/criterion/ criterion_report/
-if [ -e criterion_report/report/index.html ]; then
+# Publish Criterion's cycle-valued JSON and report.
+rsync -a --delete target/criterion/ target/all_websites_report/
+if [ -e target/all_websites_report/report/index.html ]; then
     # create a main html page that will redirect to report/index.html (thanks, ChatGPT)
-    cat > criterion_report/index.html <<'EOF'
+    cat > target/all_websites_report/index.html <<'EOF'
 <!DOCTYPE html>
 <html>
 <head>
@@ -32,5 +27,5 @@ if [ -e criterion_report/report/index.html ]; then
 </html>
 EOF
 else
-    echo "<html><body>Hey! Something went wrong and <code>criterion_report/report/index.html</code> doesn't exist!</body></html>" > criterion_report/index.html
+    echo "<html><body>Hey! Something went wrong and <code>report/index.html</code> doesn't exist!</body></html>" > target/all_websites_report/index.html
 fi
