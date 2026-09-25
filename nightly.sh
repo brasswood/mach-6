@@ -18,7 +18,7 @@ trap 'rm -rf websites/google.com' EXIT
 rm -r target/all_websites_report
 
 # Run optimization profiles on all websites
-cargo bench --bench all_websites -- \
+cargo bench --bench all_websites --features measure_fail_cache_fill -- \
   --profile benches/all_websites/profiles/01-style-sharing-selector-map-bloom-filter.json \
   --profile benches/all_websites/profiles/02-style-sharing-selector-map-bloom-filter-fail-caches.json \
   --profile benches/all_websites/profiles/03-style-sharing-selector-map-bloom-filter-fail-caches-lazy-prefixes.json \
