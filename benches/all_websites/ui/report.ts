@@ -99,8 +99,8 @@ interface CountingStatsJson {
   fast_rejects: number;
   slow_rejects: number;
   slow_accepts: number;
-  filled_fail_caches?: number;
-  total_fail_caches?: number;
+  filled_fail_caches?: number | undefined;
+  total_fail_caches?: number | undefined;
 }
 
 interface SelectorStatsJson {
