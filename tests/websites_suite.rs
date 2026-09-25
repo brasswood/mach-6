@@ -13,7 +13,7 @@ use scraper::{ElementRef, Html, Node};
 use selectors::matching::TimingStats;
 use style::Atom;
 
-fn load_test_profiles() -> Result<Vec<Optimizations>> {
+fn load_test_profiles() -> Result<Vec<(String, Optimizations)>> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let profiles_path = workspace.join("test_profiles.txt");
     let profile_paths = std::fs::read_to_string(&profiles_path)
@@ -22,7 +22,14 @@ fn load_test_profiles() -> Result<Vec<Optimizations>> {
         .lines()
         .map(str::trim)
         .filter(|path| !path.is_empty())
-        .map(|path| mach_6::load_optimizations(&workspace.join(path)))
+        .map(|path| {
+            let profile_path = workspace.join(path);
+            let profile_name = profile_path
+                .file_stem()
+                .map(|name| name.to_string_lossy().into_owned())
+                .ok_or_else(|| Error::other(format!("profile path {path:?} has no file name")))?;
+            Ok((profile_name, mach_6::load_optimizations(&profile_path)?))
+        })
         .collect()
 }
 
@@ -67,7 +74,7 @@ fn compare_with_naive(
     input: &ParsedWebsite,
     ser_naive_result: &SerDocumentMatches,
     debug_naive_result: &DebugSerDocumentMatches,
-    profile_id: usize,
+    profile_name: &str,
     optimizations: Optimizations,
     equality_failures_profile_path: &Path
 ) -> Result<bool> {
@@ -79,7 +86,7 @@ fn compare_with_naive(
         let annotated_html_path = website_folder.join(format!("{website_name}.debug.html"));
         std::fs::write(&annotated_html_path, annotated_html(input.document()))
             .into_result(Some(annotated_html_path))?;
-        for (label, ser_result, debug_result) in [("naive", ser_naive_result, debug_naive_result), (&format!("profile-{profile_id}"), &ser_result, &DebugSerDocumentMatches::from(&result))] {
+        for (label, ser_result, debug_result) in [("naive", ser_naive_result, debug_naive_result), (&format!("profile-{profile_name}"), &ser_result, &DebugSerDocumentMatches::from(&result))] {
             let yaml_path = website_folder.join(format!("{website_name}.{label}.yaml"));
             let debug_yaml_path = website_folder.join(format!("{website_name}.{label}.debug.yaml"));
             let f = std::fs::File::create(&yaml_path).into_result(Some(yaml_path))?;
@@ -99,20 +106,20 @@ fn all_profiles_correct() -> Result<()> {
     check_profiles_correct(&profiles)
 }
 
-fn check_profiles_correct(profiles: &[Optimizations]) -> Result<()> {
+fn check_profiles_correct(profiles: &[(String, Optimizations)]) -> Result<()> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let equality_failures_rel = PathBuf::from("tests/equality_failures");
-    let equality_failures_profile = |profile_id: usize| -> PathBuf {
+    let equality_failures_profile = |profile_name: &str| -> PathBuf {
         workspace
             .join(&equality_failures_rel)
-            .join(format!("profile-{profile_id}"))
+            .join(format!("profile-{profile_name}"))
     };
 
     let website_paths = website_paths_for_tests()?;
     let profile_flags: Vec<_> = profiles.iter().map(|_| AtomicBool::new(false)).collect();
     // start with a clean slate
-    for profile_id in 0..profiles.len() {
-        let path = equality_failures_profile(profile_id);
+    for (profile_name, _) in profiles {
+        let path = equality_failures_profile(profile_name);
         match std::fs::remove_dir_all(&path) {
             Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound) => (),
             other => other.into_result(Some(path.clone()))?
@@ -142,15 +149,15 @@ fn check_profiles_correct(profiles: &[Optimizations]) -> Result<()> {
                 naive_flag.store(true, Ordering::Relaxed);
             }
             // 2. Check profiles against the naive result
-            for (profile_id, (optimizations, flag)) in profiles.iter().zip(&profile_flags).enumerate() {
+            for ((profile_name, optimizations), flag) in profiles.iter().zip(&profile_flags) {
                 if !compare_with_naive(
                     &website.name,
                     &website,
                     &ser_naive_result,
                     &debug_naive_result,
-                    profile_id,
+                    profile_name,
                     *optimizations,
-                    &equality_failures_profile(profile_id),
+                    &equality_failures_profile(profile_name),
                 )? {
                     flag.store(true, Ordering::Relaxed);
                 }
@@ -159,9 +166,9 @@ fn check_profiles_correct(profiles: &[Optimizations]) -> Result<()> {
         })
         .collect::<Result<_>>()?;
     // clean up, leaving only failures
-    for (profile_id, flag) in profile_flags.iter().enumerate() {
+    for ((profile_name, _), flag) in profiles.iter().zip(&profile_flags) {
         if !flag.load(Ordering::Relaxed) {
-            let path = equality_failures_profile(profile_id);
+            let path = equality_failures_profile(profile_name);
             std::fs::remove_dir(&path).into_result(Some(path))?;
         }
     }
@@ -187,13 +194,13 @@ fn statistics_dont_change() -> Result<()> {
     check_statistics_dont_change(&profiles)
 }
 
-fn check_statistics_dont_change(profiles: &[Optimizations]) -> Result<()> {
+fn check_statistics_dont_change(profiles: &[(String, Optimizations)]) -> Result<()> {
     let website_paths = website_paths_for_tests()?;
     let _: Vec<_> = website_paths
         .into_par_iter()
         .map(|path| {
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            for optimizations in profiles {
+            for (_, optimizations) in profiles {
                 let (_, _, mut stats1) = mach_6::do_website(&website, *optimizations);
                 let (_, _, mut stats2) = mach_6::do_website(&website, *optimizations);
                 // Ignore timing info, which we expect to change between runs.
