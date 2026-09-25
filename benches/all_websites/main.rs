@@ -421,10 +421,10 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
             variant_spec.optimizations,
         );
         if let Some(interning) = fail_cache_interning {
-            let measurements = variant_spec.optimizations.universal_tail_bless_lists
-                .then(|| measure_fail_cache_fill(&website.name, variant_spec.optimizations))
-                .flatten();
-            result.add_fail_cache_data(interning, measurements);
+            result.add_fail_cache_data(
+                interning,
+                measure_fail_cache_fill(&website.name, variant_spec.optimizations),
+            );
         }
         return result;
     }
@@ -500,10 +500,10 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
         variant_result.add_distribution(distribution_durations);
     }
     if let Some(interning) = fail_cache_interning {
-        let measurements = variant_spec.optimizations.universal_tail_bless_lists
-            .then(|| measure_fail_cache_fill(&website.name, variant_spec.optimizations))
-            .flatten();
-        variant_result.add_fail_cache_data(interning, measurements);
+        variant_result.add_fail_cache_data(
+            interning,
+            measure_fail_cache_fill(&website.name, variant_spec.optimizations),
+        );
     }
 
     variant_result
