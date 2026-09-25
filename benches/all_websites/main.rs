@@ -48,6 +48,7 @@ struct SelectorSlowRejectSamples {
 
 #[derive(Clone, Debug)]
 struct VariantTimingSegments {
+    fail_cache_interning: Option<Samples<tsc_timer::Duration>>,
     updating_bloom_filter: Samples<tsc_timer::Duration>,
     checking_style_sharing: Samples<tsc_timer::Duration>,
     querying_selector_map: Samples<tsc_timer::Duration>,
@@ -70,6 +71,7 @@ impl VariantTimingSegments {
             )
         };
         Self {
+            fail_cache_interning: None,
             updating_bloom_filter: project(|stats| stats.updating_bloom_filter),
             checking_style_sharing: project(|stats| stats.checking_style_sharing),
             querying_selector_map: project(|stats| stats.querying_selector_map),
@@ -91,6 +93,9 @@ impl VariantTimingSegments {
             + self.slow_rejecting.mean()
             + self.slow_accepting.mean()
             + self.inserting_into_sharing_cache.mean();
+        if let Some(interning) = self.fail_cache_interning.as_ref() {
+            total += interning.mean();
+        }
         if let Some(indexing) = self.indexing.as_ref() {
             total += indexing.mean();
         }
@@ -115,6 +120,7 @@ impl VariantTimingSegments {
 struct VariantResult {
     /// Counting stats of one sample (should be the same accross all samples)
     counting_stats: CountingStats,
+    fail_cache_measurements: Option<FailCacheMeasurements>,
     /// Timing samples
     timing_segments: VariantTimingSegments,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
@@ -169,6 +175,7 @@ impl VariantResult {
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
         let result = VariantResult {
             counting_stats,
+            fail_cache_measurements: None,
             timing_segments: VariantTimingSegments::from_matching_stats(&Samples::from_vec(timing_stats)),
             selector_slow_reject_times: sorted,
         };
@@ -188,9 +195,24 @@ impl VariantResult {
         self.timing_segments.distribution = Some(distribution);
     }
 
+    fn add_fail_cache_data(
+        &mut self,
+        interning: Samples<tsc_timer::Duration>,
+        measurements: Option<FailCacheMeasurements>,
+    ) {
+        self.timing_segments.fail_cache_interning = Some(interning);
+        self.fail_cache_measurements = measurements;
+    }
+
     fn mean_duration(&self) -> tsc_timer::Duration {
         self.timing_segments.mean_total_duration()
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FailCacheMeasurements {
+    filled_caches: usize,
+    total_caches: usize,
 }
 
 #[derive(Clone, Copy)]
