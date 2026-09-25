@@ -1,6 +1,6 @@
 type SegmentKind =
   | "indexing"
-  | "otherPreprocessing"
+  | "isConversion"
   | "distribution"
   | "updatingBloomFilter"
   | "checkingStyleSharing"
@@ -31,6 +31,7 @@ interface ReportMetadataJson {
   report_source?: ReportSource;
   tagline: string | null;
   time_end?: string | null;
+  variants: VariantManifestEntryJson[];
 }
 
 interface LoadedReport {
@@ -40,33 +41,54 @@ interface LoadedReport {
 
 interface WebsiteJson {
   website: string;
-  summary: SummaryJson;
-  selector_slow_rejects_summary: SelectorsSummaryJson;
+  variants: WebsiteVariantJson[];
 }
 
-interface SummaryJson {
-  before_preprocessing: BenchmarkRunSummaryJson;
-  preprocessing: PreprocessingSummaryJson;
-  after_preprocessing: BenchmarkRunSummaryJson;
+interface VariantManifestEntryJson {
+  id: number;
+  label: string | null;
+  optimizations: Record<string, boolean>;
 }
 
-interface LegacyPreprocessingSummaryJson {
-  mean_indexing_cycles: number;
-  mean_overall_cycles: number;
+interface WebsiteVariantJson {
+  variant_id: number;
+  summary: BenchmarkRunSummaryJson;
+  selector_slow_rejects_summary: SelectorStatsJson;
+  samples: TimingsSamplesJson;
 }
 
-interface CurrentPreprocessingSummaryJson {
-  mean_indexing_cycles: number;
-  mean_is_conversion_cycles: number;
-  mean_distributing_cycles: number;
+interface SegmentSummaryJson {
+  kind: SegmentKindJson;
+  mean_cycles: number;
+  stddev_cycles: number | null;
 }
 
-type PreprocessingSummaryJson = LegacyPreprocessingSummaryJson | CurrentPreprocessingSummaryJson;
+type SegmentKindJson =
+  | "indexing"
+  | "is_conversion"
+  | "distribution"
+  | "updating_bloom_filter"
+  | "checking_style_sharing"
+  | "querying_selector_map"
+  | "fast_rejecting"
+  | "slow_rejecting"
+  | "slow_accepting"
+  | "inserting_into_sharing_cache";
 
 interface BenchmarkRunSummaryJson {
   mean_cycles: number;
   counts: CountingStatsJson;
-  times: TimingStatsJson;
+  times: SegmentSummaryJson[];
+}
+
+interface TimingsSamplesJson {
+  times: SegmentSamplesJson[];
+  selector_slow_rejects_cycles: Record<string, number[]> | null;
+}
+
+interface SegmentSamplesJson {
+  kind: SegmentKindJson;
+  samples_cycles: number[];
 }
 
 interface CountingStatsJson {
@@ -75,26 +97,6 @@ interface CountingStatsJson {
   fast_rejects: number;
   slow_rejects: number;
   slow_accepts: number;
-}
-
-interface TimingStatsJson {
-  means: TimingsJsonBody;
-  stddevs: TimingsJsonBody;
-}
-
-interface TimingsJsonBody {
-  updating_bloom_filter_cycles: number;
-  slow_rejecting_cycles: number;
-  slow_accepting_cycles: number;
-  fast_rejecting_cycles: number;
-  checking_style_sharing_cycles: number;
-  inserting_into_sharing_cache_cycles: number;
-  querying_selector_map_cycles: number;
-}
-
-interface SelectorsSummaryJson {
-  before_preprocessing: SelectorStatsJson;
-  after_preprocessing: SelectorStatsJson;
 }
 
 interface SelectorStatsJson {
