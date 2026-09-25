@@ -249,23 +249,36 @@ struct FailCacheMeasurements {
     total_caches: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct VariantSpec {
     id: usize,
-    label: Option<&'static str>,
+    label: Option<String>,
     optimizations: Optimizations,
 }
 
-fn variant_specs(profiles: Vec<Optimizations>) -> Vec<VariantSpec> {
+fn variant_specs(profiles: &[PathBuf], optimizations: Vec<Optimizations>) -> Vec<VariantSpec> {
     profiles
-        .into_iter()
+        .iter()
+        .zip(optimizations)
         .enumerate()
-        .map(|(id, optimizations)| VariantSpec {
+        .map(|(id, (profile, optimizations))| VariantSpec {
             id,
-            label: None,
+            label: profile.file_stem().map(|stem| stem.to_string_lossy().into_owned()),
             optimizations,
         })
         .collect()
+}
+
+#[cfg(test)]
+#[test]
+fn profile_filenames_label_variants_in_argument_order() {
+    let profiles = [
+        PathBuf::from("profiles/05-baseline+.json"),
+        PathBuf::from("profiles/02-fail-caches.json"),
+    ];
+    let variants = variant_specs(&profiles, vec![Optimizations::default(); 2]);
+    assert_eq!((variants[0].id, variants[0].label.as_deref()), (0, Some("05-baseline+")));
+    assert_eq!((variants[1].id, variants[1].label.as_deref()), (1, Some("02-fail-caches")));
 }
 
 #[derive(Debug, Parser)]
@@ -337,7 +350,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let variant_specs = variant_specs(optimizations);
+    let variant_specs = variant_specs(&profiles, optimizations);
     let git_metadata = match collect_report_git_metadata() {
         Ok(git) => Some(git),
         Err(e) => {

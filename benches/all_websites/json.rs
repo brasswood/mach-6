@@ -36,7 +36,7 @@ fn report_variants_manifest(variant_specs: &[VariantSpec]) -> Vec<VariantManifes
         .iter()
         .map(|variant_spec| VariantManifestEntryJson {
             id: variant_spec.id,
-            label: variant_spec.label.map(str::to_owned),
+            label: variant_spec.label.clone(),
             optimizations: variant_spec.optimizations,
         })
         .collect()
