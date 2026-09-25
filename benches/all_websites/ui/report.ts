@@ -772,43 +772,16 @@ function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
   return rows.slice(0, MAX_SLOW_REJECT_ROWS);
 }
 
-function buildBar(
-  label: string,
-  summary: BenchmarkRunSummaryJson,
-  selectorsSummary: SelectorStatsJson,
-  includePreprocessing: PreprocessingSummaryJson | null,
-  showExpandedDetails = true
-): BarView {
-  const means = summary.times.means;
-  const stddevs = summary.times.stddevs;
-  const measuredMatchDurations: SegmentView[] = [
-    { kind: "updatingBloomFilter", meanCycles: toBigInt(means.updating_bloom_filter_cycles), stddevCycles: toBigInt(stddevs.updating_bloom_filter_cycles) },
-    { kind: "checkingStyleSharing", meanCycles: toBigInt(means.checking_style_sharing_cycles), stddevCycles: toBigInt(stddevs.checking_style_sharing_cycles) },
-    { kind: "queryingSelectorMap", meanCycles: toBigInt(means.querying_selector_map_cycles), stddevCycles: toBigInt(stddevs.querying_selector_map_cycles) },
-    { kind: "fastRejecting", meanCycles: toBigInt(means.fast_rejecting_cycles), stddevCycles: toBigInt(stddevs.fast_rejecting_cycles) },
-    { kind: "slowRejecting", meanCycles: toBigInt(means.slow_rejecting_cycles), stddevCycles: toBigInt(stddevs.slow_rejecting_cycles) },
-    { kind: "slowAccepting", meanCycles: toBigInt(means.slow_accepting_cycles), stddevCycles: toBigInt(stddevs.slow_accepting_cycles) },
-    { kind: "insertingIntoSharingCache", meanCycles: toBigInt(means.inserting_into_sharing_cache_cycles), stddevCycles: toBigInt(stddevs.inserting_into_sharing_cache_cycles) }
-  ];
-  const measuredMatchSum = measuredMatchDurations.reduce((sum, segment) => {
-    return sum + segment.meanCycles;
-  }, 0n);
-  measuredMatchDurations.push({
-    kind: "other",
-    meanCycles: toBigInt(summary.mean_cycles) - measuredMatchSum,
-    stddevCycles: null
-  });
-
-  const segments: SegmentView[] = [];
-  if (includePreprocessing) {
-    const {
-      indexingCycles,
-      otherPreprocessingCycles,
-      distributionCycles
-    } = getPreprocessingBreakdown(includePreprocessing);
-    segments.push({ kind: "indexing", meanCycles: indexingCycles, stddevCycles: null });
-    segments.push({ kind: "otherPreprocessing", meanCycles: otherPreprocessingCycles, stddevCycles: null });
-    segments.push({ kind: "distribution", meanCycles: distributionCycles, stddevCycles: null });
+function buildBar(variant: WebsiteVariantJson, manifest: VariantManifestEntryJson): BarView {
+  const segments: SegmentView[] = variant.summary.times.map((segment) => ({
+    kind: segmentKindFromJson(segment.kind),
+    meanCycles: toBigInt(segment.mean_cycles),
+    stddevCycles: segment.stddev_cycles === null ? null : toBigInt(segment.stddev_cycles)
+  }));
+  const measuredSum = segments.reduce((sum, segment) => sum + segment.meanCycles, 0n);
+  const unmeasuredCycles = toBigInt(variant.summary.mean_cycles) - measuredSum;
+  if (unmeasuredCycles !== 0n) {
+    segments.push({ kind: "other", meanCycles: unmeasuredCycles, stddevCycles: null });
   }
   segments.push(...measuredMatchDurations);
 
