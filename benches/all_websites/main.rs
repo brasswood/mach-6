@@ -363,16 +363,36 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     if variant_spec.optimizations.fail_caches {
         mach_6::clear_fail_caches(document);
     }
+    let fail_cache_interning = variant_spec.optimizations.fail_caches.then(|| {
+        bench_function(
+            &format!("{} fail-cache prefix interning", website.name),
+            || {
+                website
+                    .get_matcher(variant_spec.optimizations)
+                    .stylist()
+                    .fail_cache_build_timings()
+                    .entry_build
+            },
+            NUM_SAMPLES,
+        ).samples
+    });
     let matching_context = website.get_matcher(variant_spec.optimizations);
     let benchmark_name = format!("{} variant {}", website.name, variant_spec.id);
 
     if !variant_spec.optimizations.is_conversion && !variant_spec.optimizations.distribution {
-        return bench_website(
+        let mut result = bench_website(
             &benchmark_name,
             document,
             &matching_context,
             variant_spec.optimizations,
         );
+        if let Some(interning) = fail_cache_interning {
+            let measurements = variant_spec.optimizations.universal_tail_bless_lists
+                .then(|| measure_fail_cache_fill(&website.name, variant_spec.optimizations))
+                .flatten();
+            result.add_fail_cache_data(interning, measurements);
+        }
+        return result;
     }
 
     let selectors = matching_context.get_selectors();
@@ -444,6 +464,12 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
     }
     if let Some(distribution_durations) = distribution_durations {
         variant_result.add_distribution(distribution_durations);
+    }
+    if let Some(interning) = fail_cache_interning {
+        let measurements = variant_spec.optimizations.universal_tail_bless_lists
+            .then(|| measure_fail_cache_fill(&website.name, variant_spec.optimizations))
+            .flatten();
+        variant_result.add_fail_cache_data(interning, measurements);
     }
 
     variant_result
