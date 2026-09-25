@@ -36,4 +36,3 @@ rust_toolchain() {
 timed 'Install system packages' system_packages
 timed 'Install the stable Rust toolchain' rust_toolchain
 timed 'Install npm dependencies' npm install --no-audit --no-fund --prefer-offline
-timed 'Fetch locked Cargo dependencies' cargo fetch --locked

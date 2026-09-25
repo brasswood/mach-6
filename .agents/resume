@@ -27,3 +27,6 @@ if [ ! -e stylo/.git ] || [ ! -e websites/.git ]; then
     printf 'Git submodules are unavailable after orb resume.\n' >&2
     exit 1
 fi
+
+printf '\n==> Fetch locked Cargo dependencies\n'
+cargo fetch --locked
