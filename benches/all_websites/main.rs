@@ -49,6 +49,7 @@ struct SelectorSlowRejectSamples {
 #[derive(Clone, Debug)]
 struct VariantTimingSegments {
     fail_cache_interning: Option<Samples<tsc_timer::Duration>>,
+    overall_matching: Samples<tsc_timer::Duration>,
     updating_bloom_filter: Samples<tsc_timer::Duration>,
     checking_style_sharing: Samples<tsc_timer::Duration>,
     querying_selector_map: Samples<tsc_timer::Duration>,
@@ -62,7 +63,10 @@ struct VariantTimingSegments {
 }
 
 impl VariantTimingSegments {
-    fn from_matching_stats(value: &Samples<TimingStats>) -> Self {
+    fn from_matching_stats(
+        value: &Samples<TimingStats>,
+        overall_matching: Samples<tsc_timer::Duration>,
+    ) -> Self {
         let project = |project: fn(&TimingStats) -> tsc_timer::Duration| {
             Samples::from_vec(
                 value.iter()
@@ -72,6 +76,7 @@ impl VariantTimingSegments {
         };
         Self {
             fail_cache_interning: None,
+            overall_matching,
             updating_bloom_filter: project(|stats| stats.updating_bloom_filter),
             checking_style_sharing: project(|stats| stats.checking_style_sharing),
             querying_selector_map: project(|stats| stats.querying_selector_map),
@@ -86,13 +91,7 @@ impl VariantTimingSegments {
     }
 
     fn mean_total_duration(&self) -> tsc_timer::Duration {
-        let mut total = self.updating_bloom_filter.mean()
-            + self.checking_style_sharing.mean()
-            + self.querying_selector_map.mean()
-            + self.fast_rejecting.mean()
-            + self.slow_rejecting.mean()
-            + self.slow_accepting.mean()
-            + self.inserting_into_sharing_cache.mean();
+        let mut total = self.overall_matching.mean();
         if let Some(interning) = self.fail_cache_interning.as_ref() {
             total += interning.mean();
         }
@@ -120,17 +119,31 @@ impl VariantTimingSegments {
 #[cfg(test)]
 #[test]
 fn conversion_timing_does_not_wrap_or_count_indexing_twice() {
-    let mut segments = VariantTimingSegments::from_matching_stats(&Samples::from_vec(vec![
-        TimingStats::default(),
-    ]));
+    let mut segments = VariantTimingSegments::from_matching_stats(
+        &Samples::from_vec(vec![TimingStats::default()]),
+        Samples::from_vec(vec![tsc_timer::Duration::from_cycles(20)]),
+    );
     segments.indexing = Some(Samples::from_vec(vec![tsc_timer::Duration::from_cycles(8)]));
     segments.overall_is_conversion = Some(Samples::from_vec(vec![tsc_timer::Duration::from_cycles(5)]));
     assert_eq!(segments.derived_is_conversion_mean().unwrap().cycles(), 0);
-    assert_eq!(segments.mean_total_duration().cycles(), 5);
+    assert_eq!(segments.mean_total_duration().cycles(), 25);
 
     segments.overall_is_conversion = Some(Samples::from_vec(vec![tsc_timer::Duration::from_cycles(13)]));
     assert_eq!(segments.derived_is_conversion_mean().unwrap().cycles(), 5);
-    assert_eq!(segments.mean_total_duration().cycles(), 13);
+    assert_eq!(segments.mean_total_duration().cycles(), 33);
+}
+
+#[cfg(test)]
+#[test]
+fn overall_matching_preserves_unmeasured_cycles() {
+    let mut matching = TimingStats::default();
+    matching.slow_rejecting = tsc_timer::Duration::from_cycles(25);
+    let segments = VariantTimingSegments::from_matching_stats(
+        &Samples::from_vec(vec![matching]),
+        Samples::from_vec(vec![tsc_timer::Duration::from_cycles(100)]),
+    );
+    assert_eq!(segments.slow_rejecting.mean().cycles(), 25);
+    assert_eq!(segments.mean_total_duration().cycles(), 100);
 }
 
 /// Aggregated data for one benchmarked optimization variant.
@@ -194,7 +207,10 @@ impl VariantResult {
         let result = VariantResult {
             counting_stats,
             fail_cache_measurements: None,
-            timing_segments: VariantTimingSegments::from_matching_stats(&Samples::from_vec(timing_stats)),
+            timing_segments: VariantTimingSegments::from_matching_stats(
+                &Samples::from_vec(timing_stats),
+                stats.sample_durations,
+            ),
             selector_slow_reject_times: sorted,
         };
         result
