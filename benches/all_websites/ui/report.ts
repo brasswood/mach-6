@@ -1000,7 +1000,7 @@ function renderSegmentSwatch(kind: SegmentKind): string {
 function renderContextBar(bar: ContextBarView): string {
   return [
     '<div class="variant-context">',
-    '<div class="variant-context-label">' + escapeHtml(bar.label) + '</div>',
+    '<div class="variant-context-label" title="' + escapeHtml(bar.optimizationTooltip) + '">' + escapeHtml(bar.label) + '</div>',
     '<div class="context-bar-wrap"><div class="context-bar-total" style="width: ' + pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles) + '%"></div></div>',
     '<div class="context-value">' + escapeHtml(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles)) + '%</div>',
     '</div>'
@@ -1018,7 +1018,7 @@ function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint): stri
 
   return [
     '<div class="variant-summary">',
-    '<div class="variant-label">' + escapeHtml(bar.label) + '</div>',
+    '<div class="variant-label" title="' + escapeHtml(bar.optimizationTooltip) + '">' + escapeHtml(bar.label) + '</div>',
     '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, summaryMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
     '<div class="time"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles)) + '</div>' + displayNote + '</div>',
     '</div>'
@@ -1063,7 +1063,7 @@ function renderSelectorRows(rows: SelectorRow[]): string {
 function renderVariantDetails(bar: BarView): string {
   return [
     '<section class="variant-details">',
-    '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
+    '<h4 class="variant-details-title" title="' + escapeHtml(bar.optimizationTooltip) + '">' + escapeHtml(bar.label) + '</h4>',
     renderExpandedBar(bar),
     '<table><tbody>',
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
@@ -1111,21 +1111,31 @@ function renderWebsite(website: WebsiteView): string {
   ].join("");
 }
 
-function buildWebsiteMap(websites: WebsiteJson[]): Map<string, WebsiteView> {
+function buildWebsiteMap(report: ReportJson): Map<string, WebsiteView> {
+  const websites = report.websites;
   const websiteMap = new Map<string, WebsiteView>();
-  const aggregateWebsite = buildAggregateWebsiteJson(websites);
-  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
-  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
+  const aggregateWebsite = buildAggregateWebsiteJson(websites, report.metadata.variants);
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite, report.metadata.variants);
+  const aggregateWebsiteView = buildWebsiteView(
+    aggregateWebsite,
+    report.metadata.variants,
+    aggregateWebsiteBars,
+    true
+  );
   websiteMap.set(aggregateWebsite.website, aggregateWebsiteView);
   for (const website of websites) {
-    websiteMap.set(website.website, buildWebsiteView(website, aggregateWebsiteView.bars));
+    websiteMap.set(website.website, buildWebsiteView(
+      website,
+      report.metadata.variants,
+      aggregateWebsiteView.bars
+    ));
   }
   return websiteMap;
 }
 
 function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): CompareWebsiteView[] {
-  const leftMap = buildWebsiteMap(leftReport.websites);
-  const rightMap = buildWebsiteMap(rightReport.websites);
+  const leftMap = buildWebsiteMap(leftReport);
+  const rightMap = buildWebsiteMap(rightReport);
   const names = new Set<string>();
   for (const name of leftMap.keys()) {
     names.add(name);
