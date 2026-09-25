@@ -328,15 +328,15 @@
       color: #94a3b8;
       font-size: 11px;
       font-weight: 600;
-      text-transform: uppercase;
       letter-spacing: 0.03em;
+      cursor: help;
     }
     .variant-label {
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
-      text-transform: uppercase;
       letter-spacing: 0.02em;
+      cursor: help;
     }
     .context-bar-wrap {
       width: 100%;
@@ -614,6 +614,10 @@
         grid-template-columns: 1fr;
         gap: 6px;
       }
+      .variant-context {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
       .compare-controls-grid {
         grid-template-columns: 1fr;
       }
@@ -630,6 +634,9 @@
       .time {
         text-align: left;
         align-items: flex-start;
+      }
+      .context-value {
+        text-align: left;
       }
     }
   </style>
