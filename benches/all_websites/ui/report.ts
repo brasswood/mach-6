@@ -203,52 +203,40 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isLegacyPreprocessingSummaryJson(value: unknown): value is LegacyPreprocessingSummaryJson {
-  const record = getRecord(value);
-  if (record === null) {
-    return false;
-  }
-  return isFiniteNumber(record.mean_indexing_cycles)
-    && isFiniteNumber(record.mean_overall_cycles)
-    && record.mean_is_conversion_cycles === undefined
-    && record.mean_distributing_cycles === undefined;
-}
-
-function isCurrentPreprocessingSummaryJson(value: unknown): value is CurrentPreprocessingSummaryJson {
-  const record = getRecord(value);
-  if (record === null) {
-    return false;
-  }
-  return isFiniteNumber(record.mean_indexing_cycles)
-    && isFiniteNumber(record.mean_is_conversion_cycles)
-    && isFiniteNumber(record.mean_distributing_cycles)
-    && record.mean_overall_cycles === undefined;
-}
-
-function isPreprocessingSummaryJson(value: unknown): value is PreprocessingSummaryJson {
-  return isLegacyPreprocessingSummaryJson(value) || isCurrentPreprocessingSummaryJson(value);
-}
-
-function getPreprocessingBreakdown(summary: PreprocessingSummaryJson): {
-  indexingCycles: bigint;
-  otherPreprocessingCycles: bigint;
-  distributionCycles: bigint;
-} {
-  const indexingCycles = toBigInt(summary.mean_indexing_cycles);
-  if ("mean_is_conversion_cycles" in summary) {
-    const isConversionCycles = toBigInt(summary.mean_is_conversion_cycles);
-    return {
-      indexingCycles,
-      otherPreprocessingCycles: isConversionCycles - indexingCycles,
-      distributionCycles: toBigInt(summary.mean_distributing_cycles)
-    };
-  }
-
-  return {
-    indexingCycles,
-    otherPreprocessingCycles: toBigInt(summary.mean_overall_cycles) - indexingCycles,
-    distributionCycles: 0n
+function segmentKindFromJson(kind: SegmentKindJson): SegmentKind {
+  const kindMap: Record<SegmentKindJson, SegmentKind> = {
+    indexing: "indexing",
+    is_conversion: "isConversion",
+    distribution: "distribution",
+    updating_bloom_filter: "updatingBloomFilter",
+    checking_style_sharing: "checkingStyleSharing",
+    querying_selector_map: "queryingSelectorMap",
+    fast_rejecting: "fastRejecting",
+    slow_rejecting: "slowRejecting",
+    slow_accepting: "slowAccepting",
+    inserting_into_sharing_cache: "insertingIntoSharingCache"
   };
+  return kindMap[kind];
+}
+
+function variantLabel(variant: VariantManifestEntryJson): string {
+  return variant.label ?? "Profile " + variant.id.toString();
+}
+
+function formatOptimizationName(name: string): string {
+  return name
+    .split("_")
+    .map((word) => word === "is" ? ":is()" : word)
+    .join(" ");
+}
+
+function optimizationTooltip(variant: VariantManifestEntryJson): string {
+  const enabled = Object.entries(variant.optimizations)
+    .filter(([, isEnabled]) => isEnabled)
+    .map(([name]) => formatOptimizationName(name));
+  return enabled.length === 0
+    ? "Enabled optimizations: none"
+    : "Enabled optimizations: " + enabled.join(", ");
 }
 
 function formatCycles(cycles: bigint): string {
