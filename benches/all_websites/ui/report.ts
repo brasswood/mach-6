@@ -99,6 +99,8 @@ interface CountingStatsJson {
   fast_rejects: number;
   slow_rejects: number;
   slow_accepts: number;
+  filled_fail_caches?: number;
+  total_fail_caches?: number;
 }
 
 interface SelectorStatsJson {
@@ -865,6 +867,10 @@ function sumNumbers(values: number[]): number {
   }, 0);
 }
 
+function sumOptionalNumbers(values: (number | undefined)[]): number | undefined {
+  return values.every(isFiniteNumber) ? sumNumbers(values as number[]) : undefined;
+}
+
 function combineStddevs(values: number[]): number {
   return Math.round(Math.sqrt(values.reduce((sum, value) => {
     return sum + (value * value);
@@ -906,7 +912,9 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
-      slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts))
+      slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts)),
+      filled_fail_caches: sumOptionalNumbers(summaries.map((summary) => summary.counts.filled_fail_caches)),
+      total_fail_caches: sumOptionalNumbers(summaries.map((summary) => summary.counts.total_fail_caches))
     },
     times: Array.from(segments.values())
   };
@@ -1054,6 +1062,12 @@ function renderSelectorRows(rows: SelectorRow[]): string {
 }
 
 function renderVariantDetails(bar: BarView): string {
+  const failCacheRows = [
+    ["Filled Fail Caches", bar.counts.filled_fail_caches],
+    ["Total Fail Caches", bar.counts.total_fail_caches]
+  ].filter((entry): entry is [string, number] => entry[1] !== undefined)
+    .map(([label, value]) => '<tr><th>' + label + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(value)) + '</td></tr>')
+    .join("");
   return [
     '<section class="variant-details">',
     '<h4 class="variant-details-title" title="' + escapeHtml(bar.optimizationTooltip) + '">' + escapeHtml(bar.label) + '</h4>',
@@ -1064,6 +1078,7 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
+    failCacheRows,
     '</tbody></table>',
     '<details class="selector-breakdown">',
     '<summary>Slow-Reject Cycles Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
@@ -1432,7 +1447,9 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     && isFiniteNumber(record.selector_map_hits)
     && isFiniteNumber(record.fast_rejects)
     && isFiniteNumber(record.slow_rejects)
-    && isFiniteNumber(record.slow_accepts);
+    && isFiniteNumber(record.slow_accepts)
+    && (record.filled_fail_caches === undefined || isFiniteNumber(record.filled_fail_caches))
+    && (record.total_fail_caches === undefined || isFiniteNumber(record.total_fail_caches));
 }
 
 function isBenchmarkRunSummaryJson(value: unknown): value is BenchmarkRunSummaryJson {
