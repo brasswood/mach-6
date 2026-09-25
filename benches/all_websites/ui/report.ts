@@ -1359,19 +1359,40 @@ function isReportMetadataJson(value: unknown): value is ReportMetadataJson {
     && (record.dirty === null || typeof record.dirty === "boolean")
     && (record.tagline === null || typeof record.tagline === "string")
     && (record.time_end === undefined || record.time_end === null || typeof record.time_end === "string")
-    && (record.report_source === undefined || isReportSource(record.report_source));
+    && (record.report_source === undefined || isReportSource(record.report_source))
+    && Array.isArray(record.variants)
+    && record.variants.every(isVariantManifestJson);
 }
 
-function isCountingStatsJson(value: unknown): value is CountingStatsJson {
+function isVariantManifestJson(value: unknown): value is VariantManifestEntryJson {
   const record = getRecord(value);
-  if (record === null) {
-    return false;
-  }
-  return isFiniteNumber(record.sharing_instances)
-    && isFiniteNumber(record.selector_map_hits)
-    && isFiniteNumber(record.fast_rejects)
-    && isFiniteNumber(record.slow_rejects)
-    && isFiniteNumber(record.slow_accepts);
+  const optimizations = record === null ? null : getRecord(record.optimizations);
+  return record !== null
+    && isFiniteNumber(record.id)
+    && (record.label === null || typeof record.label === "string")
+    && optimizations !== null
+    && Object.values(optimizations).every((enabled) => typeof enabled === "boolean");
+}
+
+function isSegmentKindJson(value: unknown): value is SegmentKindJson {
+  return value === "indexing"
+    || value === "is_conversion"
+    || value === "distribution"
+    || value === "updating_bloom_filter"
+    || value === "checking_style_sharing"
+    || value === "querying_selector_map"
+    || value === "fast_rejecting"
+    || value === "slow_rejecting"
+    || value === "slow_accepting"
+    || value === "inserting_into_sharing_cache";
+}
+
+function isSegmentSummaryJson(value: unknown): value is SegmentSummaryJson {
+  const record = getRecord(value);
+  return record !== null
+    && isSegmentKindJson(record.kind)
+    && isFiniteNumber(record.mean_cycles)
+    && (record.stddev_cycles === null || isFiniteNumber(record.stddev_cycles));
 }
 
 function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
