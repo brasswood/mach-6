@@ -255,6 +255,40 @@ struct WebsiteResult {
 
 const NUM_SAMPLES: u64 = 25;
 
+fn measure_fail_cache_fill(
+    website_name: &str,
+    optimizations: Optimizations,
+) -> Option<FailCacheMeasurements> {
+    #[cfg(not(feature = "measure_fail_cache_fill"))]
+    {
+        let _ = (website_name, optimizations);
+        None
+    }
+    #[cfg(feature = "measure_fail_cache_fill")]
+    {
+        let website = get_document_and_selectors(&websites_path().join(website_name))
+            .expect("expected measurement website to parse")
+            .expect("expected measurement website to exist");
+        let context = website.get_matcher(optimizations);
+        let _ = mach_6::match_selectors_with_style_sharing(
+            website.document(),
+            &context,
+            optimizations,
+            None,
+        );
+        let mut measurements = FailCacheMeasurements {
+            filled_caches: 0,
+            total_caches: 0,
+        };
+        for element in website.document().root_element().descendent_elements() {
+            measurements.total_caches += 1;
+            measurements.filled_caches +=
+                usize::from(element.value().borrow_data().fail_cache.filled_once());
+        }
+        Some(measurements)
+    }
+}
+
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let Args { profiles, websites, .. } = Args::parse();
