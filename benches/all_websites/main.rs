@@ -96,9 +96,6 @@ impl VariantTimingSegments {
         if let Some(interning) = self.fail_cache_interning.as_ref() {
             total += interning.mean();
         }
-        if let Some(indexing) = self.indexing.as_ref() {
-            total += indexing.mean();
-        }
         if let Some(overall_is_conversion) = self.overall_is_conversion.as_ref() {
             total += overall_is_conversion.mean();
         }
@@ -111,8 +108,29 @@ impl VariantTimingSegments {
     fn derived_is_conversion_mean(&self) -> Option<tsc_timer::Duration> {
         let indexing = self.indexing.as_ref()?;
         let overall_is_conversion = self.overall_is_conversion.as_ref()?;
-        Some(overall_is_conversion.mean() - indexing.mean())
+        Some(tsc_timer::Duration::from_cycles(
+            overall_is_conversion
+                .mean()
+                .cycles()
+                .saturating_sub(indexing.mean().cycles()),
+        ))
     }
+}
+
+#[cfg(test)]
+#[test]
+fn conversion_timing_does_not_wrap_or_count_indexing_twice() {
+    let mut segments = VariantTimingSegments::from_matching_stats(&Samples::from_vec(vec![
+        TimingStats::default(),
+    ]));
+    segments.indexing = Some(Samples::from_vec(vec![tsc_timer::Duration::from_cycles(8)]));
+    segments.overall_is_conversion = Some(Samples::from_vec(vec![tsc_timer::Duration::from_cycles(5)]));
+    assert_eq!(segments.derived_is_conversion_mean().unwrap().cycles(), 0);
+    assert_eq!(segments.mean_total_duration().cycles(), 5);
+
+    segments.overall_is_conversion = Some(Samples::from_vec(vec![tsc_timer::Duration::from_cycles(13)]));
+    assert_eq!(segments.derived_is_conversion_mean().unwrap().cycles(), 5);
+    assert_eq!(segments.mean_total_duration().cycles(), 13);
 }
 
 /// Aggregated data for one benchmarked optimization variant.
