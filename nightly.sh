@@ -19,10 +19,14 @@ rm -r target/all_websites_report
 
 # Run optimization profiles on all websites
 cargo bench --bench all_websites --features measure_fail_cache_fill -- \
-  --profile benches/all_websites/profiles/01-style-sharing-selector-map-bloom-filter.json \
-  --profile benches/all_websites/profiles/02-style-sharing-selector-map-bloom-filter-fail-caches.json \
-  --profile benches/all_websites/profiles/03-style-sharing-selector-map-bloom-filter-fail-caches-lazy-prefixes.json \
-  --profile benches/all_websites/profiles/04-style-sharing-selector-map-bloom-filter-fail-caches-lazy-prefixes-bless-lists.json
+  --profile benches/all_websites/profiles/01-baseline.json \
+  --profile benches/all_websites/profiles/02-fail-caches.json \
+  --profile benches/all_websites/profiles/03-lazy-fail-caches.json \
+  --profile benches/all_websites/profiles/04-bless-lists.json \
+  --profile benches/all_websites/profiles/05-baseline+.json \
+  --profile benches/all_websites/profiles/06-fail-caches+.json \
+  --profile benches/all_websites/profiles/07-lazy-fail-caches+.json \
+  --profile benches/all_websites/profiles/08-bless-lists+.json
 
 # Build reports index
 python3 scripts/generate_reports_index.py
