@@ -889,6 +889,23 @@ function sumRecordValues(records: Record<string, number>[]): Record<string, numb
 }
 
 function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): BenchmarkRunSummaryJson {
+  const segments = new Map<SegmentKindJson, SegmentSummaryJson>();
+  for (const summary of summaries) {
+    for (const segment of summary.times) {
+      const existing = segments.get(segment.kind);
+      if (existing) {
+        existing.mean_cycles += segment.mean_cycles;
+        existing.stddev_cycles = existing.stddev_cycles === null && segment.stddev_cycles === null
+          ? null
+          : combineStddevs([
+            existing.stddev_cycles ?? 0,
+            segment.stddev_cycles ?? 0
+          ]);
+      } else {
+        segments.set(segment.kind, { ...segment });
+      }
+    }
+  }
   return {
     mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
     counts: {
@@ -898,26 +915,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
       slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts))
     },
-    times: {
-      means: {
-        updating_bloom_filter_cycles: sumNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
-        slow_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
-        slow_accepting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
-        fast_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_cycles)),
-        checking_style_sharing_cycles: sumNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_cycles)),
-        inserting_into_sharing_cache_cycles: sumNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_cycles)),
-        querying_selector_map_cycles: sumNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles))
-      },
-      stddevs: {
-        updating_bloom_filter_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
-        slow_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
-        slow_accepting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
-        fast_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_cycles)),
-        checking_style_sharing_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_cycles)),
-        inserting_into_sharing_cache_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_cycles)),
-        querying_selector_map_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_cycles))
-      }
-    }
+    times: Array.from(segments.values())
   };
 }
 
