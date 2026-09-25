@@ -43,10 +43,6 @@ similar.opt-level = 3
 name = "all_websites"
 harness = false
 
-[[test]]
-name = "websites_suite"
-harness = false
-
 [workspace]
 resolver = "3"
 members = ["scraper", "tsc"]

@@ -1,0 +1,12 @@
+benches/all_websites/profiles/01-selector-map.json
+benches/all_websites/profiles/02-bloom-filter.json
+benches/all_websites/profiles/03-style-sharing.json
+benches/all_websites/profiles/04-is-conversion.json
+benches/all_websites/profiles/05-none-bucket.json
+benches/all_websites/profiles/06-common-pseudo-bucket.json
+benches/all_websites/profiles/07-common-pseudo-bloom-hash.json
+benches/all_websites/profiles/08-distribution.json
+benches/all_websites/profiles/09-edge-child-bloom.json
+benches/all_websites/profiles/10-eager-fail-caches.json
+benches/all_websites/profiles/11-universal-tail-bless-lists.json
+benches/all_websites/profiles/12-lazy-fail-cache-prefixes.json

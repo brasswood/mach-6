@@ -5,7 +5,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 use std::{fmt::Write as _, path::{Path, PathBuf}, sync::atomic::{AtomicBool, Ordering}};
-use clap::Parser;
 use html5ever::{LocalName, QualName, ns};
 use mach_6::{Optimizations, match_selectors, parse::{ParsedWebsite, get_document_and_selectors, get_websites_dirs, websites_path}, result::{Error, IntoResultExt, Result}, structs::{element_id, owned::OwnedDocumentMatches, ser::{DebugSerDocumentMatches, SerDocumentMatches}, set::SetDocumentMatches}};
 use insta;
@@ -14,28 +13,17 @@ use scraper::{ElementRef, Html, Node};
 use selectors::matching::TimingStats;
 use style::Atom;
 
-#[derive(Debug, Parser)]
-struct Args {
-    /// JSON files describing the optimizations to test
-    #[arg(long = "profile", value_name = "FILE", action = clap::ArgAction::Append)]
-    profiles: Vec<PathBuf>,
-}
-
-fn main() {
-    let args = Args::parse();
-    if let Err(error) = run(args.profiles) {
-        eprintln!("{error}");
-        std::process::exit(1);
-    }
-}
-
-fn run(profile_paths: Vec<PathBuf>) -> Result<()> {
-    let profiles = profile_paths
-        .iter()
-        .map(|path| mach_6::load_optimizations(path))
-        .collect::<Result<Vec<_>>>()?;
-    all_profiles_correct(&profiles)?;
-    statistics_dont_change(&profiles)
+fn load_test_profiles() -> Result<Vec<Optimizations>> {
+    let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let profiles_path = workspace.join("test_profiles.txt");
+    let profile_paths = std::fs::read_to_string(&profiles_path)
+        .into_result(Some(profiles_path))?;
+    profile_paths
+        .lines()
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .map(|path| mach_6::load_optimizations(&workspace.join(path)))
+        .collect()
 }
 
 fn website_paths_for_tests() -> Result<Vec<Result<PathBuf>>> {
@@ -105,7 +93,13 @@ fn compare_with_naive(
     }
 }
 
-fn all_profiles_correct(profiles: &[Optimizations]) -> Result<()> {
+#[test]
+fn all_profiles_correct() -> Result<()> {
+    let profiles = load_test_profiles()?;
+    check_profiles_correct(&profiles)
+}
+
+fn check_profiles_correct(profiles: &[Optimizations]) -> Result<()> {
     let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let equality_failures_rel = PathBuf::from("tests/equality_failures");
     let equality_failures_profile = |profile_id: usize| -> PathBuf {
@@ -187,7 +181,13 @@ fn all_profiles_correct(profiles: &[Optimizations]) -> Result<()> {
     Ok(())
 }
 
-fn statistics_dont_change(profiles: &[Optimizations]) -> Result<()> {
+#[test]
+fn statistics_dont_change() -> Result<()> {
+    let profiles = load_test_profiles()?;
+    check_statistics_dont_change(&profiles)
+}
+
+fn check_statistics_dont_change(profiles: &[Optimizations]) -> Result<()> {
     let website_paths = website_paths_for_tests()?;
     let _: Vec<_> = website_paths
         .into_par_iter()
