@@ -122,7 +122,9 @@ interface SegmentView {
 }
 
 interface BarView {
+  variantId: number;
   label: string;
+  optimizationTooltip: string;
   segments: SegmentView[];
   totalCycles: bigint;
   totalLengthCycles: bigint;
@@ -133,7 +135,9 @@ interface BarView {
 }
 
 interface ContextBarView {
+  variantId: number;
   label: string;
+  optimizationTooltip: string;
   totalLengthCycles: bigint;
   aggregateTotalLengthCycles: bigint;
 }
@@ -166,7 +170,7 @@ const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
 });
 const SEGMENT_ORDER: readonly SegmentKind[] = [
   "indexing",
-  "otherPreprocessing",
+  "isConversion",
   "distribution",
   "updatingBloomFilter",
   "checkingStyleSharing",
@@ -179,7 +183,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
 ];
 const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   indexing: { label: "Indexing", cssClass: "seg-index" },
-  otherPreprocessing: { label: "Other :is() Conversion", cssClass: "seg-preprocess-other" },
+  isConversion: { label: ":is() Conversion", cssClass: "seg-preprocess-other" },
   distribution: { label: "Distribution", cssClass: "seg-distribution" },
   updatingBloomFilter: { label: "Updating Bloom Filter", cssClass: "seg-bloom" },
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
