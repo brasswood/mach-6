@@ -1,4 +1,5 @@
 type SegmentKind =
+  | "failCacheInterning"
   | "indexing"
   | "isConversion"
   | "distribution"
@@ -64,6 +65,7 @@ interface SegmentSummaryJson {
 }
 
 type SegmentKindJson =
+  | "fail_cache_interning"
   | "indexing"
   | "is_conversion"
   | "distribution"
@@ -169,6 +171,7 @@ const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit"
 });
 const SEGMENT_ORDER: readonly SegmentKind[] = [
+  "failCacheInterning",
   "indexing",
   "isConversion",
   "distribution",
@@ -182,6 +185,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "other"
 ];
 const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
+  failCacheInterning: { label: "Fail-Cache Prefix Interning", cssClass: "seg-preprocess-other" },
   indexing: { label: "Indexing", cssClass: "seg-index" },
   isConversion: { label: ":is() Conversion", cssClass: "seg-preprocess-other" },
   distribution: { label: "Distribution", cssClass: "seg-distribution" },
@@ -205,6 +209,7 @@ function isFiniteNumber(value: unknown): value is number {
 
 function segmentKindFromJson(kind: SegmentKindJson): SegmentKind {
   const kindMap: Record<SegmentKindJson, SegmentKind> = {
+    fail_cache_interning: "failCacheInterning",
     indexing: "indexing",
     is_conversion: "isConversion",
     distribution: "distribution",
@@ -1375,7 +1380,8 @@ function isVariantManifestJson(value: unknown): value is VariantManifestEntryJso
 }
 
 function isSegmentKindJson(value: unknown): value is SegmentKindJson {
-  return value === "indexing"
+  return value === "fail_cache_interning"
+    || value === "indexing"
     || value === "is_conversion"
     || value === "distribution"
     || value === "updating_bloom_filter"
