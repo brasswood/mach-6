@@ -17,13 +17,12 @@ trap 'rm -rf websites/google.com' EXIT
 # clean the benchmarks directory
 rm -r target/all_websites_report
 
-# Run optimization profiles on the comparison websites
+# Run optimization profiles on all websites
 cargo bench --bench all_websites -- \
   --profile benches/all_websites/profiles/01-style-sharing-selector-map-bloom-filter.json \
   --profile benches/all_websites/profiles/02-style-sharing-selector-map-bloom-filter-fail-caches.json \
   --profile benches/all_websites/profiles/03-style-sharing-selector-map-bloom-filter-fail-caches-lazy-prefixes.json \
-  --profile benches/all_websites/profiles/04-style-sharing-selector-map-bloom-filter-fail-caches-lazy-prefixes-bless-lists.json \
-  cnn.com amazon.com google.com shopify.com
+  --profile benches/all_websites/profiles/04-style-sharing-selector-map-bloom-filter-fail-caches-lazy-prefixes-bless-lists.json
 
 # Build reports index
 python3 scripts/generate_reports_index.py
