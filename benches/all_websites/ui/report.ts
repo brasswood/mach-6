@@ -938,41 +938,50 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
   };
 }
 
-function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
-  const preprocessingBreakdowns = websites.map((website) => {
-    return getPreprocessingBreakdown(website.summary.preprocessing);
-  });
+function getWebsiteVariant(website: WebsiteJson, variantId: number): WebsiteVariantJson {
+  const variant = website.variants.find((entry) => entry.variant_id === variantId);
+  if (!variant) {
+    throw new Error("Missing profile " + variantId.toString() + " for " + website.website);
+  }
+  return variant;
+}
+
+function buildAggregateWebsiteJson(
+  websites: WebsiteJson[],
+  manifests: VariantManifestEntryJson[]
+): WebsiteJson {
   return {
     website: "All Websites (" + websites.length.toString() + ")",
-    summary: {
-      before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
-      preprocessing: {
-        mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
-          return sum + breakdown.indexingCycles;
-        }, 0n)),
-        mean_is_conversion_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
-          return sum + breakdown.indexingCycles + breakdown.otherPreprocessingCycles;
-        }, 0n)),
-        mean_distributing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
-          return sum + breakdown.distributionCycles;
-        }, 0n))
-      },
-      after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
-    },
-    selector_slow_rejects_summary: {
-      before_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.before_preprocessing)),
-      after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
-    }
+    variants: manifests.map((manifest) => {
+      const variants = websites.map((website) => getWebsiteVariant(website, manifest.id));
+      return {
+        variant_id: manifest.id,
+        summary: aggregateBenchmarkRunSummary(variants.map((variant) => variant.summary)),
+        selector_slow_rejects_summary: aggregateSelectorStats(
+          variants.map((variant) => variant.selector_slow_rejects_summary)
+        ),
+        samples: { times: [], selector_slow_rejects_cycles: null }
+      };
+    })
   };
 }
 
 function buildReportWebsiteViews(report: ReportJson): WebsiteView[] {
-  const aggregateWebsite = buildAggregateWebsiteJson(report.websites);
-  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
-  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
+  const aggregateWebsite = buildAggregateWebsiteJson(report.websites, report.metadata.variants);
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite, report.metadata.variants);
+  const aggregateWebsiteView = buildWebsiteView(
+    aggregateWebsite,
+    report.metadata.variants,
+    aggregateWebsiteBars,
+    true
+  );
   return [
     aggregateWebsiteView,
-    ...report.websites.map((website) => buildWebsiteView(website, aggregateWebsiteView.bars))
+    ...report.websites.map((website) => buildWebsiteView(
+      website,
+      report.metadata.variants,
+      aggregateWebsiteView.bars
+    ))
   ];
 }
 
