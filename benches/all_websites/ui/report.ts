@@ -1395,26 +1395,38 @@ function isSegmentSummaryJson(value: unknown): value is SegmentSummaryJson {
     && (record.stddev_cycles === null || isFiniteNumber(record.stddev_cycles));
 }
 
-function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
+function isSegmentSamplesJson(value: unknown): value is SegmentSamplesJson {
   const record = getRecord(value);
-  if (record === null) {
-    return false;
-  }
-  return isFiniteNumber(record.updating_bloom_filter_cycles)
-    && isFiniteNumber(record.slow_rejecting_cycles)
-    && isFiniteNumber(record.slow_accepting_cycles)
-    && isFiniteNumber(record.fast_rejecting_cycles)
-    && isFiniteNumber(record.checking_style_sharing_cycles)
-    && isFiniteNumber(record.inserting_into_sharing_cache_cycles)
-    && isFiniteNumber(record.querying_selector_map_cycles);
+  return record !== null
+    && isSegmentKindJson(record.kind)
+    && Array.isArray(record.samples_cycles)
+    && record.samples_cycles.every(isFiniteNumber);
 }
 
-function isTimingStatsJson(value: unknown): value is TimingStatsJson {
+function isTimingsSamplesJson(value: unknown): value is TimingsSamplesJson {
+  const record = getRecord(value);
+  if (record === null || !Array.isArray(record.times)) {
+    return false;
+  }
+  const selectorSamples = getRecord(record.selector_slow_rejects_cycles);
+  return record.times.every(isSegmentSamplesJson)
+    && (record.selector_slow_rejects_cycles === null
+      || (selectorSamples !== null
+        && Object.values(selectorSamples).every((samples) => {
+          return Array.isArray(samples) && samples.every(isFiniteNumber);
+        })));
+}
+
+function isCountingStatsJson(value: unknown): value is CountingStatsJson {
   const record = getRecord(value);
   if (record === null) {
     return false;
   }
-  return isTimingsJsonBody(record.means) && isTimingsJsonBody(record.stddevs);
+  return isFiniteNumber(record.sharing_instances)
+    && isFiniteNumber(record.selector_map_hits)
+    && isFiniteNumber(record.fast_rejects)
+    && isFiniteNumber(record.slow_rejects)
+    && isFiniteNumber(record.slow_accepts);
 }
 
 function isBenchmarkRunSummaryJson(value: unknown): value is BenchmarkRunSummaryJson {
@@ -1424,7 +1436,8 @@ function isBenchmarkRunSummaryJson(value: unknown): value is BenchmarkRunSummary
   }
   return isFiniteNumber(record.mean_cycles)
     && isCountingStatsJson(record.counts)
-    && isTimingStatsJson(record.times);
+    && Array.isArray(record.times)
+    && record.times.every(isSegmentSummaryJson);
 }
 
 function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
@@ -1441,23 +1454,15 @@ function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
     && Object.values(stddevs).every(isFiniteNumber);
 }
 
-function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
+function isWebsiteVariantJson(value: unknown): value is WebsiteVariantJson {
   const record = getRecord(value);
   if (record === null) {
     return false;
   }
-  return isSelectorStatsJson(record.before_preprocessing)
-    && isSelectorStatsJson(record.after_preprocessing);
-}
-
-function isSummaryJson(value: unknown): value is SummaryJson {
-  const record = getRecord(value);
-  if (record === null) {
-    return false;
-  }
-  return isBenchmarkRunSummaryJson(record.before_preprocessing)
-    && isPreprocessingSummaryJson(record.preprocessing)
-    && isBenchmarkRunSummaryJson(record.after_preprocessing);
+  return isFiniteNumber(record.variant_id)
+    && isBenchmarkRunSummaryJson(record.summary)
+    && isSelectorStatsJson(record.selector_slow_rejects_summary)
+    && isTimingsSamplesJson(record.samples);
 }
 
 function isWebsiteJson(value: unknown): value is WebsiteJson {
@@ -1466,8 +1471,8 @@ function isWebsiteJson(value: unknown): value is WebsiteJson {
     return false;
   }
   return typeof record.website === "string"
-    && isSummaryJson(record.summary)
-    && isSelectorsSummaryJson(record.selector_slow_rejects_summary);
+    && Array.isArray(record.variants)
+    && record.variants.every(isWebsiteVariantJson);
 }
 
 function isReportJson(value: unknown): value is ReportJson {
