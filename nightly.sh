@@ -14,21 +14,12 @@ git submodule update --init
 # clean the benchmarks directory
 rm -r target/all_websites_report
 
-# Run historical parity profiles on the comparison websites
+# Run pre-fix parity profiles on the comparison websites
 cargo bench --bench all_websites -- \
-  --profile benches/all_websites/profiles/01-selector-map.json \
-  --profile benches/all_websites/profiles/02-bloom-filter.json \
-  --profile benches/all_websites/profiles/03-style-sharing.json \
-  --profile benches/all_websites/profiles/04-is-conversion.json \
-  --profile benches/all_websites/profiles/05-none-bucket.json \
-  --profile benches/all_websites/profiles/06-common-pseudo-bucket.json \
-  --profile benches/all_websites/profiles/07-common-pseudo-bloom-hash.json \
-  --profile benches/all_websites/profiles/08-distribution.json \
-  --profile benches/all_websites/profiles/09-edge-child-bloom.json \
   --profile benches/all_websites/profiles/10-eager-fail-caches.json \
   --profile benches/all_websites/profiles/11-universal-tail-bless-lists.json \
   --profile benches/all_websites/profiles/12-lazy-fail-cache-prefixes.json \
-  cnn.com amazon.com google.com shopify.com
+  cnn.com amazon.com youtube.com shopify.com
 
 # Build reports index
 python3 scripts/generate_reports_index.py
