@@ -96,6 +96,7 @@ impl ReportMetadataJson {
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SegmentKindJson {
+    FailCacheInterning,
     Indexing,
     IsConversion,
     Distribution,
@@ -222,6 +223,9 @@ mod overall_summary {
 
     fn timing_segments(value: &VariantResult) -> Vec<SegmentSummaryJson> {
         let mut segments = Vec::new();
+        if let Some(interning) = value.timing_segments.fail_cache_interning.as_ref() {
+            segments.push(segment_summary_json(SegmentKindJson::FailCacheInterning, interning));
+        }
         if let Some(indexing) = value.timing_segments.indexing.as_ref() {
             segments.push(segment_summary_json(SegmentKindJson::Indexing, indexing));
         }
@@ -294,6 +298,9 @@ mod samples {
     impl From<&VariantResult> for TimingsSamplesJson {
         fn from(value: &VariantResult) -> Self {
             let mut times = Vec::new();
+            if let Some(interning) = value.timing_segments.fail_cache_interning.as_ref() {
+                times.push(segment_samples_json(SegmentKindJson::FailCacheInterning, interning));
+            }
             if let Some(indexing) = value.timing_segments.indexing.as_ref() {
                 times.push(segment_samples_json(SegmentKindJson::Indexing, indexing));
             }
