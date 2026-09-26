@@ -407,9 +407,6 @@ fn main() {
 
 fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> VariantResult {
     let document = website.document();
-    if variant_spec.optimizations.fail_caches {
-        mach_6::clear_fail_caches(document);
-    }
     let fail_cache_interning = variant_spec.optimizations.fail_caches.then(|| {
         bench_function(
             &format!("{} fail-cache prefix interning", website.name),

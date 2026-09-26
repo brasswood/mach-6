@@ -250,9 +250,6 @@ fn do_website_with_configured_optimizations(
         .validate()
         .expect("invalid optimization combination");
     let document = website.document();
-    if optimizations.fail_caches {
-        clear_fail_caches(document);
-    }
     let selectors = website.get_matcher(optimizations).get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
     if !optimizations.selector_map {
@@ -510,6 +507,9 @@ pub fn match_selectors_with_style_sharing<'document>(
     optimizations: Optimizations,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
+    if optimizations.fail_caches {
+        clear_fail_caches(document);
+    }
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
