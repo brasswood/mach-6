@@ -320,7 +320,6 @@ fn measure_fail_cache_fill(
         let _ = mach_6::match_selectors_with_style_sharing(
             website.document(),
             &context,
-            optimizations,
             None,
         );
         let mut measurements = FailCacheMeasurements {
@@ -544,7 +543,6 @@ fn bench_website(
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     matching_context,
-                    optimizations,
                     None,
                 );
             overall_stats
@@ -556,7 +554,6 @@ fn bench_website(
     mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
-        optimizations,
         Some(&mut per_match_stats),
     );
     println!("done.");

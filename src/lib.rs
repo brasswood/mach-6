@@ -274,7 +274,6 @@ fn do_website_with_configured_optimizations(
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
         &matching_context,
-        optimizations,
         None,
     );
     let owned = OwnedDocumentMatches(
@@ -504,9 +503,9 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     matching_context: &'document MatchingContext,
-    optimizations: Optimizations,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
+    let optimizations = matching_context.optimizations;
     if optimizations.fail_caches {
         clear_fail_caches(document);
     }
@@ -892,8 +891,8 @@ mod tests {
         assert!(first_fail_cache_id(&eager_context).is_some());
         assert!(first_fail_cache_id(&lazy_context).is_none());
 
-        let eager_matches = super::match_selectors_with_style_sharing(eager_website.document(), &eager_context, eager, None).0;
-        let lazy_matches = super::match_selectors_with_style_sharing(lazy_website.document(), &lazy_context, lazy, None).0;
+        let eager_matches = super::match_selectors_with_style_sharing(eager_website.document(), &eager_context, None).0;
+        let lazy_matches = super::match_selectors_with_style_sharing(lazy_website.document(), &lazy_context, None).0;
         assert_eq!(
             SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&eager_matches)),
             SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&lazy_matches)),
@@ -1092,7 +1091,6 @@ mod tests {
         let (matches, stats) = super::match_selectors_with_style_sharing(
             &document,
             &context,
-            optimizations,
             None,
         );
         (
