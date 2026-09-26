@@ -224,15 +224,15 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
         let parsed_website = get_document_and_selectors(&website_path)
             .expect("expected measurement website to parse successfully")
             .expect("expected measurement website to exist");
-        let matching_context = parsed_website.get_matcher_with_fail_caches(true);
+        let optimizations = Optimizations {
+            fail_caches: true,
+            universal_tail_bless_lists: true,
+            ..Optimizations::from_none()
+        };
+        let matching_context = parsed_website.get_matcher(optimizations);
         let _ = mach_6::match_selectors_with_style_sharing(
             parsed_website.document(),
             &matching_context,
-            Optimizations {
-                fail_caches: true,
-                universal_tail_bless_lists: true,
-                ..Optimizations::from_none()
-            },
             None,
         );
 
@@ -270,32 +270,31 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
+        let fail_cache_optimizations = Optimizations {
+            fail_caches: true,
+            universal_tail_bless_lists: true,
+            ..Optimizations::from_none()
+        };
         let fail_cache_interning = bench_timed_subsection(
             &format!("{} fail cache interning", w.name),
             || {
-                w.get_matcher_with_fail_caches(true)
+                w.get_matcher(fail_cache_optimizations)
                     .fail_cache_build_timings()
                     .entry_build
             },
             NUM_SAMPLES,
         );
-        let matching_context = w.get_matcher();
-        let fail_cache_matching_context = w.get_matcher_with_fail_caches(true);
+        let matching_context = w.get_matcher(Optimizations::from_none());
+        let fail_cache_matching_context = w.get_matcher(fail_cache_optimizations);
         let baseline = bench_website(
             &format!("{} baseline", w.name),
             w.document(),
             &matching_context,
-            Optimizations::from_none(),
         );
         let fail_caches = bench_website(
             &format!("{} fail caches", w.name),
             w.document(),
             &fail_cache_matching_context,
-            Optimizations {
-                fail_caches: true,
-                universal_tail_bless_lists: true,
-                ..Optimizations::from_none()
-            },
         );
         let selectors = matching_context.get_selectors();
         let substrings =
@@ -329,13 +328,12 @@ fn main() {
         let preprocessed_context = MatchingContext::new(
             std::iter::once(&preprocessed_stylesheet),
             preprocessed_lock,
-            false,
+            Optimizations::from_none(),
         );
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
             w.document(),
             &preprocessed_context,
-            Optimizations::from_none(),
         );
         let fail_cache_measurements = measure_fail_cache_fill(&w.name);
         let result = WebsiteResult {
@@ -384,7 +382,6 @@ fn bench_website(
     benchmark_name: &str,
     document: &Html,
     matching_context: &MatchingContext,
-    optimizations: Optimizations,
 ) -> MatchBenchResult {
     let overall_stats = bench_function(
         benchmark_name,
@@ -393,7 +390,6 @@ fn bench_website(
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     matching_context,
-                    optimizations,
                     None,
                 );
             overall_stats
@@ -405,7 +401,6 @@ fn bench_website(
     mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
-        optimizations,
         Some(&mut per_match_stats),
     );
     println!("done.");
@@ -649,4 +644,3 @@ fn copy_html_js() -> io::Result<()> {
         )?;
     Ok(())
 }
-

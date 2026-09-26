@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-use crate::{MatchingContext};
+use crate::{MatchingContext, Optimizations};
 use crate::result::{Error, ErrorKind, IntoResultExt, Result};
 use log::warn;
 use scraper::Html;
@@ -59,15 +59,11 @@ impl ParsedWebsite {
         &self.stylesheets
     }
 
-    pub fn get_matcher(&self) -> MatchingContext {
-        self.get_matcher_with_fail_caches(false)
-    }
-
-    pub fn get_matcher_with_fail_caches(&self, build_fail_cache_entries: bool) -> MatchingContext {
+    pub fn get_matcher(&self, optimizations: Optimizations) -> MatchingContext {
         MatchingContext::new(
             self.stylesheets.iter(),
             self.stylesheet_lock.clone(),
-            build_fail_cache_entries,
+            optimizations,
         )
     }
 }
@@ -336,7 +332,7 @@ mod tests {
         let context = crate::MatchingContext::new(
             std::iter::once(&stylesheet),
             lock,
-            false,
+            crate::Optimizations::from_none(),
         );
         let selectors = context.get_selectors();
         let mut res = String::new();
@@ -360,7 +356,7 @@ mod tests {
         let website = get_document_and_selectors(website_path)?
             .expect("expected parsed website");
         let selectors: Vec<_> = website
-            .get_matcher()
+            .get_matcher(crate::Optimizations::from_none())
             .get_selectors()
             .iter()
             .map(Selector::to_css_string)

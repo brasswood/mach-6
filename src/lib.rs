@@ -213,18 +213,19 @@ fn do_website_with_configured_optimizations(
 ) -> (OwnedDocumentMatches, Statistics) {
     // must return OwnedDocumentMatches, because the list of input selectors will be owned by this function
     let document = website.document();
-    let selectors = website.get_matcher().get_selectors();
+    let selectors = website
+        .get_matcher(Optimizations::from_none())
+        .get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
     let matching_context = MatchingContext::new(
         std::iter::once(&stylesheet),
         stylesheet_lock,
-        optimizations.fail_caches,
+        optimizations,
     );
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
         &matching_context,
-        optimizations,
         None,
     );
     let owned = OwnedDocumentMatches(
@@ -243,19 +244,20 @@ fn do_website_with_configured_optimizations(
 pub struct MatchingContext {
     stylesheet_lock: SharedRwLock,
     stylist: Stylist,
+    optimizations: Optimizations,
 }
 
 impl MatchingContext {
     pub fn new<'a>(
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
-        build_fail_cache_entries: bool,
+        optimizations: Optimizations,
     ) -> Self {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
             false,
-            build_fail_cache_entries,
+            optimizations.fail_caches,
         );
         for sheet in stylesheets {
             stylist.append_stylesheet(sheet.clone(), &stylesheet_lock.read());
@@ -269,6 +271,7 @@ impl MatchingContext {
         Self {
             stylesheet_lock,
             stylist,
+            optimizations,
         }
     }
 
@@ -327,45 +330,52 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
 }
 
 pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: Option<&DocumentMatches>) -> (String, SetDocumentMatches, Statistics){
-    let matching_context = website.get_matcher();
     let (matches, stats) = match algorithm {
-        Algorithm::Naive => (
-            OwnedDocumentMatches::from(&match_selectors(&website.document(), &matching_context.get_selectors())),
-            Statistics::default()
-        ),
+        Algorithm::Naive => {
+            let matching_context = website.get_matcher(Optimizations::from_none());
+            (
+                OwnedDocumentMatches::from(&match_selectors(
+                    &website.document(),
+                    &matching_context.get_selectors(),
+                )),
+                Statistics::default(),
+            )
+        },
         Algorithm::WithStyleSharing => {
+            let matching_context = website.get_matcher(Optimizations::from_none());
             let (matches, stats) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    Optimizations::from_none(),
                     None,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithFailCaches => {
+            let optimizations = Optimizations {
+                fail_caches: true,
+                ..Optimizations::from_none()
+            };
+            let matching_context = website.get_matcher(optimizations);
             let (matches, stats) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    Optimizations {
-                        fail_caches: true,
-                        ..Optimizations::from_none()
-                    },
                     None,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithBlessList => {
+            let optimizations = Optimizations {
+                fail_caches: true,
+                universal_tail_bless_lists: true,
+                ..Optimizations::from_none()
+            };
+            let matching_context = website.get_matcher(optimizations);
             let (matches, stats) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    Optimizations {
-                        fail_caches: true,
-                        universal_tail_bless_lists: true,
-                        ..Optimizations::from_none()
-                    },
                     None,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
@@ -395,6 +405,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     Statistics::default()
                 )
             } else {
+                let matching_context = website.get_matcher(Optimizations::from_none());
                 let selectors = matching_context.get_selectors();
                 let document_matches = match_selectors(&website.document(), &selectors);
                 (
@@ -520,9 +531,9 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     matching_context: &'document MatchingContext,
-    _optimizations: Optimizations,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
+    let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
@@ -727,7 +738,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_map,
         cascade_data,
         &mut bless_list,
-        _optimizations,
+        optimizations,
         &mut stats
     );
     (DocumentMatches(result), stats)
@@ -815,7 +826,12 @@ mod tests {
             &websites_path().join("is_conversion_test")
         )?.unwrap();
         let converted: Vec<_> =
-            convert_to_is_selectors(&website.document(), &website.get_matcher().get_selectors())
+            convert_to_is_selectors(
+                &website.document(),
+                &website
+                    .get_matcher(Optimizations::from_none())
+                    .get_selectors(),
+            )
                 .iter()
                 .map(Selector::to_css_string)
                 .collect();
@@ -862,14 +878,18 @@ mod tests {
         );
         let selectors = [".a *", ".a > *", ".missing *"].map(parse_selector);
         let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
-        let context = super::MatchingContext::new(std::iter::once(&stylesheet), lock, false);
+        let optimizations = Optimizations {
+            universal_tail_bless_lists: enabled,
+            ..Optimizations::from_none()
+        };
+        let context = super::MatchingContext::new(
+            std::iter::once(&stylesheet),
+            lock,
+            optimizations,
+        );
         let (matches, stats) = super::match_selectors_with_style_sharing(
             &document,
             &context,
-            Optimizations {
-                universal_tail_bless_lists: enabled,
-                ..Optimizations::from_none()
-            },
             None,
         );
         (
@@ -922,7 +942,9 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("is_conversion_test")
         )?.unwrap();
-        let selectors = website.get_matcher().get_selectors();
+        let selectors = website
+            .get_matcher(Optimizations::from_none())
+            .get_selectors();
         let prepared = super::prepare_selectors(
             &website.document(),
             &selectors,
