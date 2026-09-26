@@ -536,6 +536,11 @@ pub fn match_selectors_with_style_sharing<'document>(
         stats: &mut Statistics,
     ) {
         let inherited_bless_list_len = bless_list.len();
+        if optimizations.fail_caches {
+            // Prefix IDs are assigned lazily per matcher. Discard entries left
+            // by another matcher before using this matcher's ID space.
+            element.mutate_data().unwrap().fail_cache = Default::default();
+        }
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
