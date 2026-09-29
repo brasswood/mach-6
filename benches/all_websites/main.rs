@@ -278,9 +278,13 @@ fn main() {
         let fail_cache_interning = bench_timed_subsection(
             &format!("{} fail cache interning", w.name),
             || {
-                w.get_matcher(fail_cache_optimizations)
-                    .fail_cache_build_timings()
-                    .entry_build
+                let matcher = w.get_matcher(fail_cache_optimizations);
+                let _ = mach_6::match_selectors_with_style_sharing(
+                    w.document(),
+                    &matcher,
+                    None,
+                );
+                matcher.fail_cache_build_timings().prefix_interning
             },
             NUM_SAMPLES,
         );
