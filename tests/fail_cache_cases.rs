@@ -29,3 +29,43 @@ fn website(html: &str, selectors: &[String]) -> (tempfile::TempDir, ParsedWebsit
         .expect("test website should contain HTML");
     (directory, parsed)
 }
+
+fn run(html: &str, selectors: &[String], fail_caches: bool, inspect_caches: bool) -> Run {
+    let (_directory, parsed) = website(html, selectors);
+    let matcher = parsed.get_matcher(Optimizations {
+        fail_caches,
+        ..Optimizations::default()
+    });
+    let (matches, stats) = match_selectors_with_style_sharing(
+        parsed.document(),
+        &matcher, None,
+    );
+    let (filled_caches, cache_entries) = if inspect_caches && fail_caches {
+        let max_id = if selectors.len() <= 4 {
+            u16::try_from(selectors.len() * 3).unwrap()
+        } else {
+            0
+        };
+        parsed.document().tree.nodes().filter_map(ElementRef::wrap).fold(
+            (0, 0),
+            |(filled, entries), element| {
+                let cache = element.value().borrow_data().fail_cache;
+                let entries = entries + (1..=max_id)
+                    .filter(|id| cache.contains(*id))
+                    .count();
+                (filled + usize::from(cache.filled_once()), entries)
+            },
+        )
+    } else {
+        (0, 0)
+    };
+    let timings = matcher.stylist().fail_cache_build_timings();
+    Run {
+        matches: SetDocumentMatches::from(OwnedDocumentMatches::from(&matches)),
+        stats,
+        filled_caches,
+        cache_entries,
+        prefix_interning_cycles: timings.prefix_interning.cycles(),
+        prefix_interning_calls: timings.prefix_interning_calls,
+    }
+}
