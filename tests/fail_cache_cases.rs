@@ -69,3 +69,34 @@ fn run(html: &str, selectors: &[String], fail_caches: bool, inspect_caches: bool
         prefix_interning_calls: timings.prefix_interning_calls,
     }
 }
+
+fn assert_parity(html: &str, selectors: &[String]) -> Run {
+    let cached = run(html, selectors, true, true);
+    let uncached = run(html, selectors, false, false);
+    assert_eq!(cached.matches, uncached.matches);
+    cached
+}
+
+fn strings(selectors: &[&str]) -> Vec<String> {
+    selectors.iter().map(|selector| (*selector).to_owned()).collect()
+}
+
+fn numbered_html(depth: usize, leaf_classes: &str, add_bloom_class: bool) -> String {
+    let mut html = String::new();
+    for number in 1..=depth {
+        let bloom_class = if add_bloom_class && number == 1 { " a" } else { "" };
+        write!(&mut html, "<div class='n{number}{bloom_class}'>").unwrap();
+    }
+    write!(&mut html, "<div class='{leaf_classes}'></div>").unwrap();
+    for _ in 0..depth {
+        html.push_str("</div>");
+    }
+    html
+}
+
+fn numbered_selectors(depth: usize, suffix: &str) -> Vec<String> {
+    (1..=depth)
+        .map(|number| format!(".n{number} .a .{suffix}"))
+        .collect()
+}
+
