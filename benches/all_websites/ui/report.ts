@@ -7,6 +7,7 @@ type SegmentKind =
   | "checkingStyleSharing"
   | "queryingSelectorMap"
   | "fastRejecting"
+  | "failCacheRejecting"
   | "slowRejecting"
   | "slowAccepting"
   | "insertingIntoSharingCache"
@@ -73,6 +74,7 @@ type SegmentKindJson =
   | "checking_style_sharing"
   | "querying_selector_map"
   | "fast_rejecting"
+  | "fail_cache_rejecting"
   | "slow_rejecting"
   | "slow_accepting"
   | "inserting_into_sharing_cache";
@@ -97,6 +99,7 @@ interface CountingStatsJson {
   sharing_instances: number;
   selector_map_hits: number;
   fast_rejects: number;
+  fail_cache_rejects?: number | undefined;
   slow_rejects: number;
   slow_accepts: number;
   filled_fail_caches?: number | undefined;
@@ -181,6 +184,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "checkingStyleSharing",
   "queryingSelectorMap",
   "fastRejecting",
+  "failCacheRejecting",
   "slowRejecting",
   "slowAccepting",
   "insertingIntoSharingCache",
@@ -195,6 +199,7 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
   fastRejecting: { label: "Fast Rejecting", cssClass: "seg-fast" },
+  failCacheRejecting: { label: "Fail-Cache Rejecting", cssClass: "seg-fast" },
   slowRejecting: { label: "Slow Rejecting", cssClass: "seg-slow" },
   slowAccepting: { label: "Slow Accepting", cssClass: "seg-slow-accept" },
   insertingIntoSharingCache: { label: "Inserting Into Sharing Cache", cssClass: "seg-share-insert" },
@@ -219,6 +224,7 @@ function segmentKindFromJson(kind: SegmentKindJson): SegmentKind {
     checking_style_sharing: "checkingStyleSharing",
     querying_selector_map: "queryingSelectorMap",
     fast_rejecting: "fastRejecting",
+    fail_cache_rejecting: "failCacheRejecting",
     slow_rejecting: "slowRejecting",
     slow_accepting: "slowAccepting",
     inserting_into_sharing_cache: "insertingIntoSharingCache"
@@ -911,6 +917,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
+      fail_cache_rejects: sumNumbers(summaries.map((summary) => summary.counts.fail_cache_rejects ?? 0)),
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
       slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts)),
       filled_fail_caches: sumOptionalNumbers(summaries.map((summary) => summary.counts.filled_fail_caches)),
@@ -1076,6 +1083,7 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
+    '<tr><th>Fail-Cache Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fail_cache_rejects ?? 0)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     failCacheRows,
@@ -1403,6 +1411,7 @@ function isSegmentKindJson(value: unknown): value is SegmentKindJson {
     || value === "checking_style_sharing"
     || value === "querying_selector_map"
     || value === "fast_rejecting"
+    || value === "fail_cache_rejecting"
     || value === "slow_rejecting"
     || value === "slow_accepting"
     || value === "inserting_into_sharing_cache";
@@ -1446,6 +1455,7 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
   return isFiniteNumber(record.sharing_instances)
     && isFiniteNumber(record.selector_map_hits)
     && isFiniteNumber(record.fast_rejects)
+    && (record.fail_cache_rejects === undefined || isFiniteNumber(record.fail_cache_rejects))
     && isFiniteNumber(record.slow_rejects)
     && isFiniteNumber(record.slow_accepts)
     && (record.filled_fail_caches === undefined || isFiniteNumber(record.filled_fail_caches))
