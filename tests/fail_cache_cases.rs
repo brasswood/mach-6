@@ -253,3 +253,6 @@ fn prefix_interning_work_is_independent_of_element_count() {
     let branches = (1..=1000)
         .map(|n| format!("<div class='{class_list} a{n}'><div class='c'></div></div>"))
         .collect::<String>();
+    let global_large = format!("<div class='a'><div class='b'>{branches}</div></div>");
+    compare_interning_time("global-overflow", &global_small, &global_large, &selectors);
+}
