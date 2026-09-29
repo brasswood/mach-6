@@ -136,3 +136,42 @@ fn fail_cache_works_cases_3_and_4() {
     assert_eq!(case4.stats.counts.slow_rejects, 1);
     assert_eq!(case4.stats.counts.fail_cache_rejects, 1);
 }
+
+#[test]
+fn fail_cache_hit_can_seed_another_element_cache() {
+    let run = assert_parity(
+        "<div class='a'><div class='b'><div class='c'><div class='d'></div><div class='e'><div class='f'></div></div></div></div></div>",
+        &strings(&[".b .a .c .d", ".b .a .e .f", ".b .a .d", ".b .a .f"]),
+    );
+    assert_eq!(run.stats.counts.slow_rejects, 1);
+    assert_eq!(run.stats.counts.fail_cache_rejects, 3);
+    assert!(run.cache_entries >= 3);
+}
+
+#[test]
+fn fill_counters_only_measure_bloom_positive_slow_failures() {
+    for depth in [17, 15] {
+        let selectors = ["b", "c"]
+            .into_iter()
+            .flat_map(|suffix| numbered_selectors(depth, suffix))
+            .collect::<Vec<_>>();
+        let original = assert_parity(&numbered_html(depth, "b c", false), &selectors);
+        assert_eq!(original.stats.counts.slow_rejects, 0);
+        assert_eq!(original.stats.counts.fast_rejects, depth * 2);
+        assert_eq!(original.stats.counts.fail_cache_rejects, 0);
+        assert_eq!(original.filled_caches, 0);
+
+        let bloom_positive = assert_parity(&numbered_html(depth, "b c", true), &selectors);
+        assert_eq!(bloom_positive.stats.counts.fast_rejects, 0);
+        assert_eq!(bloom_positive.stats.counts.slow_rejects, depth * 2);
+        assert_eq!(bloom_positive.stats.counts.fail_cache_rejects, 0);
+        #[cfg(feature = "measure_fail_cache_fill")]
+        assert_eq!(bloom_positive.filled_caches, depth - 1);
+    }
+}
+
+fn interning_selectors(depth: usize) -> Vec<String> {
+    (1..=depth)
+        .map(|number| format!(".b .a .n{number} .c"))
+        .collect()
+}
