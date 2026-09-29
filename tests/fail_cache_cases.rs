@@ -230,3 +230,26 @@ fn prefix_interning_is_independent_of_html_size_inner() {
     for n in 1..=1000 { write!(&mut nested, "<div class='c n{n}'>").unwrap(); }
     nested.push_str("<i></i>");
     for _ in 1..=1000 { nested.push_str("</div>"); }
+    let local_large = format!("<div class='a'><div class='b'>{nested}</div></div>");
+    compare_interning_time("local", local_small, &local_large, &selector);
+}
+
+#[test]
+fn prefix_interning_work_is_independent_of_element_count() {
+    let selectors = interning_selectors(17);
+    let class_list = numeric_classes(17);
+    let local_small = format!(
+        "<div class='a'><div class='b'><div class='{class_list}'><div class='c'></div></div></div></div>"
+    );
+    let local_large = format!(
+        "<div class='a'><div class='b'><div class='{class_list}'>{}</div></div></div>",
+        (1..=1000).map(|n| format!("<div class='c c{n}'></div>")).collect::<String>(),
+    );
+    compare_interning_time("local-overflow", &local_small, &local_large, &selectors);
+
+    let global_small = format!(
+        "<div class='a'><div class='b'><div class='{class_list}'><div class='c'></div></div></div></div>"
+    );
+    let branches = (1..=1000)
+        .map(|n| format!("<div class='{class_list} a{n}'><div class='c'></div></div>"))
+        .collect::<String>();
