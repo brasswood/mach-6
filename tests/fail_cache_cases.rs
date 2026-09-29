@@ -100,3 +100,39 @@ fn numbered_html(depth: usize, leaf_classes: &str, add_bloom_class: bool) -> Str
 fn numbered_selectors(depth: usize, suffix: &str) -> Vec<String> {
     (1..=depth)
         .map(|number| format!(".n{number} .a .{suffix}"))
+        .collect()
+}
+
+#[test]
+fn fail_cache_works_cases_1_and_2() {
+    let selectors = strings(&[".a.b .c", ".a.b .c .c"]);
+    let case1 = assert_parity(
+        "<div class='a'><div class='b'><div class='c'></div></div></div>",
+        &selectors,
+    );
+    assert_eq!(case1.stats.counts.slow_rejects, 1);
+    assert_eq!(case1.stats.counts.fast_rejects, 1);
+    assert_eq!(case1.stats.counts.fail_cache_rejects, 0);
+
+    let case2 = assert_parity(
+        "<div class='a'><div class='b'><div class='c 1'></div><div class='c 2'></div></div></div>",
+        &selectors,
+    );
+    assert_eq!(case2.stats.counts.slow_rejects, 2);
+    assert_eq!(case2.stats.counts.fast_rejects, 2);
+    assert_eq!(case2.stats.counts.fail_cache_rejects, 0);
+}
+
+#[test]
+fn fail_cache_works_cases_3_and_4() {
+    let case3 = assert_parity(
+        "<div class='a'><div class='b'><div class='c d'></div></div></div>",
+        &strings(&[".a.b .a .c", ".a.b .a .d"]),
+    );
+    assert_eq!(case3.stats.counts.slow_rejects, 1);
+    assert_eq!(case3.stats.counts.fail_cache_rejects, 1);
+
+    let case4 = assert_parity(
+        "<div class='a'><div class='b'><div class='c'><div class='d'></div></div></div></div>",
+        &strings(&[".b .a .c .d", ".b .a .d"]),
+    );
