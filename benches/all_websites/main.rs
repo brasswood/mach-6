@@ -54,6 +54,7 @@ struct VariantTimingSegments {
     checking_style_sharing: Samples<tsc_timer::Duration>,
     querying_selector_map: Samples<tsc_timer::Duration>,
     fast_rejecting: Samples<tsc_timer::Duration>,
+    fail_cache_rejecting: Samples<tsc_timer::Duration>,
     slow_rejecting: Samples<tsc_timer::Duration>,
     slow_accepting: Samples<tsc_timer::Duration>,
     inserting_into_sharing_cache: Samples<tsc_timer::Duration>,
@@ -81,6 +82,7 @@ impl VariantTimingSegments {
             checking_style_sharing: project(|stats| stats.checking_style_sharing),
             querying_selector_map: project(|stats| stats.querying_selector_map),
             fast_rejecting: project(|stats| stats.fast_rejecting),
+            fail_cache_rejecting: project(|stats| stats.fail_cache_rejecting),
             slow_rejecting: project(|stats| stats.slow_rejecting),
             slow_accepting: project(|stats| stats.slow_accepting),
             inserting_into_sharing_cache: project(|stats| stats.inserting_into_sharing_cache),
@@ -410,11 +412,9 @@ fn bench_variant(website: &ParsedWebsite, variant_spec: &VariantSpec) -> Variant
         bench_function(
             &format!("{} fail-cache prefix interning", website.name),
             || {
-                website
-                    .get_matcher(variant_spec.optimizations)
-                    .stylist()
-                    .fail_cache_build_timings()
-                    .entry_build
+                let matcher = website.get_matcher(variant_spec.optimizations);
+                let _ = mach_6::match_selectors_with_style_sharing(document, &matcher, None);
+                matcher.stylist().fail_cache_build_timings().prefix_interning
             },
             NUM_SAMPLES,
         ).samples
