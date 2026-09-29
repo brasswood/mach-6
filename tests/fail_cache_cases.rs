@@ -175,3 +175,30 @@ fn fill_counters_only_measure_bloom_positive_slow_failures() {
 
 fn interning_selectors(depth: usize) -> Vec<String> {
     (1..=depth)
+        .map(|number| format!(".b .a .n{number} .c"))
+        .collect()
+}
+
+fn compare_interning_time(
+    name: &str,
+    small: &str,
+    large: &str,
+    selectors: &[String],
+) {
+    let _ = run(small, selectors, true, false);
+    let small = run(small, selectors, true, true);
+    let large = run(large, selectors, true, true);
+    assert!(small.prefix_interning_calls > 0, "{name} must exercise prefix interning");
+    assert_eq!(small.prefix_interning_calls, large.prefix_interning_calls, "{name}");
+    #[cfg(feature = "measure_fail_cache_fill")]
+    assert_eq!(small.filled_caches, 0, "{name} small fixture unexpectedly filled a cache");
+    assert_eq!(large.filled_caches, 0, "{name} large fixture unexpectedly filled a cache");
+    let difference = i128::from(large.prefix_interning_cycles)
+        - i128::from(small.prefix_interning_cycles);
+    eprintln!(
+        "{name}: small={} cycles, large={} cycles, difference={difference} cycles, calls={}",
+        small.prefix_interning_cycles, large.prefix_interning_cycles,
+        small.prefix_interning_calls,
+    );
+}
+
