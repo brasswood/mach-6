@@ -202,3 +202,31 @@ fn compare_interning_time(
 fn numeric_classes(depth: usize) -> String {
     (1..=depth).map(|n| format!("n{n}")).collect::<Vec<_>>().join(" ")
 }
+
+#[test]
+fn prefix_interning_is_independent_of_html_size() {
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(prefix_interning_is_independent_of_html_size_inner)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn prefix_interning_is_independent_of_html_size_inner() {
+    let selector = strings(&[".b .a .c"]);
+    let global_small = "<div class='a'><div class='b'><div class='n1'><div class='c'></div></div></div></div>";
+    let global_large = format!(
+        "<div class='a'><div class='b'>{}</div></div>",
+        (1..=1000).map(|n| format!("<div class='n{n}'><div class='c'></div></div>")).collect::<String>(),
+    );
+    compare_interning_time("global", global_small, &global_large, &selector);
+
+    let local_small = "<div class='a'><div class='b'><div class='c'></div></div></div>";
+    let mut nested = String::new();
+    for n in 1..=1000 { write!(&mut nested, "<div class='c n{n}'>").unwrap(); }
+    nested.push_str("<i></i>");
+    for _ in 1..=1000 { nested.push_str("</div>"); }
+    let local_large = format!("<div class='a'><div class='b'>{nested}</div></div>");
+    compare_interning_time("local", local_small, &local_large, &selector);
+}
