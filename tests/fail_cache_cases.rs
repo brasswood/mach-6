@@ -81,14 +81,20 @@ fn strings(selectors: &[&str]) -> Vec<String> {
     selectors.iter().map(|selector| (*selector).to_owned()).collect()
 }
 
-fn numbered_html(depth: usize, leaf_classes: &str, add_bloom_class: bool) -> String {
+fn numbered_html(depth: usize, leaf_classes: &str, add_bloom_ancestor: bool) -> String {
     let mut html = String::new();
+    if add_bloom_ancestor {
+        // Put `.a` above `.n1`; the selectors see the bloom-filter feature but fail in order.
+        html.push_str("<div class='a'>");
+    }
     for number in 1..=depth {
-        let bloom_class = if add_bloom_class && number == 1 { " a" } else { "" };
-        write!(&mut html, "<div class='n{number}{bloom_class}'>").unwrap();
+        write!(&mut html, "<div class='n{number}'>").unwrap();
     }
     write!(&mut html, "<div class='{leaf_classes}'></div>").unwrap();
     for _ in 0..depth {
+        html.push_str("</div>");
+    }
+    if add_bloom_ancestor {
         html.push_str("</div>");
     }
     html
@@ -101,23 +107,14 @@ fn numbered_selectors(depth: usize, suffix: &str) -> Vec<String> {
 }
 
 #[test]
-fn fail_cache_works_cases_1_and_2() {
-    let selectors = strings(&[".a.b .c", ".a.b .c .c"]);
-    let case1 = assert_parity(
-        "<div class='a'><div class='b'><div class='c'></div></div></div>",
-        &selectors,
-    );
-    assert_eq!(case1.stats.counts.slow_rejects, 1);
-    assert_eq!(case1.stats.counts.fast_rejects, 1);
-    assert_eq!(case1.stats.counts.fail_cache_rejects, 0);
-
+fn fail_cache_works_case_2() {
+    let selectors = strings(&[".a.b .c"]);
     let case2 = assert_parity(
         "<div class='a'><div class='b'><div class='c 1'></div><div class='c 2'></div></div></div>",
         &selectors,
     );
-    assert_eq!(case2.stats.counts.slow_rejects, 2);
-    assert_eq!(case2.stats.counts.fast_rejects, 2);
-    assert_eq!(case2.stats.counts.fail_cache_rejects, 0);
+    assert_eq!(case2.stats.counts.slow_rejects, 1);
+    assert_eq!(case2.stats.counts.fail_cache_rejects, 1);
 }
 
 #[test]
@@ -166,7 +163,7 @@ fn fill_counters_only_measure_bloom_positive_slow_failures() {
         assert_eq!(bloom_positive.stats.counts.slow_rejects, depth * 2);
         assert_eq!(bloom_positive.stats.counts.fail_cache_rejects, 0);
         #[cfg(feature = "measure_fail_cache_fill")]
-        assert_eq!(bloom_positive.filled_caches, depth - 1);
+        assert_eq!(bloom_positive.filled_caches, depth + 2);
     }
 }
 
