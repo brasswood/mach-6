@@ -7,6 +7,7 @@ type SegmentKind =
   | "checkingStyleSharing"
   | "queryingSelectorMap"
   | "fastRejecting"
+  | "failCacheRejecting"
   | "slowRejecting"
   | "slowAccepting"
   | "insertingIntoSharingCache"
@@ -80,6 +81,7 @@ interface CountingStatsJson {
   sharing_instances: number;
   selector_map_hits: number;
   fast_rejects: number;
+  fail_cache_rejects?: number;
   slow_rejects: number;
   slow_accepts: number;
   filled_fail_caches: number | null;
@@ -94,6 +96,7 @@ interface TimingStatsJson {
 interface TimingsJsonBody {
   updating_bloom_filter_cycles: number;
   slow_rejecting_cycles: number;
+  fail_cache_rejecting_cycles?: number;
   slow_accepting_cycles: number;
   fast_rejecting_cycles: number;
   checking_style_sharing_cycles: number;
@@ -195,6 +198,7 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
   fastRejecting: { label: "Fast Rejecting", cssClass: "seg-fast" },
+  failCacheRejecting: { label: "Fail Cache Rejecting", cssClass: "seg-fast" },
   slowRejecting: { label: "Slow Rejecting", cssClass: "seg-slow" },
   slowAccepting: { label: "Slow Accepting", cssClass: "seg-slow-accept" },
   insertingIntoSharingCache: { label: "Inserting Into Sharing Cache", cssClass: "seg-share-insert" },
@@ -801,6 +805,7 @@ function buildBar(
     { kind: "checkingStyleSharing", meanCycles: toBigInt(means.checking_style_sharing_cycles), stddevCycles: toBigInt(stddevs.checking_style_sharing_cycles) },
     { kind: "queryingSelectorMap", meanCycles: toBigInt(means.querying_selector_map_cycles), stddevCycles: toBigInt(stddevs.querying_selector_map_cycles) },
     { kind: "fastRejecting", meanCycles: toBigInt(means.fast_rejecting_cycles), stddevCycles: toBigInt(stddevs.fast_rejecting_cycles) },
+    { kind: "failCacheRejecting", meanCycles: toBigInt(means.fail_cache_rejecting_cycles ?? 0), stddevCycles: toBigInt(stddevs.fail_cache_rejecting_cycles ?? 0) },
     { kind: "slowRejecting", meanCycles: toBigInt(means.slow_rejecting_cycles), stddevCycles: toBigInt(stddevs.slow_rejecting_cycles) },
     { kind: "slowAccepting", meanCycles: toBigInt(means.slow_accepting_cycles), stddevCycles: toBigInt(stddevs.slow_accepting_cycles) },
     { kind: "insertingIntoSharingCache", meanCycles: toBigInt(means.inserting_into_sharing_cache_cycles), stddevCycles: toBigInt(stddevs.inserting_into_sharing_cache_cycles) }
@@ -947,6 +952,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
+      fail_cache_rejects: sumNumbers(summaries.map((summary) => summary.counts.fail_cache_rejects ?? 0)),
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
       slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts)),
       filled_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.filled_fail_caches)),
@@ -956,6 +962,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       means: {
         updating_bloom_filter_cycles: sumNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
         slow_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
+        fail_cache_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.fail_cache_rejecting_cycles ?? 0)),
         slow_accepting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
         fast_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_cycles)),
         checking_style_sharing_cycles: sumNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_cycles)),
@@ -965,6 +972,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       stddevs: {
         updating_bloom_filter_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
         slow_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
+        fail_cache_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.fail_cache_rejecting_cycles ?? 0)),
         slow_accepting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
         fast_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_cycles)),
         checking_style_sharing_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_cycles)),
@@ -1126,6 +1134,7 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
+    '<tr><th>Fail Cache Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fail_cache_rejects ?? 0)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     '<tr><th>Filled Fail Caches</th><td>' + renderOptionalCount(bar.counts.filled_fail_caches) + '</td></tr>',
@@ -1438,6 +1447,7 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
   return isFiniteNumber(record.sharing_instances)
     && isFiniteNumber(record.selector_map_hits)
     && isFiniteNumber(record.fast_rejects)
+    && (record.fail_cache_rejects === undefined || isFiniteNumber(record.fail_cache_rejects))
     && isFiniteNumber(record.slow_rejects)
     && isFiniteNumber(record.slow_accepts)
     && isNullableFiniteNumber(record.filled_fail_caches)
@@ -1451,6 +1461,7 @@ function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
   }
   return isFiniteNumber(record.updating_bloom_filter_cycles)
     && isFiniteNumber(record.slow_rejecting_cycles)
+    && (record.fail_cache_rejecting_cycles === undefined || isFiniteNumber(record.fail_cache_rejecting_cycles))
     && isFiniteNumber(record.slow_accepting_cycles)
     && isFiniteNumber(record.fast_rejecting_cycles)
     && isFiniteNumber(record.checking_style_sharing_cycles)
