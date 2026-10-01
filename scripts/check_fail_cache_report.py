@@ -147,3 +147,31 @@ def validate_target_totals(
         if after[0] >= before[0] or after[1] >= before[1]:
             record_failure(failures, 10, context, f"target selector did not reduce both time and rejects: {selector}: {before} -> {after}")
     return skipped
+
+
+def new_target_totals() -> dict[str, dict[str, Any]]:
+    return {
+        selector: {
+            "baseline_cycles": 0, "optimized_cycles": 0,
+            "baseline_count": 0, "optimized_count": 0, "present": False,
+        }
+        for selector in TARGET_SELECTORS
+    }
+
+
+def accumulate_target_totals(
+    totals: dict[str, dict[str, Any]], baseline: dict[str, Any], optimized: dict[str, Any]
+) -> None:
+    for selector, values in totals.items():
+        before_counts = baseline.get("slow_reject_counts", {})
+        after_counts = optimized.get("slow_reject_counts", {})
+        before_times = baseline.get("means_cycles", {})
+        after_times = optimized.get("means_cycles", {})
+        values["present"] |= (
+            selector in before_counts or selector in before_times
+            or selector in after_counts or selector in after_times
+        )
+        values["baseline_count"] += before_counts.get(selector, 0)
+        values["optimized_count"] += after_counts.get(selector, 0)
+        values["baseline_cycles"] += before_times.get(selector, 0)
+        values["optimized_cycles"] += after_times.get(selector, 0)
