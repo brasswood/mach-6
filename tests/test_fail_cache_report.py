@@ -1,3 +1,4 @@
+import copy
 import unittest
 
 from scripts.check_fail_cache_report import TARGET_SELECTORS, validate_report
@@ -38,3 +39,25 @@ class FailCacheReportTests(unittest.TestCase):
             make_profile_report(), [("baseline", "fail-caches")], require_all_targets=True
         )
         self.assertEqual((failures, skipped), ({}, {("baseline", "fail-caches"): []}))
+
+    def test_rejects_cache_and_prefix_accounting_errors(self) -> None:
+        report = make_profile_report()
+        counts = report["websites"][0]["variants"][1]["summary"]["counts"]
+        instrumentation = counts["fail_cache_instrumentation"]
+        instrumentation["caches"][1]["final_size"] = 9
+        instrumentation["prefixes"][0].update(hashings=0, internments=3, insertions=1)
+        instrumentation["prefixes"][1]["hashings"] = 10
+        failures, _ = validate_report(report, [("baseline", "fail-caches")])
+        self.assertIn(6, failures)
+        self.assertIn(7, failures)
+        self.assertIn(8, failures)
+
+    def test_rejects_unbalanced_rejects_and_target_selector(self) -> None:
+        report = make_profile_report()
+        variants = report["websites"][0]["variants"]
+        variants[1]["summary"]["counts"]["fail_cache_rejects"] = 1
+        selector = TARGET_SELECTORS[0]
+        variants[1]["selector_slow_rejects_summary"]["slow_reject_counts"][selector] = 4
+        failures, _ = validate_report(report, [("baseline", "fail-caches")])
+        self.assertIn(4, failures)
+        self.assertIn(10, failures)
