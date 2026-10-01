@@ -226,13 +226,6 @@ struct WebsiteResult {
 }
 
 fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> {
-    #[cfg(not(feature = "measure_fail_cache_fill"))]
-    {
-        let _ = website_name;
-        None
-    }
-
-    #[cfg(feature = "measure_fail_cache_fill")]
     {
         if std::env::var_os("MACH6_FAIL_CACHE_INSTRUMENTATION").as_deref()
             != Some(std::ffi::OsStr::new("1"))
