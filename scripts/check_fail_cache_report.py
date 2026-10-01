@@ -175,3 +175,31 @@ def accumulate_target_totals(
         values["optimized_count"] += after_counts.get(selector, 0)
         values["baseline_cycles"] += before_times.get(selector, 0)
         values["optimized_cycles"] += after_times.get(selector, 0)
+
+
+def validate_report(
+    report: dict[str, Any], comparisons: list[Comparison], require_all_targets: bool = False
+) -> tuple[dict[int, list[str]], dict[Comparison, list[str]]]:
+    failures: dict[int, list[str]] = {}
+    skipped_targets: dict[Comparison, list[str]] = {}
+    websites = report["websites"]
+    if not websites:
+        raise ValueError("benchmark report contains no websites")
+    for comparison in comparisons:
+        totals = new_target_totals()
+        for website in websites:
+            context = f"{comparison[0]} -> {comparison[1]}, {website['website']}"
+            baseline, optimized, before_selectors, after_selectors, cycles = resolve_pair(
+                report, website, comparison
+            )
+            validate_comparison_metrics(
+                baseline, optimized, before_selectors, after_selectors, cycles, context, failures
+            )
+            instrumentation = validate_cache_storage(optimized, context, failures)
+            if instrumentation is not None:
+                validate_prefixes(instrumentation, context, failures)
+            accumulate_target_totals(totals, before_selectors, after_selectors)
+        skipped_targets[comparison] = validate_target_totals(
+            totals, f"{comparison[0]} -> {comparison[1]}", failures, require_all_targets
+        )
+    return failures, skipped_targets
