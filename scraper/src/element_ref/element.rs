@@ -145,15 +145,16 @@ impl Element for ElementRef<'_> {
     }
 
     fn fail_cache_contains(&self, id: u16) -> bool {
-        self.value().borrow_data().fail_cache.contains(id)
+        id != 0 && self.value().borrow_data().fail_cache.contains(id)
     }
 
     fn insert_into_fail_cache(&self, id: u16) {
-        if !self.fail_cache_contains(id) {
-            self.value()
-                .mutate_data()
-                .fail_cache
-                .insert_unchecked(id);
+        if id == 0 {
+            return;
+        }
+        let mut data = self.value().mutate_data();
+        if !data.fail_cache.contains(id) {
+            data.fail_cache.insert_unchecked(id);
         }
     }
 }
@@ -165,6 +166,22 @@ mod tests {
     use style::values::AtomIdent;
     use selectors::attr::CaseSensitivity;
     use selectors::Element;
+
+    #[test]
+    fn fail_cache_is_stored_per_element() {
+        let fragment = Html::parse_fragment("<p>first</p><p>second</p>");
+        let selector = Selector::parse("p").unwrap();
+        let mut elements = fragment.select(&selector);
+        let first = elements.next().unwrap();
+        let second = elements.next().unwrap();
+
+        first.insert_into_fail_cache(17);
+        assert!(first.fail_cache_contains(17));
+        assert!(!second.fail_cache_contains(17));
+
+        first.insert_into_fail_cache(17);
+        assert!(first.fail_cache_contains(17));
+    }
 
     #[test]
     fn test_has_id() {
