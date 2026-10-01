@@ -12,8 +12,8 @@ def make_profile_report() -> dict:
             {"element_index": 2, "insertions": 0, "final_size": 8},
         ],
         "prefixes": [
-            {"prefix_index": 0, "prefix_occurrences": 2, "hashings": 2, "internments": 1, "insertions": 2},
-            {"prefix_index": 1, "prefix_occurrences": 1, "hashings": 1, "internments": 0, "insertions": 1},
+            {"prefix_index": 0, "prefix_occurrences": 2, "hashings": 2, "internments": 1, "insertions": 10},
+            {"prefix_index": 1, "prefix_occurrences": 1, "hashings": 1, "internments": 0, "insertions": 7},
         ],
     }
     before = {"mean_cycles": 1000, "counts": {"slow_accepts": 5, "slow_rejects": 10, "fail_cache_rejects": 0}}

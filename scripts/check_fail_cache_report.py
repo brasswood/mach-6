@@ -90,21 +90,21 @@ def validate_prefixes(
 ) -> None:
     prefixes = instrumentation["prefixes"]
     caches = instrumentation["caches"]
+    # Lazy IDs are hashed only when matching reaches their selector occurrence.
     for prefix in prefixes:
         index = prefix["prefix_index"]
         if prefix["hashings"] < prefix["internments"]:
             record_failure(failures, 7, context, f"prefix {index} hashes fewer times than it is interned")
-        if prefix["hashings"] != prefix["prefix_occurrences"]:
-            record_failure(failures, 7, context, f"prefix {index} hashings != non-unique selector prefixes")
-        if prefix["hashings"] > prefix["insertions"]:
-            record_failure(failures, 7, context, f"prefix {index} hashes more times than it is inserted")
+        if prefix["hashings"] > prefix["prefix_occurrences"]:
+            record_failure(failures, 7, context, f"prefix {index} hashes more times than it occurs in eligible selectors")
 
-    used_prefixes = sum(prefix["insertions"] > 1 for prefix in prefixes)
-    used_caches = sum(cache["insertions"] > 8 for cache in caches)
-    if used_prefixes != used_caches:
-        record_failure(failures, 7, context, f"residual prefix count {used_prefixes} != residual cache count {used_caches}")
+    # A hashed prefix may match successfully and therefore never be inserted.
     hashings = sum(prefix["hashings"] for prefix in prefixes)
+    prefix_insertions = sum(prefix["insertions"] for prefix in prefixes)
     insertions = sum(cache["insertions"] for cache in caches)
+    # Prefix and element overflow thresholds are independent; only total inserts reconcile.
+    if prefix_insertions != insertions:
+        record_failure(failures, 7, context, f"prefix insertion total {prefix_insertions} != cache insertion total {insertions}")
     if hashings >= insertions:
         record_failure(failures, 8, context, f"{hashings} aggregate prefix hashings >= {insertions} cache insertions")
 
