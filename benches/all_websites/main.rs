@@ -243,7 +243,6 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
             .expect("expected measurement website to exist");
         let optimizations = Optimizations {
             fail_caches: true,
-            universal_tail_bless_lists: true,
             ..Optimizations::from_none()
         };
         let matching_context = parsed_website.get_matcher(optimizations);
@@ -305,7 +304,6 @@ fn main() {
     let results = websites.map(|w| {
         let fail_cache_optimizations = Optimizations {
             fail_caches: true,
-            universal_tail_bless_lists: true,
             ..Optimizations::from_none()
         };
         let fail_cache_interning = bench_timed_subsection(
