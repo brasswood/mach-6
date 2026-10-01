@@ -128,3 +128,22 @@ def validate_comparison_metrics(
     for label, selector_stats in (("baseline", baseline_selectors), ("optimized", optimized_selectors)):
         if "slow_reject_counts" not in selector_stats:
             record_failure(failures, 9, context, f"{label} per-selector slow-reject counts are missing")
+
+
+def validate_target_totals(
+    totals: dict[str, dict[str, Any]], context: str, failures: dict[int, list[str]],
+    require_all: bool,
+) -> list[str]:
+    skipped = []
+    for selector, values in totals.items():
+        if not values["present"]:
+            if require_all:
+                record_failure(failures, 10, context, f"target selector is absent: {selector}")
+            else:
+                skipped.append(selector)
+            continue
+        before = (values["baseline_cycles"], values["baseline_count"])
+        after = (values["optimized_cycles"], values["optimized_count"])
+        if after[0] >= before[0] or after[1] >= before[1]:
+            record_failure(failures, 10, context, f"target selector did not reduce both time and rejects: {selector}: {before} -> {after}")
+    return skipped
