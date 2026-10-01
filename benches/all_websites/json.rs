@@ -93,7 +93,7 @@ mod overall_summary {
 
     use crate::WebsiteResult;
 
-    use super::{FailCachePreprocessingResult, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
+    use super::{FailCacheElementMeasurements, FailCacheMeasurements, FailCachePreprocessingResult, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
@@ -163,7 +163,7 @@ mod overall_summary {
         }
     }
 
-    #[derive(Clone, Copy, Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct CountingStatsJson {
         pub(crate) sharing_instances: usize,
         pub(crate) selector_map_hits: usize,
@@ -173,6 +173,8 @@ mod overall_summary {
         pub(crate) slow_accepts: usize,
         pub(crate) filled_fail_caches: Option<usize>,
         pub(crate) total_fail_caches: Option<usize>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub(crate) fail_cache_instrumentation: Option<FailCacheInstrumentationJson>,
     }
 
     #[derive(Clone, Serialize, Deserialize)]
@@ -197,6 +199,33 @@ mod overall_summary {
         pub(crate) insertions: u64,
     }
 
+    impl From<&FailCacheElementMeasurements> for FailCacheElementJson {
+        fn from(value: &FailCacheElementMeasurements) -> Self {
+            Self { element_index: value.element_index, insertions: value.insertions, final_size: value.final_size }
+        }
+    }
+
+    impl From<&style::stylist::FailCachePrefixInstrumentation> for FailCachePrefixJson {
+        fn from(value: &style::stylist::FailCachePrefixInstrumentation) -> Self {
+            Self {
+                prefix_index: value.prefix_index,
+                prefix_occurrences: value.prefix_occurrences,
+                hashings: value.hashings,
+                internments: value.internments,
+                insertions: value.insertions,
+            }
+        }
+    }
+
+    impl From<&FailCacheMeasurements> for FailCacheInstrumentationJson {
+        fn from(value: &FailCacheMeasurements) -> Self {
+            Self {
+                caches: value.caches.iter().map(FailCacheElementJson::from).collect(),
+                prefixes: value.prefixes.iter().map(FailCachePrefixJson::from).collect(),
+            }
+        }
+    }
+
     impl From<&MatchBenchResult> for CountingStatsJson {
         fn from(value: &MatchBenchResult) -> Self {
             Self {
@@ -208,10 +237,16 @@ mod overall_summary {
                 slow_accepts: value.counting_stats.slow_accepts,
                 filled_fail_caches: value
                     .fail_cache_measurements
+                    .as_ref()
                     .map(|measurements| measurements.filled_caches),
                 total_fail_caches: value
                     .fail_cache_measurements
+                    .as_ref()
                     .map(|measurements| measurements.total_caches),
+                fail_cache_instrumentation: value
+                    .fail_cache_measurements
+                    .as_ref()
+                    .map(FailCacheInstrumentationJson::from),
             }
         }
     }
