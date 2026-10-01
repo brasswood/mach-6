@@ -25,3 +25,32 @@ def parse_comparison(spec: str) -> Comparison:
     if not separator or not baseline.strip() or not optimized.strip():
         raise argparse.ArgumentTypeError("comparison must be BASELINE:OPTIMIZED")
     return baseline.strip(), optimized.strip()
+
+
+def resolve_pair(
+    report: dict[str, Any], website: dict[str, Any], comparison: Comparison
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], int]:
+    """Return summaries, selector stats, and optimized total cycles."""
+    baseline_label, optimized_label = comparison
+    if "summary" in website:
+        if baseline_label.lower() != "baseline" or optimized_label.lower() not in {
+            "fail_caches", "fail caches", "interning + fail caches"
+        }:
+            raise ValueError("legacy reports compare Baseline to Interning + Fail Caches")
+        baseline = website["summary"]["baseline"]
+        optimized = website["summary"]["fail_caches"]
+        selectors = website["selector_slow_rejects_summary"]
+        total_cycles = optimized["mean_cycles"] + website["summary"][
+            "fail_cache_preprocessing"
+        ]["mean_interning_cycles"]
+        return baseline, optimized, selectors["baseline"], selectors["fail_caches"], total_cycles
+
+    labels = {entry["label"]: entry["id"] for entry in report["metadata"]["variants"]}
+    baseline_id, optimized_id = labels[baseline_label], labels[optimized_label]
+    variants = {entry["variant_id"]: entry for entry in website["variants"]}
+    baseline, optimized = variants[baseline_id], variants[optimized_id]
+    return (
+        baseline["summary"], optimized["summary"],
+        baseline["selector_slow_rejects_summary"],
+        optimized["selector_slow_rejects_summary"], optimized["summary"]["mean_cycles"],
+    )
