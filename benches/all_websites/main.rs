@@ -68,14 +68,23 @@ struct MatchBenchResult {
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
-    /// Fail-cache fill measurements, if enabled for this build.
+    /// Detailed fail-cache measurements, if enabled at runtime.
     fail_cache_measurements: Option<FailCacheMeasurements>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct FailCacheMeasurements {
     filled_caches: usize,
     total_caches: usize,
+    caches: Vec<FailCacheElementMeasurements>,
+    prefixes: Vec<style::stylist::FailCachePrefixInstrumentation>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FailCacheElementMeasurements {
+    element_index: usize,
+    insertions: usize,
+    final_size: usize,
 }
 
 impl MatchBenchResult {
@@ -225,6 +234,12 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
 
     #[cfg(feature = "measure_fail_cache_fill")]
     {
+        if std::env::var_os("MACH6_FAIL_CACHE_INSTRUMENTATION").as_deref()
+            != Some(std::ffi::OsStr::new("1"))
+        {
+            return None;
+        }
+        selectors::matching::set_fail_cache_instrumentation_enabled(true);
         let website_path = websites_path().join(website_name);
         // Fail caches are stored in the DOM's per-element state, and benchmark
         // variants reuse one parsed document across many samples, so we need a
@@ -247,16 +262,32 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
 
         let mut total_caches = 0;
         let mut filled_caches = 0;
-        for element in parsed_website.document().root_element().descendent_elements() {
+        let mut caches = Vec::new();
+        for (element_index, element) in parsed_website
+            .document()
+            .root_element()
+            .descendent_elements()
+            .enumerate()
+        {
+            let cache = &element.value().borrow_data().fail_cache;
             total_caches += 1;
-            if element.value().borrow_data().fail_cache.filled_once() {
+            if cache.filled_once() {
                 filled_caches += 1;
             }
+            caches.push(FailCacheElementMeasurements {
+                element_index,
+                insertions: cache.insertions(),
+                final_size: cache.size(),
+            });
         }
+        let prefixes = matching_context.fail_cache_prefix_instrumentation();
+        selectors::matching::set_fail_cache_instrumentation_enabled(false);
 
         Some(FailCacheMeasurements {
             filled_caches,
             total_caches,
+            caches,
+            prefixes,
         })
     }
 }
