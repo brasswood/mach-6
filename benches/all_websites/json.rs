@@ -175,6 +175,28 @@ mod overall_summary {
         pub(crate) total_fail_caches: Option<usize>,
     }
 
+    #[derive(Clone, Serialize, Deserialize)]
+    pub(crate) struct FailCacheInstrumentationJson {
+        pub(crate) caches: Vec<FailCacheElementJson>,
+        pub(crate) prefixes: Vec<FailCachePrefixJson>,
+    }
+
+    #[derive(Clone, Copy, Serialize, Deserialize)]
+    pub(crate) struct FailCacheElementJson {
+        pub(crate) element_index: usize,
+        pub(crate) insertions: usize,
+        pub(crate) final_size: usize,
+    }
+
+    #[derive(Clone, Copy, Serialize, Deserialize)]
+    pub(crate) struct FailCachePrefixJson {
+        pub(crate) prefix_index: usize,
+        pub(crate) prefix_occurrences: u64,
+        pub(crate) hashings: u64,
+        pub(crate) internments: u64,
+        pub(crate) insertions: u64,
+    }
+
     impl From<&MatchBenchResult> for CountingStatsJson {
         fn from(value: &MatchBenchResult) -> Self {
             Self {
