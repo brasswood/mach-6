@@ -86,6 +86,26 @@ interface CountingStatsJson {
   slow_accepts: number;
   filled_fail_caches: number | null;
   total_fail_caches: number | null;
+  fail_cache_instrumentation?: FailCacheInstrumentationJson;
+}
+
+interface FailCacheInstrumentationJson {
+  caches: FailCacheElementJson[];
+  prefixes: FailCachePrefixJson[];
+}
+
+interface FailCacheElementJson {
+  element_index: number;
+  insertions: number;
+  final_size: number;
+}
+
+interface FailCachePrefixJson {
+  prefix_index: number;
+  prefix_occurrences: number;
+  hashings: number;
+  internments: number;
+  insertions: number;
 }
 
 interface TimingStatsJson {
@@ -113,6 +133,7 @@ interface SelectorsSummaryJson {
 interface SelectorStatsJson {
   means_cycles: Record<string, number>;
   stddevs_cycles: Record<string, number>;
+  slow_reject_counts?: Record<string, number>;
 }
 
 interface SegmentInfo {
