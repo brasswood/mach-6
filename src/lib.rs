@@ -20,7 +20,7 @@ use style::shared_lock::{SharedRwLock, StylesheetGuards};
 use style::sharing::StyleSharingElement as _;
 use style::stylesheets::DocumentStyleSheet;
 use style::stylesheets::UrlExtraData;
-use style::stylist::FailCacheBuildTimings;
+use style::stylist::{FailCacheBuildTimings, FailCachePrefixInstrumentation};
 use style::stylist::Stylist;
 use style::traversal_flags::TraversalFlags;
 use std::collections::BTreeMap;
@@ -285,6 +285,10 @@ impl MatchingContext {
 
     pub fn fail_cache_build_timings(&self) -> FailCacheBuildTimings {
         self.stylist.fail_cache_build_timings()
+    }
+
+    pub fn fail_cache_prefix_instrumentation(&self) -> Vec<FailCachePrefixInstrumentation> {
+        self.stylist.fail_cache_prefix_instrumentation()
     }
 
     pub fn get_selectors(&self) -> Vec<Selector> {
