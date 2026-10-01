@@ -108,3 +108,23 @@ def validate_prefixes(
     if hashings >= insertions:
         record_failure(failures, 8, context, f"{hashings} aggregate prefix hashings >= {insertions} cache insertions")
 
+
+def validate_comparison_metrics(
+    baseline: dict[str, Any], optimized: dict[str, Any],
+    baseline_selectors: dict[str, Any], optimized_selectors: dict[str, Any],
+    optimized_cycles: int, context: str, failures: dict[int, list[str]],
+) -> None:
+    before, after = baseline["counts"], optimized["counts"]
+    if optimized_cycles > baseline["mean_cycles"]:
+        record_failure(failures, 1, context, f"total cycles increased {baseline['mean_cycles']} -> {optimized_cycles}")
+    if after["slow_accepts"] != before["slow_accepts"]:
+        record_failure(failures, 2, context, f"slow accepts changed {before['slow_accepts']} -> {after['slow_accepts']}")
+    if after["slow_rejects"] > before["slow_rejects"]:
+        record_failure(failures, 3, context, f"slow rejects increased {before['slow_rejects']} -> {after['slow_rejects']}")
+    decrease = before["slow_rejects"] - after["slow_rejects"]
+    reject_increase = after["fail_cache_rejects"] - before["fail_cache_rejects"]
+    if decrease > 0 and reject_increase != decrease:
+        record_failure(failures, 4, context, f"slow rejects decreased by {decrease}, fail-cache rejects increased by {reject_increase}")
+    for label, selector_stats in (("baseline", baseline_selectors), ("optimized", optimized_selectors)):
+        if "slow_reject_counts" not in selector_stats:
+            record_failure(failures, 9, context, f"{label} per-selector slow-reject counts are missing")
