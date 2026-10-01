@@ -46,7 +46,7 @@ class FailCacheReportTests(unittest.TestCase):
         instrumentation = counts["fail_cache_instrumentation"]
         instrumentation["caches"][1]["final_size"] = 9
         instrumentation["prefixes"][0].update(hashings=0, internments=3, insertions=1)
-        instrumentation["prefixes"][1]["hashings"] = 10
+        instrumentation["prefixes"][1]["hashings"] = 20
         failures, _ = validate_report(report, [("baseline", "fail-caches")])
         self.assertIn(6, failures)
         self.assertIn(7, failures)
