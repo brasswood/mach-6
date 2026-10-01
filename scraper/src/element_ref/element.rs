@@ -155,7 +155,10 @@ impl Element for ElementRef<'_> {
         if id == 0 {
             return;
         }
-        self.value().mutate_data().fail_cache.insert_unchecked(id);
+        let mut data = self.value().mutate_data();
+        if !data.fail_cache.contains(id) {
+            data.fail_cache.insert_unchecked(id);
+        }
     }
 }
 
@@ -222,5 +225,24 @@ mod tests {
             &AtomIdent::from("my_class"),
             CaseSensitivity::CaseSensitive
         ));
+    }
+
+    #[test]
+    fn fail_cache_is_stored_per_element() {
+        let fragment = Html::parse_fragment("<div></div><div></div>");
+        let selector = Selector::parse("div").unwrap();
+        let mut elements = fragment.select(&selector);
+        let first = elements.next().unwrap();
+        let second = elements.next().unwrap();
+        let id = 42;
+
+        assert!(!first.fail_cache_contains(id));
+        first.insert_into_fail_cache(id);
+
+        assert!(first.fail_cache_contains(id));
+        assert!(!second.fail_cache_contains(id));
+
+        first.insert_into_fail_cache(id);
+        assert!(first.fail_cache_contains(id));
     }
 }
