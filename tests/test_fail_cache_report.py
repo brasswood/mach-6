@@ -61,3 +61,23 @@ class FailCacheReportTests(unittest.TestCase):
         failures, _ = validate_report(report, [("baseline", "fail-caches")])
         self.assertIn(4, failures)
         self.assertIn(10, failures)
+
+    def test_legacy_total_includes_fail_cache_interning(self) -> None:
+        site = make_profile_report()["websites"][0]
+        baseline, optimized = site["variants"]
+        legacy = {"websites": [{
+            "website": site["website"],
+            "summary": {
+                "baseline": copy.deepcopy(baseline["summary"]),
+                "fail_caches": copy.deepcopy(optimized["summary"]),
+                "fail_cache_preprocessing": {"mean_interning_cycles": 50},
+            },
+            "selector_slow_rejects_summary": {
+                "baseline": baseline["selector_slow_rejects_summary"],
+                "fail_caches": optimized["selector_slow_rejects_summary"],
+            },
+        }]}
+        failures, _ = validate_report(legacy, [("Baseline", "Interning + Fail Caches")], True)
+        self.assertNotIn(1, failures)  # 950 + 50 equals the 1000-cycle baseline.
+        legacy["websites"][0]["summary"]["fail_cache_preprocessing"]["mean_interning_cycles"] = 51
+        self.assertIn(1, validate_report(legacy, [("Baseline", "Interning + Fail Caches")], True)[0])
