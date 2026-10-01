@@ -203,3 +203,36 @@ def validate_report(
             totals, f"{comparison[0]} -> {comparison[1]}", failures, require_all_targets
         )
     return failures, skipped_targets
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("report", type=Path, help="all_websites report JSON file")
+    parser.add_argument(
+        "--compare", required=True, action="append", type=parse_comparison,
+        metavar="BASELINE:OPTIMIZED", help="variant labels to compare; may be repeated",
+    )
+    parser.add_argument(
+        "--require-all-target-selectors", action="store_true",
+        help="fail if any of the five targeted selectors is absent from the report",
+    )
+    args = parser.parse_args()
+    try:
+        report = json.loads(args.report.read_text())
+        failures, skipped = validate_report(report, args.compare, args.require_all_target_selectors)
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        parser.error(f"cannot validate report: {error}")
+    for number in range(1, 11):
+        issues = failures.get(number, [])
+        print(f"[{number}] {'FAIL' if issues else 'PASS'}" + (f" ({len(issues)} issues)" if issues else ""))
+        for issue in issues:
+            print(f"  - {issue}")
+        if number == 10:
+            for comparison, selectors in skipped.items():
+                if selectors:
+                    print(f"  - {comparison[0]} -> {comparison[1]}: {len(selectors)} targets absent from this report subset")
+    return int(bool(failures))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
