@@ -54,3 +54,32 @@ def resolve_pair(
         baseline["selector_slow_rejects_summary"],
         optimized["selector_slow_rejects_summary"], optimized["summary"]["mean_cycles"],
     )
+
+
+def record_failure(
+    failures: dict[int, list[str]], number: int, context: str, detail: str
+) -> None:
+    failures.setdefault(number, []).append(f"{context}: {detail}")
+
+
+def validate_cache_storage(
+    summary: dict[str, Any], context: str, failures: dict[int, list[str]]
+) -> dict[str, Any] | None:
+    counts = summary["counts"]
+    instrumentation = counts.get("fail_cache_instrumentation")
+    if instrumentation is None:
+        for number in (5, 6, 7, 8):
+            record_failure(failures, number, context, "detailed fail-cache instrumentation is missing")
+        return None
+
+    caches = instrumentation["caches"]
+    insertions = [cache["insertions"] for cache in caches]
+    overflowed = sum(value > 8 for value in insertions)
+    if sum(insertions) < 8 * overflowed:
+        record_failure(failures, 5, context, f"{sum(insertions)} insertions for {overflowed} overflowed caches")
+    for cache in caches:
+        if cache["final_size"] != max(cache["insertions"], 8):
+            record_failure(failures, 6, context, f"cache {cache['element_index']} has inconsistent final size")
+    if counts.get("filled_fail_caches") != overflowed:
+        record_failure(failures, 6, context, f"filled count {counts.get('filled_fail_caches')} != {overflowed} overflowed caches")
+    return instrumentation
