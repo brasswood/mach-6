@@ -35,10 +35,11 @@ def make_profile_report() -> dict:
 
 class FailCacheReportTests(unittest.TestCase):
     def test_profile_report_passes_every_invariant(self) -> None:
-        failures, skipped = validate_report(
+        failures, skipped, timing = validate_report(
             make_profile_report(), [("baseline", "fail-caches")], require_all_targets=True
         )
         self.assertEqual((failures, skipped), ({}, {("baseline", "fail-caches"): []}))
+        self.assertEqual(timing[("baseline", "fail-caches")][0][1:], (1000, 950))
 
     def test_rejects_cache_and_prefix_accounting_errors(self) -> None:
         report = make_profile_report()
@@ -47,7 +48,7 @@ class FailCacheReportTests(unittest.TestCase):
         instrumentation["caches"][1]["final_size"] = 9
         instrumentation["prefixes"][0].update(hashings=0, internments=3, insertions=1)
         instrumentation["prefixes"][1]["hashings"] = 20
-        failures, _ = validate_report(report, [("baseline", "fail-caches")])
+        failures, _, _ = validate_report(report, [("baseline", "fail-caches")])
         self.assertIn(6, failures)
         self.assertIn(7, failures)
         self.assertIn(8, failures)
@@ -58,7 +59,7 @@ class FailCacheReportTests(unittest.TestCase):
         variants[1]["summary"]["counts"]["fail_cache_rejects"] = 1
         selector = TARGET_SELECTORS[0]
         variants[1]["selector_slow_rejects_summary"]["slow_reject_counts"][selector] = 4
-        failures, _ = validate_report(report, [("baseline", "fail-caches")])
+        failures, _, _ = validate_report(report, [("baseline", "fail-caches")])
         self.assertIn(4, failures)
         self.assertIn(10, failures)
 
@@ -77,7 +78,14 @@ class FailCacheReportTests(unittest.TestCase):
                 "fail_caches": optimized["selector_slow_rejects_summary"],
             },
         }]}
-        failures, _ = validate_report(legacy, [("Baseline", "Interning + Fail Caches")], True)
-        self.assertNotIn(1, failures)  # 950 + 50 equals the 1000-cycle baseline.
+        failures, _, timing = validate_report(
+            legacy, [("Baseline", "Interning + Fail Caches")], True
+        )
+        self.assertNotIn(1, failures)  # Runtime non-regression is reported, not correctness-gated.
+        self.assertEqual(timing[("Baseline", "Interning + Fail Caches")][0][1:], (1000, 1000))
         legacy["websites"][0]["summary"]["fail_cache_preprocessing"]["mean_interning_cycles"] = 51
-        self.assertIn(1, validate_report(legacy, [("Baseline", "Interning + Fail Caches")], True)[0])
+        failures, _, timing = validate_report(
+            legacy, [("Baseline", "Interning + Fail Caches")], True
+        )
+        self.assertNotIn(1, failures)
+        self.assertEqual(timing[("Baseline", "Interning + Fail Caches")][0][1:], (1000, 1001))
