@@ -94,7 +94,7 @@ def validate_cache_storage(
     if counts.get("filled_fail_caches") != overflowed:
         record_failure(
             failures, 6, context,
-            f"filled count {counts.get('filled_fail_caches')} != {overflowed} caches with more than 8 insertions",
+            f"filled count {counts.get('filled_fail_caches')} != {overflowed} caches whose ring wrapped after more than 8 insertions",
         )
     return instrumentation
 
@@ -129,7 +129,7 @@ def validate_prefixes(
             examples.append(f"prefix {index}: hashes={hashings}, occurrences={prefix['prefix_occurrences']}, insertions={insertions}")
 
     if more_hashes_than_occurrences or more_hashes_than_insertions:
-        observations.setdefault(7, []).append(
+        observations.setdefault(76, []).append(
             f"{context}: {more_hashes_than_occurrences}/{len(prefixes)} prefixes had hashings > eligible selector occurrences; "
             f"{more_hashes_than_insertions} had hashings > insertions"
             + (f" (examples: {'; '.join(examples)})" if examples else "")
@@ -146,7 +146,7 @@ def validate_prefixes(
     prefixes_remaining = sum(max(prefix["insertions"] - 1, 0) > 0 for prefix in prefixes)
     caches_remaining = sum(max(cache["insertions"] - 8, 0) > 0 for cache in caches)
     if prefixes_remaining != caches_remaining:
-        observations.setdefault(7, []).append(
+        observations.setdefault(77, []).append(
             f"{context}: residual nonzero prefixes {prefixes_remaining} != residual nonzero caches {caches_remaining}"
         )
 
@@ -312,12 +312,16 @@ def main() -> int:
     for number in (2, 3, 4, 5, 6, 7, 8, 9, 10):
         issues = failures.get(number, [])
         if number == 7:
-            print(f"[7] {'FAIL (7.1–7.5 / insertion accounting)' if issues else 'PASS (7.1–7.5 / insertion accounting)'}")
-            print("  - 7.6 is not an algorithmic invariant: hashing happens before matching, while only failed matches insert.")
-            print("  - 7.7 is not an algorithmic invariant: unique-prefix and per-element totals group insertions along different axes.")
+            print(f"[7.1–7.5] {'FAIL' if issues else 'PASS'} (includes insertion accounting)")
             for issue in issues:
                 print(f"  - {issue}")
-            for observation in observations.get(number, []):
+            print(f"[7.6] {'NOT A GENERAL INVARIANT' if observations.get(76) else 'PASS'}")
+            print("  - Prefixes can be hashed on a successful match and therefore receive no fail-cache insertion.")
+            for observation in observations.get(76, []):
+                print(f"  - {observation}")
+            print(f"[7.7] {'NOT A GENERAL INVARIANT' if observations.get(77) else 'PASS'}")
+            print("  - Prefix insertions and per-element cache insertions are many-to-many, so their residual counts need not agree.")
+            for observation in observations.get(77, []):
                 print(f"  - {observation}")
         elif number == 10:
             incomplete = any(skipped[comparison] for comparison in skipped)
