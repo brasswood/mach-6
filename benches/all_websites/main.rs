@@ -233,6 +233,7 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
             return None;
         }
         selectors::matching::set_fail_cache_instrumentation_enabled(true);
+        selectors::matching::clear_fail_cache_insertion_counts();
         let website_path = websites_path().join(website_name);
         // Fail caches are stored in the DOM's per-element state, and benchmark
         // variants reuse one parsed document across many samples, so we need a
@@ -261,19 +262,21 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
             .descendent_elements()
             .enumerate()
         {
-            let cache = &element.value().borrow_data().fail_cache;
+            let insertions = selectors::matching::fail_cache_insertion_count(&element);
+            let final_size = element.value().borrow_data().fail_cache.len();
             total_caches += 1;
-            if cache.filled_once() {
+            if insertions > 8 {
                 filled_caches += 1;
             }
             caches.push(FailCacheElementMeasurements {
                 element_index,
-                insertions: cache.insertions(),
-                final_size: cache.size(),
+                insertions,
+                final_size,
             });
         }
         let prefixes = matching_context.fail_cache_prefix_instrumentation();
         selectors::matching::set_fail_cache_instrumentation_enabled(false);
+        selectors::matching::clear_fail_cache_insertion_counts();
 
         Some(FailCacheMeasurements {
             filled_caches,
