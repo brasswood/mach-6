@@ -151,14 +151,16 @@ impl Element for ElementRef<'_> {
         self.value().borrow_data().fail_cache.contains(id)
     }
 
-    fn insert_into_fail_cache(&self, id: u16) {
+    fn insert_into_fail_cache(&self, id: u16) -> bool {
         if id == 0 {
-            return;
+            return false;
         }
         let mut data = self.value().mutate_data();
-        if !data.fail_cache.contains(id) {
-            data.fail_cache.insert_unchecked(id);
+        if data.fail_cache.contains(id) {
+            return false;
         }
+        data.fail_cache.insert_unchecked(id);
+        true
     }
 }
 
@@ -237,12 +239,12 @@ mod tests {
         let id = 42;
 
         assert!(!first.fail_cache_contains(id));
-        first.insert_into_fail_cache(id);
+        assert!(first.insert_into_fail_cache(id));
 
         assert!(first.fail_cache_contains(id));
         assert!(!second.fail_cache_contains(id));
 
-        first.insert_into_fail_cache(id);
+        assert!(!first.insert_into_fail_cache(id));
         assert!(first.fail_cache_contains(id));
     }
 }
