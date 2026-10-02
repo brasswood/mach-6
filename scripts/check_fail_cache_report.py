@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check fail-cache invariants and report benchmark-dependent expectations."""
+"""Check fail-cache invariants in an all_websites benchmark report."""
 
 from __future__ import annotations
 
@@ -86,10 +86,10 @@ def validate_cache_storage(
             f"reported {len(caches)} element caches but total_fail_caches is {counts.get('total_fail_caches')}",
         )
     for cache in caches:
-        if cache["final_size"] != max(cache["insertions"], 8):
+        if cache["final_size"] != min(cache["insertions"], 8):
             record_failure(
                 failures, 6, context,
-                f"cache {cache['element_index']} size {cache['final_size']} != max({cache['insertions']}, 8)",
+                f"cache {cache['element_index']} size {cache['final_size']} != min({cache['insertions']}, 8)",
             )
     if counts.get("filled_fail_caches") != overflowed:
         record_failure(
@@ -152,8 +152,9 @@ def validate_prefixes(
 
     hashings = sum(prefix["hashings"] for prefix in prefixes)
     if hashings > cache_insertions:
-        observations.setdefault(8, []).append(
-            f"{context}: aggregate prefix hashings {hashings} > element-cache insertions {cache_insertions}"
+        record_failure(
+            failures, 8, context,
+            f"aggregate prefix hashings {hashings} > element-cache insertions {cache_insertions}",
         )
 
 
@@ -311,9 +312,9 @@ def main() -> int:
     for number in (2, 3, 4, 5, 6, 7, 8, 9, 10):
         issues = failures.get(number, [])
         if number == 7:
-            print(f"[7] {'FAIL' if issues else '7.1–7.5 AND INSERTION ACCOUNTING PASS'}")
-            print("  - 7.6 hashing <= insertion is not guaranteed: an interned prefix can match successfully or be checked without a new cache insertion.")
-            print("  - 7.7 residual prefix/cache equality is not guaranteed: prefix-to-element cache insertions form a many-to-many relation.")
+            print(f"[7] {'FAIL (7.1–7.5 / insertion accounting)' if issues else 'PASS (7.1–7.5 / insertion accounting)'}")
+            print("  - 7.6 is not an algorithmic invariant: hashing happens before matching, while only failed matches insert.")
+            print("  - 7.7 is not an algorithmic invariant: unique-prefix and per-element totals group insertions along different axes.")
             for issue in issues:
                 print(f"  - {issue}")
             for observation in observations.get(number, []):
@@ -327,9 +328,7 @@ def main() -> int:
             for observation in observations.get(number, []):
                 print(f"  - {observation}")
         elif number == 8:
-            print(f"[8] {'NOT A GENERAL INVARIANT / MEASURED' if observations.get(number) else 'PASS'}")
-            if observations.get(number):
-                print("  - A prefix may be hashed during matching without failing and producing an insertion.")
+            print(f"[8] {'FAIL' if issues else 'PASS'}")
             for observation in observations.get(number, []):
                 print(f"  - {observation}")
         else:

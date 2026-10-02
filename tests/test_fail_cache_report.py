@@ -7,13 +7,13 @@ from scripts.check_fail_cache_report import TARGET_SELECTORS, validate_report
 def make_profile_report() -> dict:
     instrumentation = {
         "caches": [
-            {"element_index": 0, "insertions": 9, "final_size": 9},
+            {"element_index": 0, "insertions": 9, "final_size": 8},
             {"element_index": 1, "insertions": 8, "final_size": 8},
-            {"element_index": 2, "insertions": 0, "final_size": 8},
+            {"element_index": 2, "insertions": 0, "final_size": 0},
         ],
         "prefixes": [
-            {"prefix_index": 0, "prefix_occurrences": 4, "hashings": 2, "internments": 1, "insertions": 10},
-            {"prefix_index": 1, "prefix_occurrences": 6, "hashings": 1, "internments": 0, "insertions": 7},
+            {"prefix_index": 0, "prefix_occurrences": 4, "hashings": 2, "internments": 1, "insertions": 17},
+            {"prefix_index": 1, "prefix_occurrences": 6, "hashings": 0, "internments": 0, "insertions": 0},
         ],
     }
 
@@ -76,7 +76,7 @@ class FailCacheReportTests(unittest.TestCase):
         self.assertEqual(skipped, {comparison: [] for comparison in comparisons})
         self.assertEqual(timing[comparisons[0]][0][1:], (1200, 1100))
         self.assertEqual(timing[comparisons[1]][0][1:], (1000, 900))
-        self.assertTrue(any("residual nonzero prefixes" in issue for issue in observations[7]))
+        self.assertEqual(observations, {})
 
     def test_invalidated_semantic_and_storage_expectations_fail(self) -> None:
         report = make_profile_report()
@@ -84,7 +84,7 @@ class FailCacheReportTests(unittest.TestCase):
         counts = optimized["summary"]["counts"]
         counts["slow_accepts"] += 1
         counts["slow_rejects"] += 11
-        counts["fail_cache_instrumentation"]["caches"][0]["final_size"] = 8
+        counts["fail_cache_instrumentation"]["caches"][0]["final_size"] = 7
         optimized["summary"]["mean_cycles"] = 1200
         del optimized["selector_slow_rejects_summary"]["slow_reject_counts"]
 
@@ -109,7 +109,9 @@ class FailCacheReportTests(unittest.TestCase):
     def test_hashing_bounds_and_selector_target_are_checked(self) -> None:
         report = make_profile_report()
         instrumentation = report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_instrumentation"]
+        instrumentation["prefixes"][0]["prefix_occurrences"] = 11
         instrumentation["prefixes"][0]["hashings"] = 11
+        instrumentation["prefixes"][1]["prefix_occurrences"] = 8
         instrumentation["prefixes"][1]["hashings"] = 7
         selector = TARGET_SELECTORS[0]
         report["websites"][0]["variants"][1]["selector_slow_rejects_summary"]["slow_reject_counts"][selector] = 4
@@ -117,11 +119,23 @@ class FailCacheReportTests(unittest.TestCase):
         failures, _, _, observations, _ = validate_report(
             report, [("01-baseline", "03-lazy-fail-caches")]
         )
-        self.assertIn(7, failures)
-        self.assertTrue(any("hashings > insertions" in issue for issue in observations[7]))
-        self.assertTrue(any("aggregate prefix hashings" in issue for issue in observations[8]))
-        self.assertNotIn(8, failures)
+        self.assertNotIn(7, failures)
+        self.assertTrue(any("had hashings > insertions" in issue for issue in observations[7]))
+        self.assertIn(8, failures)
+        self.assertTrue(any("aggregate prefix hashings 18 > element-cache insertions 17" in issue for issue in failures[8]))
         self.assertIn(10, failures)
+
+    def test_residual_prefix_and_element_counts_are_not_equivalent(self) -> None:
+        report = make_profile_report()
+        instrumentation = report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_instrumentation"]
+        instrumentation["prefixes"][0]["insertions"] = 10
+        instrumentation["prefixes"][1]["insertions"] = 7
+
+        failures, _, _, observations, _ = validate_report(
+            report, [("01-baseline", "03-lazy-fail-caches")]
+        )
+        self.assertNotIn(7, failures)
+        self.assertTrue(any("residual nonzero prefixes 2 != residual nonzero caches 1" in issue for issue in observations[7]))
 
     def test_missing_target_selector_is_incomplete_or_a_full_suite_failure(self) -> None:
         report = make_profile_report()
