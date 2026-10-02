@@ -12,80 +12,155 @@ def make_profile_report() -> dict:
             {"element_index": 2, "insertions": 0, "final_size": 8},
         ],
         "prefixes": [
-            {"prefix_index": 0, "prefix_occurrences": 2, "hashings": 2, "internments": 1, "insertions": 10},
-            {"prefix_index": 1, "prefix_occurrences": 1, "hashings": 1, "internments": 0, "insertions": 7},
+            {"prefix_index": 0, "prefix_occurrences": 4, "hashings": 2, "internments": 1, "insertions": 10},
+            {"prefix_index": 1, "prefix_occurrences": 6, "hashings": 1, "internments": 0, "insertions": 7},
         ],
     }
-    before = {"mean_cycles": 1000, "counts": {"slow_accepts": 5, "slow_rejects": 10, "fail_cache_rejects": 0}}
-    after = {"mean_cycles": 950, "counts": {
-        "slow_accepts": 5, "slow_rejects": 8, "fail_cache_rejects": 2,
-        "filled_fail_caches": 1, "fail_cache_instrumentation": instrumentation,
-    }}
-    selectors = lambda cycles, count: {
-        "means_cycles": {selector: cycles for selector in TARGET_SELECTORS},
-        "slow_reject_counts": {selector: count for selector in TARGET_SELECTORS},
-    }
+
+    def variant(label: str, variant_id: int, slow_rejects: int, fail_cache_rejects: int, mean_cycles: int) -> dict:
+        optimized = label in {"03-lazy-fail-caches", "07-lazy-fail-caches+"}
+        counts = {
+            "slow_accepts": 5,
+            "slow_rejects": slow_rejects,
+            "fail_cache_rejects": fail_cache_rejects,
+            "filled_fail_caches": 1 if optimized else None,
+            "total_fail_caches": 3 if optimized else None,
+        }
+        if optimized:
+            counts["fail_cache_instrumentation"] = copy.deepcopy(instrumentation)
+        selectors = {
+            "means_cycles": {selector: 50 if optimized else 100 for selector in TARGET_SELECTORS},
+            "stddevs_cycles": {},
+            "slow_reject_counts": {selector: 2 if optimized else 4 for selector in TARGET_SELECTORS},
+        }
+        return {
+            "variant_id": variant_id,
+            "summary": {"mean_cycles": mean_cycles, "counts": counts, "times": []},
+            "selector_slow_rejects_summary": selectors,
+            "samples": {"times": [], "selector_slow_rejects_cycles": None},
+        }
+
     return {
-        "metadata": {"variants": [{"id": 0, "label": "baseline"}, {"id": 1, "label": "fail-caches"}]},
-        "websites": [{"website": "fixture.test", "variants": [
-            {"variant_id": 0, "summary": before, "selector_slow_rejects_summary": selectors(100, 4)},
-            {"variant_id": 1, "summary": after, "selector_slow_rejects_summary": selectors(50, 2)},
-        ]}],
+        "metadata": {
+            "variants": [
+                {"id": 0, "label": "01-baseline", "optimizations": {}},
+                {"id": 1, "label": "03-lazy-fail-caches", "optimizations": {}},
+                {"id": 2, "label": "05-baseline+", "optimizations": {}},
+                {"id": 3, "label": "07-lazy-fail-caches+", "optimizations": {}},
+            ]
+        },
+        "websites": [
+            {
+                "website": "fixture.test",
+                "variants": [
+                    variant("01-baseline", 0, 20, 0, 1000),
+                    variant("03-lazy-fail-caches", 1, 10, 10, 900),
+                    variant("05-baseline+", 2, 20, 0, 1200),
+                    variant("07-lazy-fail-caches+", 3, 10, 10, 1100),
+                ],
+            }
+        ],
     }
+
 
 class FailCacheReportTests(unittest.TestCase):
-    def test_profile_report_passes_every_invariant(self) -> None:
-        failures, skipped, timing = validate_report(
-            make_profile_report(), [("baseline", "fail-caches")], require_all_targets=True
+    def test_both_profile_comparisons_pass_semantic_invariants(self) -> None:
+        comparisons = [
+            ("05-baseline+", "07-lazy-fail-caches+"),
+            ("01-baseline", "03-lazy-fail-caches"),
+        ]
+        failures, skipped, timing, observations, _ = validate_report(
+            make_profile_report(), comparisons, require_all_targets=True
         )
-        self.assertEqual((failures, skipped), ({}, {("baseline", "fail-caches"): []}))
-        self.assertEqual(timing[("baseline", "fail-caches")][0][1:], (1000, 950))
+        self.assertEqual(failures, {})
+        self.assertEqual(skipped, {comparison: [] for comparison in comparisons})
+        self.assertEqual(timing[comparisons[0]][0][1:], (1200, 1100))
+        self.assertEqual(timing[comparisons[1]][0][1:], (1000, 900))
+        self.assertTrue(any("eligible selector occurrences" in issue for issue in observations[7]))
+        self.assertTrue(any("residual nonzero prefixes" in issue for issue in observations[7]))
 
-    def test_rejects_cache_and_prefix_accounting_errors(self) -> None:
+    def test_invalidated_semantic_and_storage_expectations_fail(self) -> None:
         report = make_profile_report()
-        counts = report["websites"][0]["variants"][1]["summary"]["counts"]
-        instrumentation = counts["fail_cache_instrumentation"]
-        instrumentation["caches"][1]["final_size"] = 9
-        instrumentation["prefixes"][0].update(hashings=0, internments=3, insertions=1)
-        instrumentation["prefixes"][1]["hashings"] = 20
-        failures, _, _ = validate_report(report, [("baseline", "fail-caches")])
+        optimized = report["websites"][0]["variants"][1]
+        counts = optimized["summary"]["counts"]
+        counts["slow_accepts"] += 1
+        counts["slow_rejects"] += 11
+        counts["fail_cache_instrumentation"]["caches"][0]["final_size"] = 8
+        optimized["summary"]["mean_cycles"] = 1200
+        del optimized["selector_slow_rejects_summary"]["slow_reject_counts"]
+
+        failures, _, _, _, _ = validate_report(report, [("01-baseline", "03-lazy-fail-caches")])
+        self.assertIn(1, failures)
+        self.assertIn(2, failures)
+        self.assertIn(3, failures)
         self.assertIn(6, failures)
-        self.assertIn(7, failures)
-        self.assertIn(8, failures)
+        self.assertIn(9, failures)
 
-    def test_rejects_unbalanced_rejects_and_target_selector(self) -> None:
         report = make_profile_report()
-        variants = report["websites"][0]["variants"]
-        variants[1]["summary"]["counts"]["fail_cache_rejects"] = 1
-        selector = TARGET_SELECTORS[0]
-        variants[1]["selector_slow_rejects_summary"]["slow_reject_counts"][selector] = 4
-        failures, _, _ = validate_report(report, [("baseline", "fail-caches")])
+        report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_rejects"] = 1
+        failures, _, _, _, _ = validate_report(report, [("01-baseline", "03-lazy-fail-caches")])
         self.assertIn(4, failures)
+
+        report = make_profile_report()
+        optimized = report["websites"][0]["variants"][1]
+        optimized["selector_slow_rejects_summary"]["slow_reject_counts"][TARGET_SELECTORS[0]] += 1
+        failures, _, _, _, _ = validate_report(report, [("01-baseline", "03-lazy-fail-caches")])
+        self.assertIn(9, failures)
+
+    def test_non_invariant_lookup_claims_are_reported_and_selector_target_is_gated(self) -> None:
+        report = make_profile_report()
+        instrumentation = report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_instrumentation"]
+        instrumentation["prefixes"][0]["hashings"] = 11
+        instrumentation["prefixes"][1]["hashings"] = 7
+        selector = TARGET_SELECTORS[0]
+        report["websites"][0]["variants"][1]["selector_slow_rejects_summary"]["slow_reject_counts"][selector] = 4
+
+        failures, _, _, observations, _ = validate_report(
+            report, [("01-baseline", "03-lazy-fail-caches")]
+        )
+        self.assertTrue(any("hashings > insertions" in issue for issue in observations[7]))
+        self.assertTrue(any("aggregate prefix hashings" in issue for issue in observations[8]))
+        self.assertNotIn(8, failures)
         self.assertIn(10, failures)
 
-    def test_legacy_total_includes_fail_cache_interning(self) -> None:
+    def test_missing_target_selector_is_incomplete_or_a_full_suite_failure(self) -> None:
+        report = make_profile_report()
+        for variant in report["websites"][0]["variants"]:
+            variant["selector_slow_rejects_summary"]["means_cycles"].pop(TARGET_SELECTORS[-1])
+            variant["selector_slow_rejects_summary"]["slow_reject_counts"].pop(TARGET_SELECTORS[-1])
+
+        pair = [("01-baseline", "03-lazy-fail-caches")]
+        failures, skipped, _, _, _ = validate_report(report, pair)
+        self.assertNotIn(10, failures)
+        self.assertIn(TARGET_SELECTORS[-1], skipped[pair[0]])
+
+        failures, _, _, _, _ = validate_report(report, pair, require_all_targets=True)
+        self.assertIn(10, failures)
+
+    def test_legacy_report_includes_interning_in_overall_time(self) -> None:
         site = make_profile_report()["websites"][0]
-        baseline, optimized = site["variants"]
-        legacy = {"websites": [{
-            "website": site["website"],
-            "summary": {
-                "baseline": copy.deepcopy(baseline["summary"]),
-                "fail_caches": copy.deepcopy(optimized["summary"]),
-                "fail_cache_preprocessing": {"mean_interning_cycles": 50},
-            },
-            "selector_slow_rejects_summary": {
-                "baseline": baseline["selector_slow_rejects_summary"],
-                "fail_caches": optimized["selector_slow_rejects_summary"],
-            },
-        }]}
-        failures, _, timing = validate_report(
-            legacy, [("Baseline", "Interning + Fail Caches")], True
+        baseline, optimized = site["variants"][:2]
+        legacy = {
+            "websites": [
+                {
+                    "website": site["website"],
+                    "summary": {
+                        "baseline": copy.deepcopy(baseline["summary"]),
+                        "fail_caches": copy.deepcopy(optimized["summary"]),
+                        "fail_cache_preprocessing": {"mean_interning_cycles": 25},
+                    },
+                    "selector_slow_rejects_summary": {
+                        "baseline": baseline["selector_slow_rejects_summary"],
+                        "fail_caches": optimized["selector_slow_rejects_summary"],
+                    },
+                }
+            ]
+        }
+        _, _, timing, _, _ = validate_report(
+            legacy, [("Baseline", "Interning + Fail Caches")]
         )
-        self.assertNotIn(1, failures)  # Runtime non-regression is reported, not correctness-gated.
-        self.assertEqual(timing[("Baseline", "Interning + Fail Caches")][0][1:], (1000, 1000))
-        legacy["websites"][0]["summary"]["fail_cache_preprocessing"]["mean_interning_cycles"] = 51
-        failures, _, timing = validate_report(
-            legacy, [("Baseline", "Interning + Fail Caches")], True
-        )
-        self.assertNotIn(1, failures)
-        self.assertEqual(timing[("Baseline", "Interning + Fail Caches")][0][1:], (1000, 1001))
+        self.assertEqual(timing[("Baseline", "Interning + Fail Caches")][0][1:], (1000, 925))
+
+
+if __name__ == "__main__":
+    unittest.main()
