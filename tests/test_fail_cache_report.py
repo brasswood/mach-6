@@ -76,7 +76,6 @@ class FailCacheReportTests(unittest.TestCase):
         self.assertEqual(skipped, {comparison: [] for comparison in comparisons})
         self.assertEqual(timing[comparisons[0]][0][1:], (1200, 1100))
         self.assertEqual(timing[comparisons[1]][0][1:], (1000, 900))
-        self.assertTrue(any("eligible selector occurrences" in issue for issue in observations[7]))
         self.assertTrue(any("residual nonzero prefixes" in issue for issue in observations[7]))
 
     def test_invalidated_semantic_and_storage_expectations_fail(self) -> None:
@@ -107,7 +106,7 @@ class FailCacheReportTests(unittest.TestCase):
         failures, _, _, _, _ = validate_report(report, [("01-baseline", "03-lazy-fail-caches")])
         self.assertIn(9, failures)
 
-    def test_non_invariant_lookup_claims_are_reported_and_selector_target_is_gated(self) -> None:
+    def test_hashing_bounds_and_selector_target_are_checked(self) -> None:
         report = make_profile_report()
         instrumentation = report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_instrumentation"]
         instrumentation["prefixes"][0]["hashings"] = 11
@@ -118,6 +117,7 @@ class FailCacheReportTests(unittest.TestCase):
         failures, _, _, observations, _ = validate_report(
             report, [("01-baseline", "03-lazy-fail-caches")]
         )
+        self.assertIn(7, failures)
         self.assertTrue(any("hashings > insertions" in issue for issue in observations[7]))
         self.assertTrue(any("aggregate prefix hashings" in issue for issue in observations[8]))
         self.assertNotIn(8, failures)

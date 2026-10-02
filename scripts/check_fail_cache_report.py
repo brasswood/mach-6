@@ -105,7 +105,7 @@ def validate_prefixes(
 ) -> None:
     prefixes = instrumentation["prefixes"]
     caches = instrumentation["caches"]
-    occurrence_mismatches = 0
+    more_hashes_than_occurrences = 0
     more_hashes_than_insertions = 0
     examples: list[str] = []
     for prefix in prefixes:
@@ -115,18 +115,22 @@ def validate_prefixes(
         insertions = prefix["insertions"]
         if hashings < internments:
             record_failure(failures, 7, context, f"prefix {index} hashes fewer times than it is interned")
-        if hashings != prefix["prefix_occurrences"]:
-            occurrence_mismatches += 1
+        if hashings > prefix["prefix_occurrences"]:
+            more_hashes_than_occurrences += 1
+            record_failure(
+                failures, 7, context,
+                f"prefix {index} hashings {hashings} > eligible selector occurrences {prefix['prefix_occurrences']}",
+            )
         if hashings > insertions:
             more_hashes_than_insertions += 1
         if len(examples) < 3 and (
-            hashings != prefix["prefix_occurrences"] or hashings > insertions
+            hashings > prefix["prefix_occurrences"] or hashings > insertions
         ):
             examples.append(f"prefix {index}: hashes={hashings}, occurrences={prefix['prefix_occurrences']}, insertions={insertions}")
 
-    if occurrence_mismatches or more_hashes_than_insertions:
+    if more_hashes_than_occurrences or more_hashes_than_insertions:
         observations.setdefault(7, []).append(
-            f"{context}: {occurrence_mismatches}/{len(prefixes)} prefixes had hashings != eligible selector occurrences; "
+            f"{context}: {more_hashes_than_occurrences}/{len(prefixes)} prefixes had hashings > eligible selector occurrences; "
             f"{more_hashes_than_insertions} had hashings > insertions"
             + (f" (examples: {'; '.join(examples)})" if examples else "")
         )
@@ -147,9 +151,9 @@ def validate_prefixes(
         )
 
     hashings = sum(prefix["hashings"] for prefix in prefixes)
-    if hashings >= cache_insertions:
+    if hashings > cache_insertions:
         observations.setdefault(8, []).append(
-            f"{context}: aggregate prefix hashings {hashings} >= element-cache insertions {cache_insertions}"
+            f"{context}: aggregate prefix hashings {hashings} > element-cache insertions {cache_insertions}"
         )
 
 
@@ -307,11 +311,11 @@ def main() -> int:
     for number in (2, 3, 4, 5, 6, 7, 8, 9, 10):
         issues = failures.get(number, [])
         if number == 7:
-            print(f"[7] {'FAIL' if issues else 'VALID ACCOUNTING PASS; OTHER CLAIMS ARE NOT GENERAL INVARIANTS'}")
-            if not issues:
-                print("  - 7.5 compares static stylesheet prefix occurrences with lazy runtime interner lookups; unreachable prefixes are not hashed.")
-                print("  - 7.6 hashing <= insertion is not guaranteed: an interned prefix can match successfully or be checked without a new cache insertion.")
-                print("  - The residual nonzero-prefix/cache equality is not guaranteed: prefix-to-element cache insertions form a many-to-many relation.")
+            print(f"[7] {'FAIL' if issues else '7.1–7.5 AND INSERTION ACCOUNTING PASS'}")
+            print("  - 7.6 hashing <= insertion is not guaranteed: an interned prefix can match successfully or be checked without a new cache insertion.")
+            print("  - 7.7 residual prefix/cache equality is not guaranteed: prefix-to-element cache insertions form a many-to-many relation.")
+            for issue in issues:
+                print(f"  - {issue}")
             for observation in observations.get(number, []):
                 print(f"  - {observation}")
         elif number == 10:
@@ -325,7 +329,7 @@ def main() -> int:
         elif number == 8:
             print(f"[8] {'NOT A GENERAL INVARIANT / MEASURED' if observations.get(number) else 'PASS'}")
             if observations.get(number):
-                print("  - A prefix may be hashed during matching without failing, and small workloads can have no insertions (including 0 < 0).")
+                print("  - A prefix may be hashed during matching without failing and producing an insertion.")
             for observation in observations.get(number, []):
                 print(f"  - {observation}")
         else:
