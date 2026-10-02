@@ -199,3 +199,36 @@ fn statistics_dont_change() -> Result<()> {
         .collect::<Result<_>>()?;
     Ok(())
 }
+
+#[test]
+fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::write(
+        directory.path().join("fixture.html"),
+        r#"<!doctype html>
+            <style>
+                .a .b { color: red }
+                .a .c { color: blue }
+                :not(.x) > .d { color: green }
+                :not(.x) > .e { color: black }
+            </style>
+            <div class="a"><div class="between"><span class="b c"></span></div></div>
+            <div class="x"><span class="d e"></span></div>"#,
+    )
+    .unwrap();
+    let website = get_document_and_selectors(directory.path())
+        .unwrap()
+        .expect("the regression fixture should parse");
+
+    let baseline = mach_6::do_website(&website, Algorithm::Naive, None).1;
+    let (_, with_fail_caches, stats) =
+        mach_6::do_website(&website, Algorithm::WithFailCaches, None);
+
+    assert!(stats.counts.fail_cache_rejects > 0, "fixture must exercise a cache hit");
+
+    assert_eq!(
+        SerDocumentMatches::from(&baseline),
+        SerDocumentMatches::from(&with_fail_caches),
+        "cache hits must not hide a matching ancestor or change the matched selector set",
+    );
+}
