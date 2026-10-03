@@ -99,6 +99,28 @@ def validate_cache_storage(
     return instrumentation
 
 
+def havel_hakimi_accepts(prefix_insertions: list[int], cache_insertions: list[int]) -> bool:
+    if any(count < 0 for count in prefix_insertions + cache_insertions):
+        return False
+
+    virtual_cache_insertions: list[int] = []
+    for count in cache_insertions:
+        virtual_cache_insertions.extend([8] * (count // 8))
+        if count % 8:
+            virtual_cache_insertions.append(count % 8)
+
+    remaining_prefix_insertions = sorted(prefix_insertions, reverse=True)
+    for count in sorted(virtual_cache_insertions, reverse=True):
+        remaining_prefix_insertions.sort(reverse=True)
+        if count > len(remaining_prefix_insertions) or any(
+            insertion == 0 for insertion in remaining_prefix_insertions[:count]
+        ):
+            return False
+        for index in range(count):
+            remaining_prefix_insertions[index] -= 1
+    return all(insertion == 0 for insertion in remaining_prefix_insertions)
+
+
 def validate_prefixes(
     instrumentation: dict[str, Any], context: str,
     failures: dict[int, list[str]], observations: dict[int, list[str]],
