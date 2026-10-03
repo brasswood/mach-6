@@ -12,8 +12,14 @@ def make_profile_report() -> dict:
             {"element_index": 2, "insertions": 0, "final_size": 0},
         ],
         "prefixes": [
-            {"prefix_index": 0, "prefix_occurrences": 4, "hashings": 2, "internments": 1, "insertions": 17},
-            {"prefix_index": 1, "prefix_occurrences": 6, "hashings": 0, "internments": 0, "insertions": 0},
+            {
+                "prefix_index": index,
+                "prefix_occurrences": 4,
+                "hashings": 1,
+                "internments": 1,
+                "insertions": 2 if index < 8 else 1,
+            }
+            for index in range(9)
         ],
     }
 
@@ -133,22 +139,23 @@ class FailCacheReportTests(unittest.TestCase):
             report, [("01-baseline", "03-lazy-fail-caches")]
         )
         self.assertNotIn(7, failures)
-        self.assertTrue(any("had hashings > insertions" in issue for issue in observations[76]))
+        self.assertIn(76, failures)
         self.assertIn(8, failures)
-        self.assertTrue(any("aggregate prefix hashings 18 > element-cache insertions 17" in issue for issue in failures[8]))
+        self.assertTrue(any("aggregate prefix hashings 25 > element-cache insertions 17" in issue for issue in failures[8]))
         self.assertIn(10, failures)
 
-    def test_residual_prefix_and_element_counts_are_not_equivalent(self) -> None:
+    def test_havel_hakimi_rejects_repeated_prefixes_within_virtual_cache(self) -> None:
         report = make_profile_report()
         instrumentation = report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_instrumentation"]
-        instrumentation["prefixes"][0]["insertions"] = 10
-        instrumentation["prefixes"][1]["insertions"] = 7
+        instrumentation["prefixes"][0]["insertions"] = 9
+        for prefix in instrumentation["prefixes"][1:8]:
+            prefix["insertions"] = 1
 
-        failures, _, _, observations, _ = validate_report(
+        failures, _, _, _, _ = validate_report(
             report, [("01-baseline", "03-lazy-fail-caches")]
         )
         self.assertNotIn(7, failures)
-        self.assertTrue(any("residual nonzero prefixes 2 != residual nonzero caches 1" in issue for issue in observations[77]))
+        self.assertIn(77, failures)
 
     def test_missing_target_selector_is_incomplete_or_a_full_suite_failure(self) -> None:
         report = make_profile_report()
