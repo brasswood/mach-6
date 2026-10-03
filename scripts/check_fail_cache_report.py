@@ -122,40 +122,27 @@ def havel_hakimi_accepts(prefix_insertions: list[int], cache_insertions: list[in
 
 
 def validate_prefixes(
-    instrumentation: dict[str, Any], context: str,
+    instrumentation: dict[str, Any], slow_rejects: int, context: str,
     failures: dict[int, list[str]], observations: dict[int, list[str]],
 ) -> None:
     prefixes = instrumentation["prefixes"]
     caches = instrumentation["caches"]
-    more_hashes_than_occurrences = 0
-    more_hashes_than_insertions = 0
-    examples: list[str] = []
     for prefix in prefixes:
         index = prefix["prefix_index"]
         hashings = prefix["hashings"]
         internments = prefix["internments"]
-        insertions = prefix["insertions"]
         if hashings < internments:
             record_failure(failures, 7, context, f"prefix {index} hashes fewer times than it is interned")
         if hashings > prefix["prefix_occurrences"]:
-            more_hashes_than_occurrences += 1
             record_failure(
                 failures, 7, context,
                 f"prefix {index} hashings {hashings} > eligible selector occurrences {prefix['prefix_occurrences']}",
             )
-        if hashings > insertions:
-            more_hashes_than_insertions += 1
-        if len(examples) < 3 and (
-            hashings > prefix["prefix_occurrences"] or hashings > insertions
-        ):
-            examples.append(f"prefix {index}: hashes={hashings}, occurrences={prefix['prefix_occurrences']}, insertions={insertions}")
-
-    if more_hashes_than_occurrences or more_hashes_than_insertions:
-        observations.setdefault(76, []).append(
-            f"{context}: {more_hashes_than_occurrences}/{len(prefixes)} prefixes had hashings > eligible selector occurrences; "
-            f"{more_hashes_than_insertions} had hashings > insertions"
-            + (f" (examples: {'; '.join(examples)})" if examples else "")
-        )
+        if hashings > slow_rejects:
+            record_failure(
+                failures, 76, context,
+                f"prefix {index} hashings {hashings} > website slow rejects {slow_rejects}",
+            )
 
     prefix_insertions = sum(prefix["insertions"] for prefix in prefixes)
     cache_insertions = sum(cache["insertions"] for cache in caches)
@@ -165,12 +152,11 @@ def validate_prefixes(
             f"prefix insertion total {prefix_insertions} != element-cache insertion total {cache_insertions}",
         )
 
-    prefixes_remaining = sum(max(prefix["insertions"] - 1, 0) > 0 for prefix in prefixes)
-    caches_remaining = sum(max(cache["insertions"] - 8, 0) > 0 for cache in caches)
-    if prefixes_remaining != caches_remaining:
-        observations.setdefault(77, []).append(
-            f"{context}: residual nonzero prefixes {prefixes_remaining} != residual nonzero caches {caches_remaining}"
-        )
+    if not havel_hakimi_accepts(
+        [prefix["insertions"] for prefix in prefixes],
+        [cache["insertions"] for cache in caches],
+    ):
+        record_failure(failures, 77, context, "prefix insertions cannot be assigned to virtual fail caches")
 
     hashings = sum(prefix["hashings"] for prefix in prefixes)
     if hashings > cache_insertions:
@@ -279,7 +265,10 @@ def validate_report(
             )
             instrumentation = validate_cache_storage(optimized, context, failures)
             if instrumentation is not None:
-                validate_prefixes(instrumentation, context, failures, assumption_observations)
+                validate_prefixes(
+                    instrumentation, optimized["counts"]["slow_rejects"], context,
+                    failures, assumption_observations,
+                )
             accumulate_target_totals(totals, before_selectors, after_selectors)
 
         skipped = []
@@ -337,14 +326,12 @@ def main() -> int:
             print(f"[7.1–7.5] {'FAIL' if issues else 'PASS'} (includes insertion accounting)")
             for issue in issues:
                 print(f"  - {issue}")
-            print(f"[7.6] {'NOT A GENERAL INVARIANT' if observations.get(76) else 'PASS'}")
-            print("  - Prefixes can be hashed on a successful match and therefore receive no fail-cache insertion.")
-            for observation in observations.get(76, []):
-                print(f"  - {observation}")
-            print(f"[7.7] {'NOT A GENERAL INVARIANT' if observations.get(77) else 'PASS'}")
-            print("  - Prefix insertions and per-element cache insertions are many-to-many, so their residual counts need not agree.")
-            for observation in observations.get(77, []):
-                print(f"  - {observation}")
+            print(f"[7.6] {'FAIL' if failures.get(76) else 'PASS'}")
+            for issue in failures.get(76, []):
+                print(f"  - {issue}")
+            print(f"[7.7] {'FAIL' if failures.get(77) else 'PASS'}")
+            for issue in failures.get(77, []):
+                print(f"  - {issue}")
         elif number == 10:
             incomplete = any(skipped[comparison] for comparison in skipped)
             status = "FAIL" if issues else "INCOMPLETE" if incomplete else "PASS"
