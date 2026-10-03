@@ -68,7 +68,7 @@ def validate_cache_storage(
     counts = summary["counts"]
     instrumentation = counts.get("fail_cache_instrumentation")
     if instrumentation is None:
-        for number in (5, 6, 7):
+        for number in (5, 6, 7, 8, 75, 77):
             record_failure(failures, number, context, "detailed instrumentation is missing")
         return None
 
@@ -122,7 +122,7 @@ def havel_hakimi_accepts(prefix_insertions: list[int], cache_insertions: list[in
 
 
 def validate_prefixes(
-    instrumentation: dict[str, Any], slow_rejects: int, context: str,
+    instrumentation: dict[str, Any], context: str,
     failures: dict[int, list[str]], observations: dict[int, list[str]],
 ) -> None:
     prefixes = instrumentation["prefixes"]
@@ -131,17 +131,15 @@ def validate_prefixes(
         index = prefix["prefix_index"]
         hashings = prefix["hashings"]
         internments = prefix["internments"]
+        slow_rejecting_occurrences = prefix.get("slow_rejecting_prefix_occurrences")
         if hashings < internments:
             record_failure(failures, 7, context, f"prefix {index} hashes fewer times than it is interned")
-        if hashings > prefix["prefix_occurrences"]:
+        if slow_rejecting_occurrences is None:
+            record_failure(failures, 75, context, f"prefix {index} slow-rejecting selector occurrences are missing")
+        elif hashings > slow_rejecting_occurrences:
             record_failure(
-                failures, 7, context,
-                f"prefix {index} hashings {hashings} > eligible selector occurrences {prefix['prefix_occurrences']}",
-            )
-        if hashings > slow_rejects:
-            record_failure(
-                failures, 76, context,
-                f"prefix {index} hashings {hashings} > website slow rejects {slow_rejects}",
+                failures, 75, context,
+                f"prefix {index} hashings {hashings} > slow-rejecting selector occurrences {slow_rejecting_occurrences}",
             )
 
     prefix_insertions = sum(prefix["insertions"] for prefix in prefixes)
@@ -266,8 +264,7 @@ def validate_report(
             instrumentation = validate_cache_storage(optimized, context, failures)
             if instrumentation is not None:
                 validate_prefixes(
-                    instrumentation, optimized["counts"]["slow_rejects"], context,
-                    failures, assumption_observations,
+                    instrumentation, context, failures, assumption_observations,
                 )
             accumulate_target_totals(totals, before_selectors, after_selectors)
 
@@ -323,11 +320,12 @@ def main() -> int:
     for number in (2, 3, 4, 5, 6, 7, 8, 9, 10):
         issues = failures.get(number, [])
         if number == 7:
-            print(f"[7.1–7.5] {'FAIL' if issues else 'PASS'} (includes insertion accounting)")
+            print(f"[7.1–7.4] {'FAIL' if issues else 'PASS'} (includes insertion accounting)")
             for issue in issues:
                 print(f"  - {issue}")
-            print(f"[7.6] {'FAIL' if failures.get(76) else 'PASS'}")
-            for issue in failures.get(76, []):
+            hashing_issues = failures.get(75, [])
+            print(f"[7.5] {'FAIL' if hashing_issues else 'PASS'}")
+            for issue in hashing_issues:
                 print(f"  - {issue}")
             print(f"[7.7] {'FAIL' if failures.get(77) else 'PASS'}")
             for issue in failures.get(77, []):

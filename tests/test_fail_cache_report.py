@@ -15,6 +15,7 @@ def make_profile_report() -> dict:
             {
                 "prefix_index": index,
                 "prefix_occurrences": 4,
+                "slow_rejecting_prefix_occurrences": 2,
                 "hashings": 1,
                 "internments": 1,
                 "insertions": 2 if index < 8 else 1,
@@ -125,12 +126,13 @@ class FailCacheReportTests(unittest.TestCase):
         )
         self.assertNotIn(6, failures)
 
-    def test_hashing_bounds_and_selector_target_are_checked(self) -> None:
+    def test_hashing_bound_uses_slow_rejecting_selector_occurrences(self) -> None:
         report = make_profile_report()
         instrumentation = report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_instrumentation"]
         instrumentation["prefixes"][0]["prefix_occurrences"] = 11
+        instrumentation["prefixes"][0]["slow_rejecting_prefix_occurrences"] = 11
         instrumentation["prefixes"][0]["hashings"] = 11
-        instrumentation["prefixes"][1]["prefix_occurrences"] = 8
+        instrumentation["prefixes"][1]["slow_rejecting_prefix_occurrences"] = 6
         instrumentation["prefixes"][1]["hashings"] = 7
         selector = TARGET_SELECTORS[0]
         report["websites"][0]["variants"][1]["selector_slow_rejects_summary"]["slow_reject_counts"][selector] = 4
@@ -139,10 +141,18 @@ class FailCacheReportTests(unittest.TestCase):
             report, [("01-baseline", "03-lazy-fail-caches")]
         )
         self.assertNotIn(7, failures)
-        self.assertIn(76, failures)
+        self.assertIn(75, failures)
         self.assertIn(8, failures)
         self.assertTrue(any("aggregate prefix hashings 25 > element-cache insertions 17" in issue for issue in failures[8]))
         self.assertIn(10, failures)
+
+        report = make_profile_report()
+        instrumentation = report["websites"][0]["variants"][1]["summary"]["counts"]["fail_cache_instrumentation"]
+        del instrumentation["prefixes"][0]["slow_rejecting_prefix_occurrences"]
+        failures, _, _, _, _ = validate_report(
+            report, [("01-baseline", "03-lazy-fail-caches")]
+        )
+        self.assertIn(75, failures)
 
     def test_havel_hakimi_rejects_repeated_prefixes_within_virtual_cache(self) -> None:
         report = make_profile_report()

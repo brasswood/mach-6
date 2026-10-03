@@ -194,6 +194,7 @@ mod overall_summary {
     pub(crate) struct FailCachePrefixJson {
         pub(crate) prefix_index: usize,
         pub(crate) prefix_occurrences: u64,
+        pub(crate) slow_rejecting_prefix_occurrences: u64,
         pub(crate) hashings: u64,
         pub(crate) internments: u64,
         pub(crate) insertions: u64,
@@ -210,6 +211,7 @@ mod overall_summary {
             Self {
                 prefix_index: value.prefix_index,
                 prefix_occurrences: value.prefix_occurrences,
+                slow_rejecting_prefix_occurrences: value.slow_rejecting_prefix_occurrences,
                 hashings: value.hashings,
                 internments: value.internments,
                 insertions: value.insertions,
