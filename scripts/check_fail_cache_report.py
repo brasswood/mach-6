@@ -168,11 +168,11 @@ def validate_comparison_metrics(
     baseline: dict[str, Any], optimized: dict[str, Any],
     baseline_selectors: dict[str, Any], optimized_selectors: dict[str, Any],
     optimized_cycles: int, context: str, failures: dict[int, list[str]],
-    timing_observations: list[tuple[str, int, int]],
+    timing_observations: list[tuple[str, int, int]], counts_only: bool,
 ) -> None:
     before, after = baseline["counts"], optimized["counts"]
     timing_observations.append((context, baseline["mean_cycles"], optimized_cycles))
-    if optimized_cycles > baseline["mean_cycles"]:
+    if not counts_only and optimized_cycles > baseline["mean_cycles"]:
         record_failure(
             failures, 1, context,
             f"overall time increased {baseline['mean_cycles']} -> {optimized_cycles} cycles",
@@ -234,7 +234,7 @@ def accumulate_target_totals(
 
 
 def validate_report(
-    report: dict[str, Any], comparisons: list[Comparison]
+    report: dict[str, Any], comparisons: list[Comparison], counts_only: bool = False,
 ) -> tuple[
     dict[int, list[str]], dict[Comparison, list[str]],
     dict[Comparison, list[tuple[str, int, int]]], dict[int, list[str]],
@@ -259,7 +259,7 @@ def validate_report(
             )
             validate_comparison_metrics(
                 baseline, optimized, before_selectors, after_selectors, cycles,
-                context, failures, timing_observations[comparison],
+                context, failures, timing_observations[comparison], counts_only,
             )
             instrumentation = validate_cache_storage(optimized, context, failures)
             if instrumentation is not None:
@@ -276,10 +276,14 @@ def validate_report(
                 continue
             before = (values["baseline_cycles"], values["baseline_count"])
             after = (values["optimized_cycles"], values["optimized_count"])
-            if after[0] >= before[0] or after[1] >= before[1]:
+            if (not counts_only and after[0] >= before[0]) or after[1] >= before[1]:
                 record_failure(
                     failures, 10, f"{comparison[0]} -> {comparison[1]}",
-                    f"target did not reduce both time and slow rejects: {selector}: {before} -> {after}",
+                    (
+                        f"target did not reduce slow rejects: {selector}: {before[1]} -> {after[1]}"
+                        if counts_only else
+                        f"target did not reduce both time and slow rejects: {selector}: {before} -> {after}"
+                    ),
                 )
         skipped_targets[comparison] = skipped
         target_observations[comparison] = totals
@@ -294,11 +298,15 @@ def main() -> int:
         "--compare", required=True, action="append", type=parse_comparison,
         metavar="BASELINE:OPTIMIZED", help="variant labels to compare; may be repeated",
     )
+    parser.add_argument(
+        "--counts-only", action="store_true",
+        help="skip timing properties while continuing to enforce count properties",
+    )
     args = parser.parse_args()
     try:
         report = json.loads(args.report.read_text())
         failures, skipped, timing, observations, targets = validate_report(
-            report, args.compare
+            report, args.compare, args.counts_only
         )
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
         parser.error(f"cannot validate report: {error}")
@@ -306,7 +314,8 @@ def main() -> int:
     for comparison, values in timing.items():
         issues = failures.get(1, [])
         comparison_issues = [issue for issue in issues if issue.startswith(f"{comparison[0]} -> {comparison[1]},")]
-        print(f"[1] {'FAIL' if comparison_issues else 'PASS'} {comparison[0]} -> {comparison[1]}: overall time including fail-cache setup")
+        status = "SKIP" if args.counts_only else "FAIL" if comparison_issues else "PASS"
+        print(f"[1] {status} {comparison[0]} -> {comparison[1]}: overall time including fail-cache setup")
         if comparison_issues:
             print("  - This is workload-dependent: lookup overhead applies even when a prefix is never reused on the same element.")
         for website, before, after in values:
