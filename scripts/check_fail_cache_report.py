@@ -234,7 +234,7 @@ def accumulate_target_totals(
 
 
 def validate_report(
-    report: dict[str, Any], comparisons: list[Comparison], require_all_targets: bool = False
+    report: dict[str, Any], comparisons: list[Comparison]
 ) -> tuple[
     dict[int, list[str]], dict[Comparison, list[str]],
     dict[Comparison, list[tuple[str, int, int]]], dict[int, list[str]],
@@ -272,8 +272,7 @@ def validate_report(
         for selector, values in totals.items():
             if not values["present"]:
                 skipped.append(selector)
-                if require_all_targets:
-                    record_failure(failures, 10, f"{comparison[0]} -> {comparison[1]}", f"target selector is absent: {selector}")
+                record_failure(failures, 10, f"{comparison[0]} -> {comparison[1]}", f"target selector is absent: {selector}")
                 continue
             before = (values["baseline_cycles"], values["baseline_count"])
             after = (values["optimized_cycles"], values["optimized_count"])
@@ -295,15 +294,11 @@ def main() -> int:
         "--compare", required=True, action="append", type=parse_comparison,
         metavar="BASELINE:OPTIMIZED", help="variant labels to compare; may be repeated",
     )
-    parser.add_argument(
-        "--require-all-target-selectors", action="store_true",
-        help="fail if any targeted selector is absent from the full-suite report",
-    )
     args = parser.parse_args()
     try:
         report = json.loads(args.report.read_text())
         failures, skipped, timing, observations, targets = validate_report(
-            report, args.compare, args.require_all_target_selectors
+            report, args.compare
         )
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
         parser.error(f"cannot validate report: {error}")
