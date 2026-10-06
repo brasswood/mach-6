@@ -214,11 +214,19 @@ def validate_prefixes(
         record_failure(failures, 73, context, "prefix insertions cannot be assigned to virtual fail caches")
 
     hashings = sum(prefix["hashings"] for prefix in prefixes)
-    if hashings > cache_insertions:
-        record_failure(
-            failures, 9, context,
-            f"aggregate prefix hashings {hashings} > element-cache insertions {cache_insertions}",
+    slow_reject_counts = selector_summary.get("slow_reject_counts")
+    if slow_reject_counts is None:
+        record_failure(failures, 9, context, "optimized per-selector slow-reject counts are missing")
+    else:
+        prefix_budget = sum(
+            count * count_fail_cache_prefixes(selector)
+            for selector, count in slow_reject_counts.items()
         )
+        if hashings > prefix_budget:
+            record_failure(
+                failures, 9, context,
+                f"aggregate prefix hashings {hashings} > selector slow-reject prefix budget {prefix_budget}",
+            )
 
 
 def validate_comparison_metrics(
@@ -321,7 +329,7 @@ def validate_report(
             instrumentation = validate_cache_storage(optimized, context, failures)
             if instrumentation is not None:
                 validate_prefixes(
-                    instrumentation, context, failures, assumption_observations,
+                    instrumentation, after_selectors, context, failures, assumption_observations,
                 )
             accumulate_target_totals(totals, before_selectors, after_selectors)
 
