@@ -333,7 +333,7 @@ def main() -> int:
         issues = failures.get(1, [])
         comparison_issues = [issue for issue in issues if issue.startswith(f"{comparison[0]} -> {comparison[1]},")]
         status = "SKIP" if args.counts_only else "FAIL" if comparison_issues else "PASS"
-        print(f"[1] {status} {comparison[0]} -> {comparison[1]}: overall time including fail-cache setup")
+        print(f"[1] {status} {comparison[0]} -> {comparison[1]}: {CHECK_DESCRIPTIONS[1]}")
         if comparison_issues:
             print("  - This is workload-dependent: lookup overhead applies even when a prefix is never reused on the same element.")
         for website, before, after in values:
@@ -342,47 +342,47 @@ def main() -> int:
     for number in (2, 3, 4, 5, 6, 7, 8, 9, 10):
         issues = failures.get(number, [])
         if number == 7:
-            print(f"[7 instrumentation] {'FAIL' if issues else 'PASS'}")
+            print(f"[7 instrumentation] {'FAIL' if issues else 'PASS'}: {CHECK_DESCRIPTIONS['7 instrumentation']}")
             for issue in issues:
                 print(f"  - {issue}")
             hashing_issues = failures.get(71, [])
-            print(f"[7.1] {'FAIL' if hashing_issues else 'PASS'}")
+            print(f"[7.1] {'FAIL' if hashing_issues else 'PASS'}: {CHECK_DESCRIPTIONS[71]}")
             for issue in hashing_issues:
                 print(f"  - {issue}")
             slow_rejecting_issues = failures.get(72, [])
-            print(f"[7.2] {'FAIL' if slow_rejecting_issues else 'PASS'}")
+            print(f"[7.2] {'FAIL' if slow_rejecting_issues else 'PASS'}: {CHECK_DESCRIPTIONS[72]}")
             for issue in slow_rejecting_issues:
                 print(f"  - {issue}")
-            print(f"[7.3] {'FAIL' if failures.get(73) else 'PASS'}")
+            print(f"[7.3] {'FAIL' if failures.get(73) else 'PASS'}: {CHECK_DESCRIPTIONS[73]}")
             for issue in failures.get(73, []):
                 print(f"  - {issue}")
         elif number == 6:
-            print(f"[6] {'FAIL' if issues else 'PASS'}")
+            print(f"[6] {'FAIL' if issues else 'PASS'}: {CHECK_DESCRIPTIONS[6]}")
             for issue in issues:
                 print(f"  - {issue}")
             size_issues = failures.get(61, [])
-            print(f"[6.1] {'FAIL' if size_issues else 'PASS'}")
+            print(f"[6.1] {'FAIL' if size_issues else 'PASS'}: {CHECK_DESCRIPTIONS[61]}")
             for issue in size_issues:
                 print(f"  - {issue}")
             filled_issues = failures.get(62, [])
-            print(f"[6.2] {'FAIL' if filled_issues else 'PASS'}")
+            print(f"[6.2] {'FAIL' if filled_issues else 'PASS'}: {CHECK_DESCRIPTIONS[62]}")
             for issue in filled_issues:
                 print(f"  - {issue}")
         elif number == 10:
             incomplete = any(skipped[comparison] for comparison in skipped)
             status = "FAIL" if issues else "INCOMPLETE" if incomplete else "PASS"
-            print(f"[{number}] {status}")
+            print(f"[{number}] {status}: {CHECK_DESCRIPTIONS[number]}")
             if issues:
                 print("  - A fail cache only avoids work when the same prefix is queried again on the same element; a selector's slow rejects need not be reusable.")
             for observation in observations.get(number, []):
                 print(f"  - {observation}")
         elif number == 8:
-            print(f"[8] {'FAIL' if issues else 'PASS'}")
+            print(f"[8] {'FAIL' if issues else 'PASS'}: {CHECK_DESCRIPTIONS[8]}")
             for observation in observations.get(number, []):
                 print(f"  - {observation}")
         else:
             print(
-                f"[{number}] {'FAIL' if issues else 'PASS'}"
+                f"[{number}] {'FAIL' if issues else 'PASS'}: {CHECK_DESCRIPTIONS[number]}"
                 + (f" ({len(issues)} issues)" if issues else "")
             )
         if number not in (6, 7):
