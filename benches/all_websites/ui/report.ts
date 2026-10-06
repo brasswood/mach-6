@@ -1175,7 +1175,7 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Fail Cache Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fail_cache_rejects ?? 0)) + '</td></tr>',
-    '<tr><th>Hashings</th><td>' + renderOptionalCount(getHashings(bar.counts)) + '</td></tr>',
+    '<tr><th>Prefix Hashings</th><td>' + renderOptionalCount(getHashings(bar.counts)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     '<tr><th>Filled Fail Caches</th><td>' + renderOptionalCount(bar.counts.filled_fail_caches) + '</td></tr>',
