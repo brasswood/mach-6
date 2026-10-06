@@ -139,8 +139,47 @@ def havel_hakimi_accepts(prefix_insertions: list[int], cache_insertions: list[in
     return all(insertion == 0 for insertion in remaining_prefix_insertions)
 
 
+def count_fail_cache_prefixes(selector: str) -> int:
+    combinators: list[bool] = []
+    depth, quote, escaped, index = 0, "", False, 0
+    while index < len(selector):
+        char = selector[index]
+        if escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif quote:
+            quote = "" if char == quote else quote
+        elif char in "'\"":
+            quote = char
+        elif char in "[(":
+            depth += 1
+        elif char in "])":
+            depth -= 1
+        elif depth == 0 and char == ">":
+            combinators.append(True)
+        elif depth == 0 and (char in "+~" or selector[index:index + 2] == "||"):
+            combinators.append(False)
+            index += char == "|"
+        elif depth == 0 and char.isspace():
+            start = index
+            while selector[index + 1:index + 2].isspace():
+                index += 1
+            previous = selector[start - 1:start]
+            following = selector[index + 1:index + 2]
+            if previous and following and previous not in ">+~|" and following not in ">+~|":
+                combinators.append(True)
+        index += 1
+    count = 0
+    for combinator in reversed(combinators):
+        if not combinator:
+            break
+        count += 1
+    return count
+
+
 def validate_prefixes(
-    instrumentation: dict[str, Any], context: str,
+    instrumentation: dict[str, Any], selector_summary: dict[str, Any], context: str,
     failures: dict[int, list[str]], observations: dict[int, list[str]],
 ) -> None:
     prefixes = instrumentation["prefixes"]
