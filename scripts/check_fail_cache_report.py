@@ -68,7 +68,7 @@ def validate_cache_storage(
     counts = summary["counts"]
     instrumentation = counts.get("fail_cache_instrumentation")
     if instrumentation is None:
-        for number in (5, 6, 7, 8, 71, 72, 73):
+        for number in (5, 6, 61, 62, 7, 8, 71, 72, 73):
             record_failure(failures, number, context, "detailed instrumentation is missing")
         return None
 
@@ -88,12 +88,12 @@ def validate_cache_storage(
     for cache in caches:
         if cache["final_size"] != min(cache["insertions"], 8):
             record_failure(
-                failures, 6, context,
+                failures, 61, context,
                 f"cache {cache['element_index']} size {cache['final_size']} != min({cache['insertions']}, 8)",
             )
     if counts.get("filled_fail_caches") != overflowed:
         record_failure(
-            failures, 6, context,
+            failures, 62, context,
             f"filled count {counts.get('filled_fail_caches')} != {overflowed} caches whose ring wrapped after more than 8 insertions",
         )
     return instrumentation
@@ -324,7 +324,7 @@ def main() -> int:
     for number in (2, 3, 4, 5, 6, 7, 8, 9, 10):
         issues = failures.get(number, [])
         if number == 7:
-            print(f"[7 instrumentation] {'FAIL' if issues else 'PASS'} (includes insertion accounting)")
+            print(f"[7 instrumentation] {'FAIL' if issues else 'PASS'}")
             for issue in issues:
                 print(f"  - {issue}")
             hashing_issues = failures.get(71, [])
@@ -337,6 +337,18 @@ def main() -> int:
                 print(f"  - {issue}")
             print(f"[7.3] {'FAIL' if failures.get(73) else 'PASS'}")
             for issue in failures.get(73, []):
+                print(f"  - {issue}")
+        elif number == 6:
+            print(f"[6] {'FAIL' if issues else 'PASS'}")
+            for issue in issues:
+                print(f"  - {issue}")
+            size_issues = failures.get(61, [])
+            print(f"[6.1] {'FAIL' if size_issues else 'PASS'}")
+            for issue in size_issues:
+                print(f"  - {issue}")
+            filled_issues = failures.get(62, [])
+            print(f"[6.2] {'FAIL' if filled_issues else 'PASS'}")
+            for issue in filled_issues:
                 print(f"  - {issue}")
         elif number == 10:
             incomplete = any(skipped[comparison] for comparison in skipped)
@@ -351,8 +363,11 @@ def main() -> int:
             for observation in observations.get(number, []):
                 print(f"  - {observation}")
         else:
-            print(f"[{number}] {'FAIL' if issues else 'PASS'}" + (f" ({len(issues)} issues)" if issues else ""))
-        if number != 7:
+            print(
+                f"[{number}] {'FAIL' if issues else 'PASS'}"
+                + (f" ({len(issues)} issues)" if issues else "")
+            )
+        if number not in (6, 7):
             for issue in issues:
                 print(f"  - {issue}")
         if number == 10:
