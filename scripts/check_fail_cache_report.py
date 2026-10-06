@@ -18,6 +18,24 @@ TARGET_SELECTORS = (
 
 Comparison = tuple[str, str]
 
+CHECK_DESCRIPTIONS = {
+    1: "After fail caches, overall time should not go up from before fail caches",
+    2: "After fail caches, slow accepts should remain the same as before fail caches",
+    3: "After fail caches, slow rejects should not increase from before fail caches",
+    4: "If slow rejects decrease after fail caches, fail-cache rejects should increase by the same amount",
+    5: "Fail-cache insertions should not be less than eight times the number of fail caches overflowed",
+    6: "Instrument each fail cache's number of insertions and final size",
+    61: "Each fail cache's final size should be min(num insertions, 8)",
+    62: "The number of filled fail caches should equal the number whose insertions exceed 8",
+    "7 instrumentation": "Instrument the number of times each unique prefix is hashed, interned, and inserted into a fail cache",
+    71: "For each unique prefix, hashings should be greater than or equal to internments",
+    72: "For each unique prefix, hashings should be less than or equal to its non-unique prefix occurrences from fail-cacheable selectors with more than 0 slow rejects",
+    73: "Havel-Hakimi check on duplicate prefixes in fail caches",
+    8: "For each website, aggregate hashings should be less than or equal to aggregate fail-cache insertions",
+    9: "Per-selector slow-reject counts should be present and sum to total slow rejects",
+    10: "Specific selectors should decrease in both slow-rejecting time and slow-reject count",
+}
+
 
 def parse_comparison(spec: str) -> Comparison:
     baseline, separator, optimized = spec.partition(":")
