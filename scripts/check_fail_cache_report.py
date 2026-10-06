@@ -31,8 +31,8 @@ CHECK_DESCRIPTIONS = {
     71: "For each unique prefix, hashings should be greater than or equal to internments",
     72: "For each unique prefix, hashings should be less than or equal to its non-unique prefix occurrences from fail-cacheable selectors with more than 0 slow rejects",
     73: "Havel-Hakimi check on duplicate prefixes in fail caches",
-    8: "For each website, aggregate hashings should be less than or equal to aggregate fail-cache insertions",
-    9: "Per-selector slow-reject counts should be present and sum to total slow rejects",
+    8: "Per-selector slow-reject counts should be present and sum to total slow rejects",
+    9: "For each website, the aggregate number of hashings (across all prefixes) should be less than or equal to the summation of each selector's slow rejects times its prefixes",
     10: "Specific selectors should decrease in both slow-rejecting time and slow-reject count",
 }
 
@@ -86,7 +86,7 @@ def validate_cache_storage(
     counts = summary["counts"]
     instrumentation = counts.get("fail_cache_instrumentation")
     if instrumentation is None:
-        for number in (5, 6, 61, 62, 7, 8, 71, 72, 73):
+        for number in (5, 6, 61, 62, 7, 9, 71, 72, 73):
             record_failure(failures, number, context, "detailed instrumentation is missing")
         return None
 
@@ -177,7 +177,7 @@ def validate_prefixes(
     hashings = sum(prefix["hashings"] for prefix in prefixes)
     if hashings > cache_insertions:
         record_failure(
-            failures, 8, context,
+            failures, 9, context,
             f"aggregate prefix hashings {hashings} > element-cache insertions {cache_insertions}",
         )
 
@@ -212,12 +212,12 @@ def validate_comparison_metrics(
     ):
         counts = stats.get("slow_reject_counts")
         if counts is None:
-            record_failure(failures, 9, context, f"{label} per-selector slow-reject counts are missing")
+            record_failure(failures, 8, context, f"{label} per-selector slow-reject counts are missing")
             continue
         per_selector_slow_rejects = sum(counts.values())
         if per_selector_slow_rejects != slow_rejects:
             record_failure(
-                failures, 9, context,
+                failures, 8, context,
                 f"{label} per-selector slow-reject counts sum to {per_selector_slow_rejects}, "
                 f"but total slow rejects are {slow_rejects}",
             )
