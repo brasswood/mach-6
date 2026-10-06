@@ -68,7 +68,7 @@ def validate_cache_storage(
     counts = summary["counts"]
     instrumentation = counts.get("fail_cache_instrumentation")
     if instrumentation is None:
-        for number in (5, 6, 7, 8, 75, 77):
+        for number in (5, 6, 7, 8, 71, 72, 73):
             record_failure(failures, number, context, "detailed instrumentation is missing")
         return None
 
@@ -133,12 +133,12 @@ def validate_prefixes(
         internments = prefix["internments"]
         slow_rejecting_occurrences = prefix.get("slow_rejecting_prefix_occurrences")
         if hashings < internments:
-            record_failure(failures, 7, context, f"prefix {index} hashes fewer times than it is interned")
+            record_failure(failures, 71, context, f"prefix {index} hashes fewer times than it is interned")
         if slow_rejecting_occurrences is None:
-            record_failure(failures, 75, context, f"prefix {index} slow-rejecting selector occurrences are missing")
+            record_failure(failures, 72, context, f"prefix {index} slow-rejecting selector occurrences are missing")
         elif hashings > slow_rejecting_occurrences:
             record_failure(
-                failures, 75, context,
+                failures, 72, context,
                 f"prefix {index} hashings {hashings} > slow-rejecting selector occurrences {slow_rejecting_occurrences}",
             )
 
@@ -154,7 +154,7 @@ def validate_prefixes(
         [prefix["insertions"] for prefix in prefixes],
         [cache["insertions"] for cache in caches],
     ):
-        record_failure(failures, 77, context, "prefix insertions cannot be assigned to virtual fail caches")
+        record_failure(failures, 73, context, "prefix insertions cannot be assigned to virtual fail caches")
 
     hashings = sum(prefix["hashings"] for prefix in prefixes)
     if hashings > cache_insertions:
@@ -324,15 +324,19 @@ def main() -> int:
     for number in (2, 3, 4, 5, 6, 7, 8, 9, 10):
         issues = failures.get(number, [])
         if number == 7:
-            print(f"[7.1–7.4] {'FAIL' if issues else 'PASS'} (includes insertion accounting)")
+            print(f"[7 instrumentation] {'FAIL' if issues else 'PASS'} (includes insertion accounting)")
             for issue in issues:
                 print(f"  - {issue}")
-            hashing_issues = failures.get(75, [])
-            print(f"[7.5] {'FAIL' if hashing_issues else 'PASS'}")
+            hashing_issues = failures.get(71, [])
+            print(f"[7.1] {'FAIL' if hashing_issues else 'PASS'}")
             for issue in hashing_issues:
                 print(f"  - {issue}")
-            print(f"[7.7] {'FAIL' if failures.get(77) else 'PASS'}")
-            for issue in failures.get(77, []):
+            slow_rejecting_issues = failures.get(72, [])
+            print(f"[7.2] {'FAIL' if slow_rejecting_issues else 'PASS'}")
+            for issue in slow_rejecting_issues:
+                print(f"  - {issue}")
+            print(f"[7.3] {'FAIL' if failures.get(73) else 'PASS'}")
+            for issue in failures.get(73, []):
                 print(f"  - {issue}")
         elif number == 10:
             incomplete = any(skipped[comparison] for comparison in skipped)
