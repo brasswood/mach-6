@@ -223,10 +223,10 @@ fn do_website_with_configured_optimizations(
         stylesheet_lock,
         optimizations,
     );
-    let (matches, stats) = match_selectors_with_style_sharing(
+    let (matches, stats, _) = match_selectors_with_style_sharing(
         document,
         &matching_context,
-        None,
+        false,
     );
     let owned = OwnedDocumentMatches(
         matches
@@ -347,11 +347,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         },
         Algorithm::WithStyleSharing => {
             let matching_context = website.get_matcher(Optimizations::from_none());
-            let (matches, stats) =
+            let (matches, stats, _) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    None,
+                    false,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
@@ -361,11 +361,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 ..Optimizations::from_none()
             };
             let matching_context = website.get_matcher(optimizations);
-            let (matches, stats) =
+            let (matches, stats, _) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    None,
+                    false,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
@@ -376,11 +376,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 ..Optimizations::from_none()
             };
             let matching_context = website.get_matcher(optimizations);
-            let (matches, stats) =
+            let (matches, stats, _) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    None,
+                    false,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
@@ -535,8 +535,12 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     matching_context: &'document MatchingContext,
-    selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
-) -> (DocumentMatches<'document>, Statistics) {
+    get_selector_stats: bool,
+) -> (
+    DocumentMatches<'document>,
+    Statistics,
+    Option<SmallVec<[(&'document Selector, SelectorStats); 16]>>,
+) {
     let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
@@ -730,6 +734,8 @@ pub fn match_selectors_with_style_sharing<'document>(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
+    let mut selector_stats: Option<SmallVec<[(&'document Selector, SelectorStats); 16]>> =
+        get_selector_stats.then(SmallVec::new);
     let mut bless_list = SmallVec::new();
 
     let root = document.root_element();
@@ -738,14 +744,14 @@ pub fn match_selectors_with_style_sharing<'document>(
         0,
         &mut style_context,
         &mut result,
-        selector_stats,
+        selector_stats.as_mut(),
         selector_map,
         cascade_data,
         &mut bless_list,
         optimizations,
         &mut stats
     );
-    (DocumentMatches(result), stats)
+    (DocumentMatches(result), stats, selector_stats)
 }
 
 pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
@@ -891,10 +897,10 @@ mod tests {
             lock,
             optimizations,
         );
-        let (matches, stats) = super::match_selectors_with_style_sharing(
+        let (matches, stats, _) = super::match_selectors_with_style_sharing(
             &document,
             &context,
-            None,
+            false,
         );
         (
             SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&matches)),

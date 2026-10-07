@@ -250,7 +250,7 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
         let _ = mach_6::match_selectors_with_style_sharing(
             parsed_website.document(),
             &matching_context,
-            None,
+            false,
         );
 
         let mut total_caches = 0;
@@ -316,7 +316,7 @@ fn main() {
                 let _ = mach_6::match_selectors_with_style_sharing(
                     w.document(),
                     &matcher,
-                    None,
+                    false,
                 );
                 matcher.fail_cache_build_timings().prefix_interning
             },
@@ -424,27 +424,26 @@ fn bench_website(
     let overall_stats = bench_function(
         benchmark_name,
         || {
-            let (_, overall_stats) =
+            let (_, overall_stats, _) =
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     matching_context,
-                    None,
+                    false,
                 );
             overall_stats
         },
         NUM_SAMPLES,
     );
     print!("Getting selector stats for {benchmark_name}...");
-    let mut per_match_stats = SmallVec::new();
-    mach_6::match_selectors_with_style_sharing(
+    let (_, _, per_match_stats) = mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
-        Some(&mut per_match_stats),
+        true,
     );
     println!("done.");
     let results = TimedResults {
         total_duration: tsc_timer::Duration::from_cycles(0), // whatever
-        samples: Samples::from_vec(vec![per_match_stats]),
+        samples: Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]),
     };
     MatchBenchResult::new(overall_stats, results)
 }
