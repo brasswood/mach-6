@@ -90,7 +90,7 @@ struct FailCacheElementMeasurements {
 impl MatchBenchResult {
     fn new(
         stats: TimedResults<Statistics>,
-        per_match_stats: TimedResults<SmallVec<[(&Selector, SelectorStats); 16]>>,
+        per_match_stats: TimedResults<SmallVec<[(Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
             .samples
@@ -116,7 +116,7 @@ impl MatchBenchResult {
                     ),
                     SelectorStats::ScopeProximity(sp) => (sp.time_slow_rejecting, sp.slow_rejects),
                 };
-                let selector = SelectorString::from(selector);
+                let selector = SelectorString::from(&selector);
                 *reject_counts.entry(selector.clone()).or_default() += slow_reject_count;
                 let samples = map.entry(selector).or_default();
                 // If this is the first time we have touched the vector at this
@@ -246,18 +246,17 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
             fail_caches: true,
             ..Optimizations::from_none()
         };
-        let matching_context = parsed_website.get_matcher(optimizations);
-        let _ = mach_6::match_selectors_with_style_sharing(
-            parsed_website.document(),
-            &matching_context,
+        let (_, _, _, consumed_document, consumed_context) = mach_6::match_selectors_with_style_sharing(
+            parsed_website.fresh_document(),
+            parsed_website.get_matcher(optimizations),
             false,
         );
 
         let mut total_caches = 0;
         let mut filled_caches = 0;
         let mut caches = Vec::new();
-        for (element_index, element) in parsed_website
-            .document()
+        for (element_index, element) in consumed_document
+            .as_html()
             .root_element()
             .descendent_elements()
             .enumerate()
@@ -274,7 +273,7 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
                 final_size,
             });
         }
-        let prefixes = matching_context.fail_cache_prefix_instrumentation();
+        let prefixes = consumed_context.fail_cache_prefix_instrumentation();
         selectors::matching::set_fail_cache_instrumentation_enabled(false);
         selectors::matching::clear_fail_cache_insertion_counts();
 
@@ -312,29 +311,24 @@ fn main() {
         let fail_cache_interning = bench_timed_subsection(
             &format!("{} fail cache interning", w.name),
             || {
-                let matcher = w.get_matcher(fail_cache_optimizations);
-                let _ = mach_6::match_selectors_with_style_sharing(
-                    w.document(),
-                    &matcher,
+                let (_, _, _, _, matcher) = mach_6::match_selectors_with_style_sharing(
+                    w.fresh_document(),
+                    w.get_matcher(fail_cache_optimizations),
                     false,
                 );
                 matcher.fail_cache_build_timings().prefix_interning
             },
             NUM_SAMPLES,
         );
-        let matching_context = w.get_matcher(Optimizations::from_none());
-        let fail_cache_matching_context = w.get_matcher(fail_cache_optimizations);
         let baseline = bench_website(
             &format!("{} baseline", w.name),
-            w.document(),
-            &matching_context,
+            || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
         );
         let fail_caches = bench_website(
             &format!("{} fail caches", w.name),
-            w.document(),
-            &fail_cache_matching_context,
+            || (w.fresh_document(), w.get_matcher(fail_cache_optimizations)),
         );
-        let selectors = matching_context.get_selectors();
+        let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
         let substrings =
           concretize::substrings_from_selectors(selectors.iter());
         let indexing_results = bench_function(
@@ -363,15 +357,18 @@ fn main() {
         let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
         let (preprocessed_stylesheet, preprocessed_lock) =
             stylesheet_from_selectors(preprocessed_selectors.iter());
-        let preprocessed_context = MatchingContext::new(
-            std::iter::once(&preprocessed_stylesheet),
-            preprocessed_lock,
-            Optimizations::from_none(),
-        );
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
-            w.document(),
-            &preprocessed_context,
+            || {
+                (
+                    w.fresh_document(),
+                    MatchingContext::new(
+                        std::iter::once(&preprocessed_stylesheet),
+                        preprocessed_lock.clone(),
+                        Optimizations::from_none(),
+                    ),
+                )
+            },
         );
         let fail_cache_measurements = measure_fail_cache_fill(&w.name);
         let result = WebsiteResult {
@@ -416,26 +413,26 @@ fn main() {
     };
 }
 
-fn bench_website(
-    benchmark_name: &str,
-    document: &Html,
-    matching_context: &MatchingContext,
-) -> MatchBenchResult {
-    let overall_stats = bench_function(
+fn bench_website<F>(benchmark_name: &str, setup: F) -> MatchBenchResult
+where
+    F: Fn() -> (Html, MatchingContext),
+{
+    let overall_stats = bench_function_with_setup(
         benchmark_name,
-        || {
-            let (_, overall_stats, _) =
-                mach_6::match_selectors_with_style_sharing(
-                    document,
-                    matching_context,
-                    false,
-                );
+        &setup,
+        |(document, matching_context)| {
+            let (_, overall_stats, _, _, _) = mach_6::match_selectors_with_style_sharing(
+                document,
+                matching_context,
+                false,
+            );
             overall_stats
         },
         NUM_SAMPLES,
     );
     print!("Getting selector stats for {benchmark_name}...");
-    let (_, _, per_match_stats) = mach_6::match_selectors_with_style_sharing(
+    let (document, matching_context) = setup();
+    let (_, _, per_match_stats, _, _) = mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
         true,
@@ -503,6 +500,37 @@ where
       samples_vec.push(func());
     }
     let total_duration = start.elapsed();
+    eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
+    TimedResults {
+        total_duration,
+        samples: Samples::from_vec(samples_vec),
+    }
+}
+
+fn bench_function_with_setup<S, I, F, R>(
+    name: &str,
+    setup: S,
+    func: F,
+    num_samples: u64,
+) -> TimedResults<R>
+where
+    S: Fn() -> I,
+    F: Fn(I) -> R,
+{
+    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
+    let mut samples_vec = Vec::with_capacity(num_samples as usize);
+    eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
+    warm_up_time(&WARM_UP_TIME, || {
+        func(setup());
+    });
+    eprint!("measuring {num_samples} samples...");
+    let mut total_duration = tsc_timer::Duration::from_cycles(0);
+    for _ in 0..num_samples {
+        let input = setup();
+        let sample_start = tsc_timer::Start::now();
+        samples_vec.push(func(input));
+        total_duration += sample_start.elapsed();
+    }
     eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
     TimedResults {
         total_duration,

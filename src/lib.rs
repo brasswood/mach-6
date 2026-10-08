@@ -169,12 +169,12 @@ fn prepare_selectors<'selector>(
     }
 }
 
-fn translate_element_matches_to_original<'new, 'original>(
-    element_matches: &ElementMatches<'new>,
+fn translate_element_matches_to_original<'original>(
+    element_matches: OwnedElementMatches,
     reverse_map: &HashMap<String, SmallVec<[&'original Selector; 2]>>,
 ) -> OwnedElementMatches {
-    let selectors_or_shared_styles = match &element_matches.selectors {
-        SelectorsOrSharedStyles::Selectors(selectors) => {
+    let selectors_or_shared_styles = match element_matches.selectors {
+        OwnedSelectorsOrSharedStyles::Selectors(selectors) => {
             let mut set: HashSet<by_address::ByAddress<&Selector>> = HashSet::new();
             for selector in selectors {
                 let original_selectors = reverse_map
@@ -197,12 +197,12 @@ fn translate_element_matches_to_original<'new, 'original>(
                 .collect();
             OwnedSelectorsOrSharedStyles::Selectors(selectors)
         }
-        SelectorsOrSharedStyles::SharedWithElement(id) => {
-            OwnedSelectorsOrSharedStyles::SharedWithElement(*id)
+        OwnedSelectorsOrSharedStyles::SharedWithElement(id) => {
+            OwnedSelectorsOrSharedStyles::SharedWithElement(id)
         }
     };
     OwnedElementMatches {
-        element: element_matches.element.into(),
+        element: element_matches.element,
         selectors: selectors_or_shared_styles,
     }
 }
@@ -212,31 +212,25 @@ fn do_website_with_configured_optimizations(
     optimizations: Optimizations,
 ) -> (OwnedDocumentMatches, Statistics) {
     // must return OwnedDocumentMatches, because the list of input selectors will be owned by this function
-    let document = website.document();
+    let document = website.fresh_document();
     let selectors = website
         .get_matcher(Optimizations::from_none())
         .get_selectors();
-    let prepared = prepare_selectors(document, &selectors, optimizations);
+    let prepared = prepare_selectors(&document, &selectors, optimizations);
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
     let matching_context = MatchingContext::new(
         std::iter::once(&stylesheet),
         stylesheet_lock,
         optimizations,
     );
-    let (matches, stats, _) = match_selectors_with_style_sharing(
+    let (matches, stats, _, _, _) = match_selectors_with_style_sharing(
         document,
-        &matching_context,
+        matching_context,
         false,
     );
-    let owned = OwnedDocumentMatches(
-        matches
-            .0
-            .iter()
-            .map(|element_matches| {
-                translate_element_matches_to_original(element_matches, &prepared.reverse_map)
-            })
-            .collect(),
-    );
+    let owned = OwnedDocumentMatches(matches.0.into_iter().map(|element_matches| {
+        translate_element_matches_to_original(element_matches, &prepared.reverse_map)
+    }).collect());
     (owned, stats)
 }
 
@@ -301,6 +295,26 @@ impl MatchingContext {
     }
 }
 
+pub struct ConsumedHtml(Html);
+
+pub struct ConsumedMatchingContext(MatchingContext);
+
+impl ConsumedHtml {
+    pub fn as_html(&self) -> &Html {
+        &self.0
+    }
+}
+
+impl ConsumedMatchingContext {
+    pub fn fail_cache_build_timings(&self) -> FailCacheBuildTimings {
+        self.0.fail_cache_build_timings()
+    }
+
+    pub fn fail_cache_prefix_instrumentation(&self) -> Vec<FailCachePrefixInstrumentation> {
+        self.0.fail_cache_prefix_instrumentation()
+    }
+}
+
 fn element_to_string(el: ElementRef<'_>) -> String {
     let name = el.value().name();
     let mut out = String::new();
@@ -337,9 +351,10 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
     let (matches, stats) = match algorithm {
         Algorithm::Naive => {
             let matching_context = website.get_matcher(Optimizations::from_none());
+            let document = website.fresh_document();
             (
                 OwnedDocumentMatches::from(&match_selectors(
-                    &website.document(),
+                    &document,
                     &matching_context.get_selectors(),
                 )),
                 Statistics::default(),
@@ -347,13 +362,14 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         },
         Algorithm::WithStyleSharing => {
             let matching_context = website.get_matcher(Optimizations::from_none());
-            let (matches, stats, _) =
+            let document = website.fresh_document();
+            let (matches, stats, _, _, _) =
                 match_selectors_with_style_sharing(
-                    &website.document(),
-                    &matching_context,
+                    document,
+                    matching_context,
                     false,
                 );
-            (OwnedDocumentMatches::from(&matches), stats)
+            (matches, stats)
         },
         Algorithm::WithFailCaches => {
             let optimizations = Optimizations {
@@ -361,13 +377,14 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 ..Optimizations::from_none()
             };
             let matching_context = website.get_matcher(optimizations);
-            let (matches, stats, _) =
+            let document = website.fresh_document();
+            let (matches, stats, _, _, _) =
                 match_selectors_with_style_sharing(
-                    &website.document(),
-                    &matching_context,
+                    document,
+                    matching_context,
                     false,
                 );
-            (OwnedDocumentMatches::from(&matches), stats)
+            (matches, stats)
         },
         Algorithm::WithBlessList => {
             let optimizations = Optimizations {
@@ -376,13 +393,14 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 ..Optimizations::from_none()
             };
             let matching_context = website.get_matcher(optimizations);
-            let (matches, stats, _) =
+            let document = website.fresh_document();
+            let (matches, stats, _, _, _) =
                 match_selectors_with_style_sharing(
-                    &website.document(),
-                    &matching_context,
+                    document,
+                    matching_context,
                     false,
                 );
-            (OwnedDocumentMatches::from(&matches), stats)
+            (matches, stats)
         },
         Algorithm::WithIsConversion =>
             do_website_with_configured_optimizations(
@@ -411,7 +429,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             } else {
                 let matching_context = website.get_matcher(Optimizations::from_none());
                 let selectors = matching_context.get_selectors();
-                let document_matches = match_selectors(&website.document(), &selectors);
+                let document = website.fresh_document();
+                let document_matches = match_selectors(&document, &selectors);
                 (
                     OwnedDocumentMatches::from(&mach_7(&document_matches)),
                     Statistics::default()
@@ -532,14 +551,16 @@ fn collect_selectors_from_map(
     }
 }
 
-pub fn match_selectors_with_style_sharing<'document>(
-    document: &'document Html,
-    matching_context: &'document MatchingContext,
+pub fn match_selectors_with_style_sharing(
+    document: Html,
+    matching_context: MatchingContext,
     get_selector_stats: bool,
 ) -> (
-    DocumentMatches<'document>,
+    OwnedDocumentMatches,
     Statistics,
-    Option<SmallVec<[(&'document Selector, SelectorStats); 16]>>,
+    Option<SmallVec<[(Selector, SelectorStats); 16]>>,
+    ConsumedHtml,
+    ConsumedMatchingContext,
 ) {
     let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
@@ -728,13 +749,14 @@ pub fn match_selectors_with_style_sharing<'document>(
         },
         registered_speculative_painters: &stylo_interface::MyRegisteredSpeculativePainters,
     };
+    let mut thread_local_context = ThreadLocalStyleContext::new(false);
     let mut style_context = StyleContext {
         shared: &shared_style_context,
-        thread_local: &mut ThreadLocalStyleContext::new(false),
+        thread_local: &mut thread_local_context,
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    let mut selector_stats: Option<SmallVec<[(&'document Selector, SelectorStats); 16]>> =
+    let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
         get_selector_stats.then(SmallVec::new);
     let mut bless_list = SmallVec::new();
 
@@ -751,7 +773,27 @@ pub fn match_selectors_with_style_sharing<'document>(
         optimizations,
         &mut stats
     );
-    (DocumentMatches(result), stats, selector_stats)
+    let matches = DocumentMatches(result);
+    let selector_stats = selector_stats.map(|stats| {
+        stats.into_iter()
+            .map(|(selector, stats)| (selector.clone(), stats))
+            .collect()
+    });
+    let owned_matches = OwnedDocumentMatches::from(&matches);
+    drop(matches);
+    drop(bless_list);
+    drop(style_context);
+    drop(thread_local_context);
+    drop(shared_style_context);
+    drop(ua_or_user_guard);
+    drop(author_guard);
+    (
+        owned_matches,
+        stats,
+        selector_stats,
+        ConsumedHtml(document),
+        ConsumedMatchingContext(matching_context),
+    )
 }
 
 pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
@@ -897,13 +939,13 @@ mod tests {
             lock,
             optimizations,
         );
-        let (matches, stats, _) = super::match_selectors_with_style_sharing(
-            &document,
-            &context,
+        let (matches, stats, _, _, _) = super::match_selectors_with_style_sharing(
+            document,
+            context,
             false,
         );
         (
-            SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&matches)),
+            SetDocumentMatches::from(matches),
             stats,
         )
     }
@@ -1012,6 +1054,18 @@ mod tests {
             assert_eq!(originals.len(), 1);
             assert_eq!(originals[0].to_css_string(), "div:is(.left, .right)");
         }
+
+        let complex = parse_selector(":is(:is(.select-field[data-astro-cid-vetxfr23]) .option).selected");
+        let complex_selectors = vec![complex.clone()];
+        let prepared = super::prepare_selectors(
+            &document,
+            &complex_selectors,
+            Optimizations {
+                distribution: true,
+                ..Optimizations::from_none()
+            },
+        );
+        assert_eq!(prepared.selectors, vec![complex]);
     }
 
     #[test]

@@ -25,7 +25,7 @@ use style::shared_lock::{Locked, SharedRwLock};
 // `Element` is usally the most common variant and hence boxing it
 // will most likely not improve performance overall.
 #[allow(variant_size_differences)]
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Node {
     /// The document root.
     Document,
@@ -249,6 +249,20 @@ pub struct Element {
     id: OnceCell<Option<Atom>>,
 
     classes: OnceCell<Box<[style::values::AtomIdent]>>,
+}
+
+impl Clone for Element {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            attrs: self.attrs.clone(),
+            style_block: self.style_block.clone(),
+            style_block_lock: self.style_block_lock.clone(),
+            element_data: OnceCell::new(),
+            id: OnceCell::new(),
+            classes: OnceCell::new(),
+        }
+    }
 }
 
 struct InternedStyleBlock {

@@ -51,6 +51,10 @@ impl ParsedWebsite {
         &self.document
     }
 
+    pub fn fresh_document(&self) -> Html {
+        self.document.clone()
+    }
+
     pub fn stylesheet_lock(&self) -> &SharedRwLock {
         &self.stylesheet_lock
     }

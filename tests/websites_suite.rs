@@ -209,11 +209,13 @@ fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
             <style>
                 .a .b { color: red }
                 .a .c { color: blue }
-                :not(.x) > .d { color: green }
-                :not(.x) > .e { color: black }
+                [data-present] .d { color: green }
+                [data-present] .d { color: lime }
+                [data-present] .e { color: black }
             </style>
             <div class="a"><div class="between"><span class="b c"></span></div></div>
-            <div class="x"><span class="d e"></span></div>"#,
+            <div class="x y"><span class="d e"></span></div>
+            <div><span class="d e"></span></div>"#,
     )
     .unwrap();
     let website = get_document_and_selectors(directory.path())
@@ -223,7 +225,6 @@ fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
     let baseline = mach_6::do_website(&website, Algorithm::Naive, None).1;
     let (_, with_fail_caches, stats) =
         mach_6::do_website(&website, Algorithm::WithFailCaches, None);
-
     assert!(stats.counts.fail_cache_rejects > 0, "fixture must exercise a cache hit");
 
     assert_eq!(

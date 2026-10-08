@@ -104,7 +104,14 @@ impl<'selector> Iterator for DistributedSelectors<'selector> {
 impl<'selector> DistributedSelectors<'selector> {
     pub fn from_selector(selector: &'selector Selector) -> Self {
         let components = selector.iter_raw_parse_order_from(0);
-        let stack = if components.clone().all(|component| !matches!(component, Component::Is(_))) {
+        let has_complex_is = components.clone().any(|component| {
+            let Component::Is(selectors) = component else { return false; };
+            selectors.slice().iter().any(|selector| {
+                selector.iter_raw_match_order().any(Component::is_combinator)
+            })
+        });
+        let has_ambiguous_type = Self::has_ambiguous_type(selector);
+        let stack = if has_complex_is || has_ambiguous_type || components.clone().all(|component| !matches!(component, Component::Is(_))) {
             // Common/fast case: no :is() components, no distributing. Just clone this selector.
             StackOrNoOp::NoOp(std::iter::once(selector.clone()))
         } else {
@@ -114,6 +121,39 @@ impl<'selector> DistributedSelectors<'selector> {
             StackOrNoOp::Stack(stack)
         };
         Self { stack }
+    }
+
+    fn has_ambiguous_type(selector: &Selector) -> bool {
+        let mut simple_selectors = 0;
+        for component in selector.iter_raw_match_order() {
+            match component {
+                Component::Combinator(_) => simple_selectors = 0,
+                Component::LocalName(_) => {
+                    if simple_selectors > 0 {
+                        return true;
+                    }
+                    simple_selectors += 1;
+                },
+                Component::Is(selectors) => {
+                    for nested in selectors.slice() {
+                        if Self::has_ambiguous_type(nested) {
+                            return true;
+                        }
+                        if simple_selectors > 0
+                            && matches!(
+                                nested.iter_raw_match_order().next(),
+                                Some(&Component::LocalName(_)),
+                            )
+                        {
+                            return true;
+                        }
+                    }
+                    simple_selectors += 1;
+                },
+                _ => simple_selectors += 1,
+            }
+        }
+        false
     }
 
     fn recursively_push(stack: &mut SmallVec<[ComponentOrInner<'selector>; 8]>, mut components: std::iter::Rev<std::slice::Iter<'selector, Component<SelectorImpl>>>) {
