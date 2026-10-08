@@ -223,7 +223,7 @@ fn do_website_with_configured_optimizations(
         stylesheet_lock,
         optimizations,
     );
-    let (matches, stats, _, _, _) = match_selectors_with_style_sharing(
+    let (matches, stats, _, _, _, _) = match_selectors_with_style_sharing(
         document,
         matching_context,
         false,
@@ -363,7 +363,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         Algorithm::WithStyleSharing => {
             let matching_context = website.get_matcher(Optimizations::from_none());
             let document = website.fresh_document();
-            let (matches, stats, _, _, _) =
+            let (matches, stats, _, _, _, _) =
                 match_selectors_with_style_sharing(
                     document,
                     matching_context,
@@ -378,7 +378,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             };
             let matching_context = website.get_matcher(optimizations);
             let document = website.fresh_document();
-            let (matches, stats, _, _, _) =
+            let (matches, stats, _, _, _, _) =
                 match_selectors_with_style_sharing(
                     document,
                     matching_context,
@@ -394,7 +394,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             };
             let matching_context = website.get_matcher(optimizations);
             let document = website.fresh_document();
-            let (matches, stats, _, _, _) =
+            let (matches, stats, _, _, _, _) =
                 match_selectors_with_style_sharing(
                     document,
                     matching_context,
@@ -561,6 +561,7 @@ pub fn match_selectors_with_style_sharing(
     Option<SmallVec<[(Selector, SelectorStats); 16]>>,
     ConsumedHtml,
     ConsumedMatchingContext,
+    tsc_timer::Duration,
 ) {
     let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
@@ -756,18 +757,22 @@ pub fn match_selectors_with_style_sharing(
     let mut bless_list = SmallVec::new();
 
     let root = document.root_element();
-    preorder_traversal(
-        root,
-        0,
-        &mut style_context,
-        &mut result,
-        selector_stats.as_mut(),
-        selector_map,
-        cascade_data,
-        &mut bless_list,
-        optimizations,
-        &mut stats
-    );
+    let matching_time = {
+        let start = tsc_timer::Start::now();
+        preorder_traversal(
+            root,
+            0,
+            &mut style_context,
+            &mut result,
+            selector_stats.as_mut(),
+            selector_map,
+            cascade_data,
+            &mut bless_list,
+            optimizations,
+            &mut stats
+        );
+        start.elapsed()
+    };
     let matches = DocumentMatches(result);
     let selector_stats = selector_stats.map(|stats| {
         stats.into_iter()
@@ -788,6 +793,7 @@ pub fn match_selectors_with_style_sharing(
         selector_stats,
         ConsumedHtml(document),
         ConsumedMatchingContext(matching_context),
+        matching_time,
     )
 }
 
@@ -934,7 +940,7 @@ mod tests {
             lock,
             optimizations,
         );
-        let (matches, stats, _, _, _) = super::match_selectors_with_style_sharing(
+        let (matches, stats, _, _, _, _) = super::match_selectors_with_style_sharing(
             document,
             context,
             false,
