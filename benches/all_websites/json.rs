@@ -169,6 +169,7 @@ mod overall_summary {
         pub(crate) selector_map_hits: usize,
         pub(crate) fast_rejects: usize,
         pub(crate) fail_cache_rejects: usize,
+        pub(crate) hashings: u64,
         pub(crate) slow_rejects: usize,
         pub(crate) slow_accepts: usize,
         pub(crate) filled_fail_caches: Option<usize>,
@@ -235,6 +236,7 @@ mod overall_summary {
                 selector_map_hits: value.counting_stats.selector_map_hits,
                 fast_rejects: value.counting_stats.fast_rejects,
                 fail_cache_rejects: value.counting_stats.fail_cache_rejects,
+                hashings: value.hashings,
                 slow_rejects: value.counting_stats.slow_rejects,
                 slow_accepts: value.counting_stats.slow_accepts,
                 filled_fail_caches: value

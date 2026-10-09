@@ -63,6 +63,8 @@ struct MatchBenchResult {
     total_duration: tsc_timer::Duration,
     /// Counting stats of one sample (should be the same accross all samples)
     counting_stats: CountingStats,
+    /// Prefix interner lookups accumulated by the warmed benchmark matcher.
+    hashings: u64,
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
@@ -143,6 +145,7 @@ impl MatchBenchResult {
         MatchBenchResult {
             total_duration: stats.total_duration,
             counting_stats,
+            hashings: 0,
             timing_stats: Samples::from_vec(timing_stats),
             selector_slow_reject_times: sorted,
             fail_cache_measurements: None,
@@ -421,6 +424,7 @@ fn bench_website(
     document: &Html,
     matching_context: &MatchingContext,
 ) -> MatchBenchResult {
+    let initial_hashings = matching_context.fail_cache_build_timings().prefix_interning_calls;
     let overall_stats = bench_function(
         benchmark_name,
         || {
@@ -434,6 +438,10 @@ fn bench_website(
         },
         NUM_SAMPLES,
     );
+    let hashings = matching_context
+        .fail_cache_build_timings()
+        .prefix_interning_calls
+        - initial_hashings;
     print!("Getting selector stats for {benchmark_name}...");
     let mut per_match_stats = SmallVec::new();
     mach_6::match_selectors_with_style_sharing(
@@ -446,7 +454,9 @@ fn bench_website(
         total_duration: tsc_timer::Duration::from_cycles(0), // whatever
         samples: Samples::from_vec(vec![per_match_stats]),
     };
-    MatchBenchResult::new(overall_stats, results)
+    let mut result = MatchBenchResult::new(overall_stats, results);
+    result.hashings = hashings;
+    result
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
