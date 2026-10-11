@@ -209,13 +209,14 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "checkingStyleSharing",
   "queryingSelectorMap",
   "fastRejecting",
+  "failCacheRejecting",
   "slowRejecting",
   "slowAccepting",
   "insertingIntoSharingCache",
   "other"
 ];
 const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
-  interning: { label: "Interning", cssClass: "seg-preprocess-other" },
+  interning: { label: "Interning", cssClass: "seg-interning" },
   indexing: { label: "Indexing", cssClass: "seg-index" },
   otherPreprocessing: { label: "Other :is() Conversion", cssClass: "seg-preprocess-other" },
   distribution: { label: "Distribution", cssClass: "seg-distribution" },
@@ -223,7 +224,7 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
   fastRejecting: { label: "Fast Rejecting", cssClass: "seg-fast" },
-  failCacheRejecting: { label: "Fail Cache Rejecting", cssClass: "seg-fast" },
+  failCacheRejecting: { label: "Fail Cache Rejecting", cssClass: "seg-fail-cache" },
   slowRejecting: { label: "Slow Rejecting", cssClass: "seg-slow" },
   slowAccepting: { label: "Slow Accepting", cssClass: "seg-slow-accept" },
   insertingIntoSharingCache: { label: "Inserting Into Sharing Cache", cssClass: "seg-share-insert" },
