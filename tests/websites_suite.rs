@@ -203,19 +203,25 @@ fn statistics_dont_change() -> Result<()> {
 #[test]
 fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
     let directory = tempfile::tempdir().unwrap();
-    std::fs::write(
-        directory.path().join("fixture.html"),
-        r#"<!doctype html>
+    let repeated_selector = std::iter::repeat("[data-present] .d")
+        .take(512)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let fixture = r#"<!doctype html>
             <style>
                 .a .b { color: red }
                 .a .c { color: blue }
                 [data-present] .d { color: green }
-                [data-present] .d { color: lime }
+                __REPEATED_SELECTOR__ { color: lime }
                 [data-present] .e { color: black }
             </style>
             <div class="a"><div class="between"><span class="b c"></span></div></div>
             <div class="x y"><span class="d e"></span></div>
-            <div><span class="d e"></span></div>"#,
+            <div><span class="d e"></span></div>"#
+        .replace("__REPEATED_SELECTOR__", &repeated_selector);
+    std::fs::write(
+        directory.path().join("fixture.html"),
+        fixture,
     )
     .unwrap();
     let website = get_document_and_selectors(directory.path())
