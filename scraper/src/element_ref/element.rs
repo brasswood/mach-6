@@ -151,6 +151,13 @@ impl Element for ElementRef<'_> {
         self.value().borrow_data().fail_cache.contains(id)
     }
 
+    fn fail_cache_result(&self, id: u16) -> Option<matching::FailCacheResult> {
+        if id == 0 {
+            return None;
+        }
+        self.value().borrow_data().fail_cache.get_sibling(id)
+    }
+
     fn insert_into_fail_cache(&self, id: u16) -> bool {
         if id == 0 {
             return false;
@@ -161,6 +168,16 @@ impl Element for ElementRef<'_> {
         }
         data.fail_cache.insert_unchecked(id);
         true
+    }
+
+    fn insert_fail_cache_result(&self, id: u16, result: matching::FailCacheResult) -> bool {
+        if id == 0 {
+            return false;
+        }
+        self.value()
+            .mutate_data()
+            .fail_cache
+            .insert_sibling_unchecked(id, result)
     }
 }
 
@@ -246,5 +263,10 @@ mod tests {
 
         assert!(!first.insert_into_fail_cache(id));
         assert!(first.fail_cache_contains(id));
+
+        let sibling_id = 4096;
+        let sibling_result = matching::FailCacheResult::NotMatchedGlobally;
+        assert!(first.insert_fail_cache_result(sibling_id, sibling_result));
+        assert_eq!(first.fail_cache_result(sibling_id), Some(sibling_result));
     }
 }
