@@ -233,3 +233,38 @@ fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
         "cache hits must not hide a matching ancestor or change the matched selector set",
     );
 }
+
+#[test]
+fn fail_cache_hits_preserve_sibling_and_ancestor_backtracking() {
+    let directory = tempfile::tempdir().unwrap();
+    let repeated_selector = vec![".a + .b ~ .c .d"; 64].join(", ");
+    let fixture = r#"<style>
+.a + .b > .x { color: red }
+.a + .b ~ .c .d { color: blue }
+.a + .b ~ .c > .e { color: green }
+.a + .b ~ .c .f { color: lime }
+__REPEATED_SELECTOR__ { color: blue }
+</style>
+<div><i class="a"></i><i class="b"><i class="x"></i></i><i class="b"><i class="x"></i></i><i class="c"><i class="d"></i></i></div>
+<div><i class="b"></i><i class="c"><i class="d first-d"></i><i class="d second-d"></i></i></div>
+<div><i class="a"></i><i class="b"></i><i class="c"><i class="b"></i><i class="c"><i class="e first-e"></i><i class="e second-e"></i><i class="f"></i></i></i></div>"#
+        .replace("__REPEATED_SELECTOR__", &repeated_selector);
+    std::fs::write(directory.path().join("fixture.html"), fixture).unwrap();
+    let website = get_document_and_selectors(directory.path())
+        .unwrap()
+        .expect("fixture should parse");
+
+    let baseline = mach_6::do_website(&website, Algorithm::Naive, None).1;
+    let (_, with_fail_caches, stats) =
+        mach_6::do_website(&website, Algorithm::WithFailCaches, None);
+    let baseline = SerDocumentMatches::from(&baseline);
+    assert!(stats.counts.fail_cache_rejects > 0, "{stats:?}");
+    let matches = |class, selector| baseline.0.values().any(|element| {
+        element.html.contains(&format!("class=\"{class}\"")) && element.selectors.contains(selector)
+    });
+    assert!(matches("d", ".a + .b ~ .c .d"));
+    assert!(matches("f", ".a + .b ~ .c .f"));
+    assert!(!matches("e", ".a + .b ~ .c > .e"));
+
+    assert_eq!(baseline, SerDocumentMatches::from(&with_fail_caches));
+}
