@@ -130,6 +130,7 @@
     .compare-field {
       display: grid;
       gap: 6px;
+      min-width: 0;
     }
     .compare-field[hidden] {
       display: none;
@@ -155,12 +156,15 @@
     }
     .report-dropdown {
       position: relative;
+      width: 100%;
+      min-width: 0;
     }
     .report-dropdown[open] {
       z-index: 2;
     }
     .report-dropdown-trigger {
       display: flex;
+      box-sizing: border-box;
       align-items: center;
       justify-content: space-between;
       list-style: none;
