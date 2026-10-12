@@ -685,13 +685,22 @@
         <h2 id="compare-controls-title" class="compare-controls-title">Compare Reports</h2>
         <div class="compare-controls-grid">
           <div id="compare-left-select-field" class="compare-field">
-            <label for="compare-left-search">Search reports</label>
-            <input id="compare-left-search" class="compare-select" type="search" placeholder="Type to filter reports" autocomplete="off">
-            <label for="compare-left">Left report</label>
-            <select id="compare-left" class="compare-select">
+            <span id="compare-left-label" class="compare-field-label">Left report</span>
+            <details id="compare-left-dropdown" class="report-dropdown">
+              <summary class="compare-select report-dropdown-trigger" aria-labelledby="compare-left-label compare-left-selected">
+                <span id="compare-left-selected" class="report-dropdown-selected"></span>
+                <span class="report-dropdown-caret" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="report-dropdown-menu">
+                <label for="compare-left-search">Search reports</label>
+                <input id="compare-left-search" class="compare-select report-dropdown-search" type="search" placeholder="Type to filter reports" autocomplete="off">
+                <div id="compare-left-options" class="report-dropdown-options"></div>
+                <p id="compare-left-no-matches" class="compare-hint" role="status" hidden>No matching reports.</p>
+              </div>
+            </details>
+            <select id="compare-left" class="compare-select" hidden aria-hidden="true" tabindex="-1">
               <option>Loading available reports...</option>
             </select>
-            <p id="compare-left-no-matches" class="compare-hint" role="status" hidden>No matching reports.</p>
           </div>
           <div id="compare-left-file-field" class="compare-field" hidden>
             <label for="compare-left-file">Left report</label>
@@ -699,13 +708,22 @@
             <p class="compare-hint">Leave empty to use the current report.</p>
           </div>
           <div id="compare-right-select-field" class="compare-field">
-            <label for="compare-right-search">Search reports</label>
-            <input id="compare-right-search" class="compare-select" type="search" placeholder="Type to filter reports" autocomplete="off">
-            <label for="compare-right">Right report</label>
-            <select id="compare-right" class="compare-select">
+            <span id="compare-right-label" class="compare-field-label">Right report</span>
+            <details id="compare-right-dropdown" class="report-dropdown">
+              <summary class="compare-select report-dropdown-trigger" aria-labelledby="compare-right-label compare-right-selected">
+                <span id="compare-right-selected" class="report-dropdown-selected"></span>
+                <span class="report-dropdown-caret" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="report-dropdown-menu">
+                <label for="compare-right-search">Search reports</label>
+                <input id="compare-right-search" class="compare-select report-dropdown-search" type="search" placeholder="Type to filter reports" autocomplete="off">
+                <div id="compare-right-options" class="report-dropdown-options"></div>
+                <p id="compare-right-no-matches" class="compare-hint" role="status" hidden>No matching reports.</p>
+              </div>
+            </details>
+            <select id="compare-right" class="compare-select" hidden aria-hidden="true" tabindex="-1">
               <option>Loading available reports...</option>
             </select>
-            <p id="compare-right-no-matches" class="compare-hint" role="status" hidden>No matching reports.</p>
           </div>
           <div id="compare-right-file-field" class="compare-field" hidden>
             <label for="compare-right-file">Right report</label>
