@@ -547,6 +547,9 @@ function installCompareSelectDropdown(
     searchInput.focus();
   });
   searchInput.addEventListener("input", renderOptions);
+  document.addEventListener("click", (event) => {
+    if (event.target instanceof Node && !dropdown.contains(event.target)) dropdown.open = false;
+  });
 }
 
 function installCompareSelectSearch(
