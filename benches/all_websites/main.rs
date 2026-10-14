@@ -225,13 +225,8 @@ struct WebsiteResult {
     after_preprocessing: MatchBenchResult,
 }
 
-fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> {
+fn measure_fail_cache_fill(website_name: &str) -> FailCacheMeasurements {
     {
-        if std::env::var_os("MACH6_FAIL_CACHE_INSTRUMENTATION").as_deref()
-            != Some(std::ffi::OsStr::new("1"))
-        {
-            return None;
-        }
         selectors::matching::set_fail_cache_instrumentation_enabled(true);
         selectors::matching::clear_fail_cache_insertion_counts();
         let website_path = websites_path().join(website_name);
@@ -277,12 +272,12 @@ fn measure_fail_cache_fill(website_name: &str) -> Option<FailCacheMeasurements> 
         selectors::matching::set_fail_cache_instrumentation_enabled(false);
         selectors::matching::clear_fail_cache_insertion_counts();
 
-        Some(FailCacheMeasurements {
+        FailCacheMeasurements {
             filled_caches,
             total_caches,
             caches,
             prefixes,
-        })
+        }
     }
 }
 
@@ -374,7 +369,7 @@ fn main() {
         let result = WebsiteResult {
             website: w.name,
             baseline,
-            fail_caches: fail_caches.with_fail_cache_measurements(fail_cache_measurements),
+            fail_caches: fail_caches.with_fail_cache_measurements(Some(fail_cache_measurements)),
             fail_cache_preprocessing: FailCachePreprocessingResult::new(fail_cache_interning),
             preprocessing: PreprocessingResult::new(
                 indexing_results,
