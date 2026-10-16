@@ -5,6 +5,13 @@ This is a project for trying to improve selector matching times. More info comin
 
 This repository contains a benchmark harness in the `benches` folder which benchmarks the code and generates an HTML report on how selector matching performs for the benchmarked websites.
 
+## Priorities
+Correctness is top priority. `cargo test` should pass.
+
+Performance of the matcher is a close second. Write as performant code as possible in the matcher.
+
+Simple, understandable code is the third priority, but do not sacrifice major performance just to achieve this.
+
 ## Benchmarking
 
 ### Middle-level Benchmarking
