@@ -1496,6 +1496,9 @@ function installWebsiteDetailsHandlers(
         .map(renderVariantDetails)
         .join("");
       detailsVariants.dataset.rendered = "true";
+      if (reportSide !== null) {
+        syncCompareSelectorBreakdowns(site);
+      }
     });
   }
 }
@@ -1704,20 +1707,25 @@ function syncCompareDetails(compareResults: HTMLElement): void {
     }
 
     syncPairedDetails(leftWebsiteDetails, rightWebsiteDetails);
+  }
+}
 
-    const leftBreakdowns = Array.from(
-      leftWebsiteDetails.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown")
-    );
-    const rightBreakdowns = Array.from(
-      rightWebsiteDetails.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown")
-    );
-    const pairCount = Math.min(leftBreakdowns.length, rightBreakdowns.length);
-    for (let index = 0; index < pairCount; index += 1) {
-      const leftBreakdown = leftBreakdowns[index];
-      const rightBreakdown = rightBreakdowns[index];
-      if (leftBreakdown && rightBreakdown) {
-        syncPairedDetails(leftBreakdown, rightBreakdown);
-      }
+function syncCompareSelectorBreakdowns(site: HTMLDetailsElement): void {
+  const row = site.closest<HTMLElement>(".compare-row");
+  const leftWebsiteDetails = row?.querySelector<HTMLDetailsElement>(".compare-column:first-of-type details.site");
+  const rightWebsiteDetails = row?.querySelector<HTMLDetailsElement>(".compare-column:last-of-type details.site");
+  if (!leftWebsiteDetails || !rightWebsiteDetails) {
+    return;
+  }
+
+  const leftBreakdowns = Array.from(leftWebsiteDetails.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown"));
+  const rightBreakdowns = Array.from(rightWebsiteDetails.querySelectorAll<HTMLDetailsElement>("details.selector-breakdown"));
+  const pairCount = Math.min(leftBreakdowns.length, rightBreakdowns.length);
+  for (let index = 0; index < pairCount; index += 1) {
+    const leftBreakdown = leftBreakdowns[index];
+    const rightBreakdown = rightBreakdowns[index];
+    if (leftBreakdown && rightBreakdown) {
+      syncPairedDetails(leftBreakdown, rightBreakdown);
     }
   }
 }
