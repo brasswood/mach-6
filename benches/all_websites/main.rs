@@ -4,7 +4,7 @@ use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
 use mach_6::structs::Selector;
 use scraper::Html;
-use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
+use selectors::matching::{CountingStats, NotMatchedResultCounts, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::cmp::Reverse;
@@ -42,12 +42,20 @@ impl From<&Selector> for SelectorString {
     }
 }
 
-/// A selector and its aggregate (i.e. for every element) slow-reject time in
-/// each sample
+/// Per-selector rejection times, counts, and matcher outcomes.
 #[derive(Clone, Debug)]
-struct SelectorSlowRejectSamples {
+struct SelectorRejectSamples {
     selector: SelectorString,
     aggregate_durations: Samples<tsc_timer::Duration>,
+    reject_count: usize,
+    not_matched_result_counts: NotMatchedResultCounts,
+}
+
+#[derive(Default)]
+struct SelectorRejectMeasurements {
+    aggregate_durations: Vec<tsc_timer::Duration>,
+    reject_count: usize,
+    not_matched_result_counts: NotMatchedResultCounts,
 }
 
 /// Aggregated data for one matching variant in the website report.
@@ -66,7 +74,8 @@ struct MatchBenchResult {
     timing_stats: Samples<TimingStats>,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
-    selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
+    selector_slow_reject_times: Vec<SelectorRejectSamples>,
+    selector_fail_cache_reject_times: Vec<SelectorRejectSamples>,
     /// Fail-cache fill measurements, if enabled for this build.
     fail_cache_measurements: Option<FailCacheMeasurements>,
 }
@@ -647,4 +656,3 @@ fn copy_html_js() -> io::Result<()> {
         )?;
     Ok(())
 }
-
