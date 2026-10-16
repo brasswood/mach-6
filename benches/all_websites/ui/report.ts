@@ -885,22 +885,32 @@ function buildBar(
   };
 }
 
-function buildWebsiteBars(website: WebsiteJson): [BarView, BarView, BarView, BarView, BarView] {
+function buildWebsiteBars(
+  website: WebsiteJson,
+  getAggregateSelectors: (() => SelectorsSummaryJson) | null = null
+): [BarView, BarView, BarView, BarView, BarView] {
+  const getSelectors = (key: keyof SelectorsSummaryJson): SelectorStatsSource => {
+    if (getAggregateSelectors === null) {
+      return website.selector_slow_rejects_summary[key];
+    }
+    return () => getAggregateSelectors()[key];
+  };
   return [
-    buildBar("Baseline", website.summary.baseline, website.selector_slow_rejects_summary.baseline, null, null),
-    buildBar("Fail Caches", website.summary.fail_caches, website.selector_slow_rejects_summary.fail_caches, null, null, false),
-    buildBar("Interning + Fail Caches", website.summary.fail_caches, website.selector_slow_rejects_summary.fail_caches, website.summary.fail_cache_preprocessing, null),
-    buildBar("After Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, null, false),
-    buildBar("With Preprocessing", website.summary.after_preprocessing, website.selector_slow_rejects_summary.after_preprocessing, null, website.summary.preprocessing)
+    buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), null, null),
+    buildBar("Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), null, null, false),
+    buildBar("Interning + Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), website.summary.fail_cache_preprocessing, null),
+    buildBar("After Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), null, null, false),
+    buildBar("With Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), null, website.summary.preprocessing)
   ];
 }
 
 function buildWebsiteView(
   website: WebsiteJson,
   aggregateBars: readonly BarView[],
-  isAggregate = false
+  isAggregate = false,
+  getAggregateSelectors: (() => SelectorsSummaryJson) | null = null
 ): WebsiteView {
-  const bars = buildWebsiteBars(website);
+  const bars = buildWebsiteBars(website, getAggregateSelectors);
   const contextBars = bars.map((bar, index) => {
     const aggregateBar = aggregateBars[index];
     if (!aggregateBar) {
