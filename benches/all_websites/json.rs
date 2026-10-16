@@ -173,6 +173,12 @@ mod overall_summary {
         pub(crate) fail_cache_rejects: usize,
         pub(crate) slow_rejects: usize,
         pub(crate) slow_accepts: usize,
+        pub(crate) fail_cache_global_failures: usize,
+        pub(crate) fail_cache_descendant_restarts: usize,
+        pub(crate) fail_cache_sibling_restarts: usize,
+        pub(crate) classic_global_failures: usize,
+        pub(crate) classic_descendant_restarts: usize,
+        pub(crate) classic_sibling_restarts: usize,
         pub(crate) filled_fail_caches: Option<usize>,
         pub(crate) total_fail_caches: Option<usize>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -239,6 +245,12 @@ mod overall_summary {
                 fail_cache_rejects: value.counting_stats.fail_cache_rejects,
                 slow_rejects: value.counting_stats.slow_rejects,
                 slow_accepts: value.counting_stats.slow_accepts,
+                fail_cache_global_failures: value.counting_stats.not_matched_result_counts.fail_cache_global_failures,
+                fail_cache_descendant_restarts: value.counting_stats.not_matched_result_counts.fail_cache_descendant_restarts,
+                fail_cache_sibling_restarts: value.counting_stats.not_matched_result_counts.fail_cache_sibling_restarts,
+                classic_global_failures: value.counting_stats.not_matched_result_counts.classic_global_failures,
+                classic_descendant_restarts: value.counting_stats.not_matched_result_counts.classic_descendant_restarts,
+                classic_sibling_restarts: value.counting_stats.not_matched_result_counts.classic_sibling_restarts,
                 filled_fail_caches: value
                     .fail_cache_measurements
                     .as_ref()
@@ -305,7 +317,7 @@ mod selector_summary {
 
     use crate::WebsiteResult;
 
-    use super::{SelectorRejectSamples, SelectorString};
+    use super::{NotMatchedResultCounts, SelectorRejectSamples, SelectorString};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
@@ -346,6 +358,9 @@ mod selector_summary {
         pub(crate) means_cycles: HashMap<SelectorString, u64>,
         pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
         pub(crate) slow_reject_counts: HashMap<SelectorString, usize>,
+        pub(crate) classic_global_failures: HashMap<SelectorString, usize>,
+        pub(crate) classic_descendant_restarts: HashMap<SelectorString, usize>,
+        pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
     }
 
     impl From<&[SelectorRejectSamples]> for SelectorStatsJson {
@@ -363,6 +378,9 @@ mod selector_summary {
                     .iter()
                     .map(|row| (row.selector.clone(), row.reject_count))
                     .collect(),
+                classic_global_failures: result_counts(value, |counts| counts.classic_global_failures),
+                classic_descendant_restarts: result_counts(value, |counts| counts.classic_descendant_restarts),
+                classic_sibling_restarts: result_counts(value, |counts| counts.classic_sibling_restarts),
             }
         }
     }
@@ -372,6 +390,12 @@ mod selector_summary {
         pub(crate) means_cycles: HashMap<SelectorString, u64>,
         pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
         pub(crate) fail_cache_reject_counts: HashMap<SelectorString, usize>,
+        pub(crate) fail_cache_global_failures: HashMap<SelectorString, usize>,
+        pub(crate) fail_cache_descendant_restarts: HashMap<SelectorString, usize>,
+        pub(crate) fail_cache_sibling_restarts: HashMap<SelectorString, usize>,
+        pub(crate) classic_global_failures: HashMap<SelectorString, usize>,
+        pub(crate) classic_descendant_restarts: HashMap<SelectorString, usize>,
+        pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
     }
 
     impl From<&[SelectorRejectSamples]> for FailCacheSelectorStatsJson {
@@ -389,8 +413,23 @@ mod selector_summary {
                     .iter()
                     .map(|row| (row.selector.clone(), row.reject_count))
                     .collect(),
+                fail_cache_global_failures: result_counts(value, |counts| counts.fail_cache_global_failures),
+                fail_cache_descendant_restarts: result_counts(value, |counts| counts.fail_cache_descendant_restarts),
+                fail_cache_sibling_restarts: result_counts(value, |counts| counts.fail_cache_sibling_restarts),
+                classic_global_failures: result_counts(value, |counts| counts.classic_global_failures),
+                classic_descendant_restarts: result_counts(value, |counts| counts.classic_descendant_restarts),
+                classic_sibling_restarts: result_counts(value, |counts| counts.classic_sibling_restarts),
             }
         }
+    }
+
+    fn result_counts(
+        rows: &[SelectorRejectSamples],
+        select: impl Fn(&NotMatchedResultCounts) -> usize,
+    ) -> HashMap<SelectorString, usize> {
+        rows.iter()
+            .map(|row| (row.selector.clone(), select(&row.not_matched_result_counts)))
+            .collect()
     }
 }
 
