@@ -4,7 +4,7 @@ use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
 use mach_6::structs::Selector;
 use scraper::Html;
-use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
+use selectors::matching::{CountingStats, NotMatchedResultCounts, SelectorStats, Statistics, TimingStats};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::cmp::Reverse;
@@ -48,17 +48,26 @@ struct SelectorRejectSamples {
     selector: SelectorString,
     aggregate_durations: Samples<tsc_timer::Duration>,
     reject_count: usize,
+    not_matched_result_counts: NotMatchedResultCounts,
 }
 
 #[derive(Default)]
 struct SelectorRejectMeasurements {
     aggregate_durations: Vec<tsc_timer::Duration>,
     reject_count: usize,
+    not_matched_result_counts: NotMatchedResultCounts,
 }
 
 impl SelectorRejectMeasurements {
-    fn add_sample(&mut self, sample_index: usize, duration: tsc_timer::Duration, count: usize) {
+    fn add_sample(
+        &mut self,
+        sample_index: usize,
+        duration: tsc_timer::Duration,
+        count: usize,
+        not_matched_result_counts: NotMatchedResultCounts,
+    ) {
         self.reject_count += count;
+        self.not_matched_result_counts += not_matched_result_counts;
         if self.aggregate_durations.len() == sample_index {
             self.aggregate_durations.push(duration);
         } else {
@@ -76,6 +85,7 @@ fn into_sorted_selector_reject_samples(
             selector,
             aggregate_durations: Samples::from_vec(measurements.aggregate_durations),
             reject_count: measurements.reject_count,
+            not_matched_result_counts: measurements.not_matched_result_counts,
         })
         .collect();
     samples.sort_unstable_by_key(|row| Reverse(row.aggregate_durations.mean()));
