@@ -179,6 +179,43 @@
       flex: none;
       color: var(--muted);
     }
+    .report-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      z-index: 3;
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(29, 35, 43, 0.15);
+    }
+    .report-dropdown-search {
+      box-sizing: border-box;
+    }
+    .report-dropdown-options {
+      display: grid;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .report-dropdown-option {
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .report-dropdown-option:hover,
+    .report-dropdown-option:focus-visible {
+      background: #e7f2ef;
+      outline: none;
+    }
     .compare-hint {
       margin: 0;
       color: var(--muted);
