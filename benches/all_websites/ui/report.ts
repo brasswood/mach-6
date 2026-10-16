@@ -82,6 +82,7 @@ interface CountingStatsJson {
   selector_map_hits: number;
   fast_rejects: number;
   fail_cache_rejects?: number;
+  hashings?: number;
   slow_rejects: number;
   slow_accepts: number;
   filled_fail_caches: number | null;
@@ -146,6 +147,7 @@ interface SelectorRow {
   selector: string;
   meanCycles: bigint;
   stddevCycles: bigint;
+  slowRejectCount: number | null;
 }
 
 interface SegmentView {
@@ -800,7 +802,8 @@ function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
     return {
       selector,
       meanCycles: toBigInt(meanCycles),
-      stddevCycles: toBigInt(stddevCycles)
+      stddevCycles: toBigInt(stddevCycles),
+      slowRejectCount: stats.slow_reject_counts?.[selector] ?? null
     };
   });
   rows.sort((left, right) => {
@@ -943,6 +946,17 @@ function sumNumbers(values: number[]): number {
   }, 0);
 }
 
+function getHashings(counts: CountingStatsJson): number | null {
+  if (counts.hashings !== undefined) {
+    return counts.hashings;
+  }
+  const instrumentation = counts.fail_cache_instrumentation;
+  if (instrumentation === undefined) {
+    return null;
+  }
+  return sumNumbers(instrumentation.prefixes.map((prefix) => prefix.hashings));
+}
+
 function sumNullableNumbers(values: Array<number | null>): number | null {
   const present = values.filter((value): value is number => value !== null);
   if (present.length === 0) {
@@ -968,6 +982,7 @@ function sumRecordValues(records: Record<string, number>[]): Record<string, numb
 }
 
 function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): BenchmarkRunSummaryJson {
+  const hashings = sumNullableNumbers(summaries.map((summary) => getHashings(summary.counts)));
   return {
     mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
     counts: {
@@ -978,7 +993,8 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
       slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts)),
       filled_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.filled_fail_caches)),
-      total_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.total_fail_caches))
+      total_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.total_fail_caches)),
+      ...(hashings === null ? {} : { hashings })
     },
     times: {
       means: {
@@ -1020,7 +1036,8 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
 
   return {
     means_cycles: sumRecordValues(stats.map((entry) => entry.means_cycles)),
-    stddevs_cycles: stddevsCycles
+    stddevs_cycles: stddevsCycles,
+    slow_reject_counts: sumRecordValues(stats.map((entry) => entry.slow_reject_counts ?? {}))
   };
 }
 
@@ -1135,13 +1152,14 @@ function renderExpandedBar(bar: BarView): string {
 
 function renderSelectorRows(rows: SelectorRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="2">No selector stats captured.</td></tr>';
+    return '<tr><td colspan="3">No selector stats captured.</td></tr>';
   }
   return rows.map((row) => {
     return [
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
       '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles)) + '</div></td>',
+      '<td class="col-count">' + renderOptionalCount(row.slowRejectCount) + '</td>',
       '</tr>'
     ].join("");
   }).join("");
@@ -1157,16 +1175,17 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Fail Cache Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fail_cache_rejects ?? 0)) + '</td></tr>',
+    '<tr><th>Hashings</th><td>' + renderOptionalCount(getHashings(bar.counts)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     '<tr><th>Filled Fail Caches</th><td>' + renderOptionalCount(bar.counts.filled_fail_caches) + '</td></tr>',
     '<tr><th>Total Fail Caches</th><td>' + renderOptionalCount(bar.counts.total_fail_caches) + '</td></tr>',
     '</tbody></table>',
     '<details class="selector-breakdown">',
-    '<summary>Slow-Reject Cycles Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+    '<summary>Slow-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
     '<div class="selector-breakdown-inner">',
     '<table class="selector-breakdown-table">',
-    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th></tr></thead>',
+    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th></tr></thead>',
     '<tbody>' + renderSelectorRows(bar.topSlowRejectSelectors) + '</tbody>',
     '</table>',
     '</div>',
@@ -1470,6 +1489,7 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     && isFiniteNumber(record.selector_map_hits)
     && isFiniteNumber(record.fast_rejects)
     && (record.fail_cache_rejects === undefined || isFiniteNumber(record.fail_cache_rejects))
+    && (record.hashings === undefined || isFiniteNumber(record.hashings))
     && isFiniteNumber(record.slow_rejects)
     && isFiniteNumber(record.slow_accepts)
     && isNullableFiniteNumber(record.filled_fail_caches)
