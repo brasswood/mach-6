@@ -17,6 +17,35 @@ type SortDatasetKey = "totalCycles" | "slowRejectCycles";
 type CompareSide = "left" | "right";
 type ReportSource = "nightly" | "local";
 type SelectorStatsSource = SelectorStatsJson | (() => SelectorStatsJson);
+type SelectorResultCountKey =
+  | "fail_cache_global_failures"
+  | "fail_cache_descendant_restarts"
+  | "fail_cache_sibling_restarts"
+  | "classic_global_failures"
+  | "classic_descendant_restarts"
+  | "classic_sibling_restarts";
+
+const FAIL_CACHE_RESULT_COUNT_KEYS: SelectorResultCountKey[] = [
+  "fail_cache_global_failures",
+  "fail_cache_descendant_restarts",
+  "fail_cache_sibling_restarts",
+  "classic_global_failures",
+  "classic_descendant_restarts",
+  "classic_sibling_restarts"
+];
+const CLASSIC_RESULT_COUNT_KEYS: SelectorResultCountKey[] = [
+  "classic_global_failures",
+  "classic_descendant_restarts",
+  "classic_sibling_restarts"
+];
+const SELECTOR_RESULT_COUNT_LABELS: Record<SelectorResultCountKey, string> = {
+  fail_cache_global_failures: "Fail-Cache Global Failures",
+  fail_cache_descendant_restarts: "Fail-Cache Descendant Restarts",
+  fail_cache_sibling_restarts: "Fail-Cache Sibling Restarts",
+  classic_global_failures: "Classic Global Failures",
+  classic_descendant_restarts: "Classic Descendant Restarts",
+  classic_sibling_restarts: "Classic Sibling Restarts"
+};
 
 interface ReportJson {
   metadata: ReportMetadataJson;
@@ -87,6 +116,12 @@ interface CountingStatsJson {
   hashings?: number;
   slow_rejects: number;
   slow_accepts: number;
+  fail_cache_global_failures?: number | null;
+  fail_cache_descendant_restarts?: number | null;
+  fail_cache_sibling_restarts?: number | null;
+  classic_global_failures?: number | null;
+  classic_descendant_restarts?: number | null;
+  classic_sibling_restarts?: number | null;
   filled_fail_caches: number | null;
   total_fail_caches: number | null;
   fail_cache_instrumentation?: FailCacheInstrumentationJson;
