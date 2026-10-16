@@ -198,7 +198,7 @@ fn main() {
                 (
                     w.fresh_document(),
                     w.get_matcher(Optimizations {
-                        universal_tail_bless_lists: true,
+                        universal_bucket_bless_lists: true,
                         ..Optimizations::from_none()
                     }),
                 )
