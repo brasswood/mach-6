@@ -661,6 +661,7 @@ function renderSingleReportList(
       return renderWebsite(website);
     }).join(""),
   ].join("");
+  installWebsiteDetailsHandlers(list, websites);
 }
 
 function renderDefaultReportList(
@@ -1243,9 +1244,10 @@ function renderOptionalCount(value: number | null): string {
   return escapeHtml(NUMBER_FORMAT.format(value));
 }
 
-function renderWebsite(website: WebsiteView): string {
+function renderWebsite(website: WebsiteView, reportSide: CompareSide | null = null): string {
+  const reportSideAttribute = reportSide === null ? "" : ' data-report-side="' + reportSide + '"';
   return [
-    '<details class="site" data-total-cycles="' + website.totalSortKeyCycles.toString() + '" data-slow-reject-cycles="' + website.slowRejectSortKeyCycles.toString() + '">',
+    '<details class="site" data-website-name="' + escapeHtml(website.name) + '"' + reportSideAttribute + ' data-total-cycles="' + website.totalSortKeyCycles.toString() + '" data-slow-reject-cycles="' + website.slowRejectSortKeyCycles.toString() + '">',
     '<summary>',
     '<div class="row">',
     '<div class="chevron" aria-hidden="true"></div>',
@@ -1263,18 +1265,46 @@ function renderWebsite(website: WebsiteView): string {
     }).join("") + '</div>',
     '</summary>',
     '<div class="details">',
-    '<div class="details-variants">' + website.bars.filter((bar) => bar.showExpandedDetails).map(renderVariantDetails).join("") + '</div>',
+    '<div class="details-variants"></div>',
     '</div>',
     '</details>'
   ].join("");
 }
 
+function installWebsiteDetailsHandlers(
+  container: HTMLElement,
+  websites: WebsiteView[],
+  reportSide: CompareSide | null = null
+): void {
+  const websitesByName = new Map(websites.map((website) => [website.name, website]));
+  const siteElements = container.querySelectorAll<HTMLDetailsElement>("details.site");
+  for (const site of siteElements) {
+    const siteSide = site.dataset.reportSide ?? null;
+    if (siteSide !== reportSide) {
+      continue;
+    }
+    const website = websitesByName.get(site.dataset.websiteName ?? "");
+    const detailsVariants = site.querySelector<HTMLElement>(".details-variants");
+    if (!website || !detailsVariants) {
+      continue;
+    }
+    site.addEventListener("toggle", () => {
+      if (!site.open || detailsVariants.dataset.rendered === "true") {
+        return;
+      }
+      detailsVariants.innerHTML = website.bars
+        .filter((bar) => bar.showExpandedDetails)
+        .map(renderVariantDetails)
+        .join("");
+      detailsVariants.dataset.rendered = "true";
+    });
+  }
+}
+
 function buildWebsiteMap(websites: WebsiteJson[]): Map<string, WebsiteView> {
   const websiteMap = new Map<string, WebsiteView>();
-  const aggregateWebsite = buildAggregateWebsiteJson(websites);
-  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
-  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
-  websiteMap.set(aggregateWebsite.website, aggregateWebsiteView);
+  const aggregateWebsiteView = buildAggregateWebsiteView(websites);
+  websiteMap.set(aggregateWebsiteView.name, aggregateWebsiteView);
   for (const website of websites) {
     websiteMap.set(website.website, buildWebsiteView(website, aggregateWebsiteView.bars));
   }
