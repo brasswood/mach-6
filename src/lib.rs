@@ -33,7 +33,6 @@ use selectors::context::SelectorCaches;
 use selectors::matching::{self, Statistics};
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
-use style::selector_map::SelectorMapElement as _;
 use style::selector_map::SelectorMap;
 use style::servo_arc::Arc;
 use style::stylist::CascadeData;
