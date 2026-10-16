@@ -186,7 +186,7 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let matching_context = w.get_matcher();
+        let matching_context = w.get_matcher(Optimizations::from_none());
         let before_preprocessing = bench_website(
             &format!("{} before preprocessing", w.name),
             w.document(),
@@ -224,6 +224,7 @@ fn main() {
         let preprocessed_context = MatchingContext::new(
             std::iter::once(&preprocessed_stylesheet),
             preprocessed_lock,
+            Optimizations::from_none(),
         );
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
@@ -282,7 +283,6 @@ fn bench_website(
                 mach_6::match_selectors_with_style_sharing(
                     document,
                     matching_context,
-                    Optimizations::from_none(),
                     None,
                 );
             overall_stats
@@ -294,7 +294,6 @@ fn bench_website(
     mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
-        Optimizations::from_none(),
         Some(&mut per_match_stats),
     );
     println!("done.");

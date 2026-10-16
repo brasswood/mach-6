@@ -210,14 +210,19 @@ fn do_website_with_configured_optimizations(
 ) -> (OwnedDocumentMatches, Statistics) {
     // must return OwnedDocumentMatches, because the list of input selectors will be owned by this function
     let document = website.document();
-    let selectors = website.get_matcher().get_selectors();
+    let selectors = website
+        .get_matcher(Optimizations::from_none())
+        .get_selectors();
     let prepared = prepare_selectors(document, &selectors, optimizations);
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
-    let matching_context = MatchingContext::new(std::iter::once(&stylesheet), stylesheet_lock);
+    let matching_context = MatchingContext::new(
+        std::iter::once(&stylesheet),
+        stylesheet_lock,
+        optimizations,
+    );
     let (matches, stats) = match_selectors_with_style_sharing(
         document,
         &matching_context,
-        optimizations,
         None,
     );
     let owned = OwnedDocumentMatches(
@@ -236,12 +241,14 @@ fn do_website_with_configured_optimizations(
 pub struct MatchingContext {
     stylesheet_lock: SharedRwLock,
     stylist: Stylist,
+    optimizations: Optimizations,
 }
 
 impl MatchingContext {
     pub fn new<'a>(
         stylesheets: impl Iterator<Item = &'a DocumentStyleSheet>,
         stylesheet_lock: SharedRwLock,
+        optimizations: Optimizations,
     ) -> Self {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
@@ -259,6 +266,7 @@ impl MatchingContext {
         Self {
             stylesheet_lock,
             stylist,
+            optimizations,
         }
     }
 
@@ -925,6 +933,7 @@ mod tests {
             Optimizations {
                 is_conversion: false,
                 distribution: true,
+                ..Optimizations::from_none()
             },
         );
         let prepared_css: BTreeSet<_> = prepared.selectors.iter().map(Selector::to_css_string).collect();
