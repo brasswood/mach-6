@@ -118,3 +118,16 @@ fn child_activations_do_not_persist_beyond_immediate_children() {
     assert_eq!(after_stats.counts.bless_list_hits, 3);
     assert_eq!(after_stats.counts.slow_accepts, 3);
 }
+
+#[test]
+fn universal_bless_lists_do_not_duplicate_matching_selectors() {
+    let html = "<div class='a'><div class='a'><div class='a'><div class='a'><div class='a'></div></div></div></div></div>";
+    let (before, before_stats) = run(html, &[".a *"], false);
+    let (after, after_stats) = run(html, &[".a *"], true);
+    assert_eq!(before, after);
+    assert_eq!(before_stats.counts.selector_map_hits, 6);
+    assert_eq!(before_stats.counts.slow_accepts, 4);
+    assert_eq!(after_stats.counts.selector_map_hits, 1);
+    assert_eq!(after_stats.counts.bless_list_hits, 4);
+    assert_eq!(after_stats.counts.slow_accepts, 4);
+}
