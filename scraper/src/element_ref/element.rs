@@ -327,7 +327,7 @@ mod tests {
         assert!(first.fail_cache_contains(id));
 
         let sibling_id = 4096;
-        let sibling_result = matching::FailCacheResult::NotMatchedGlobally;
+        let sibling_result = FailCacheResult::NotMatchedGlobally;
         assert!(first.insert_fail_cache_result(sibling_id, sibling_result));
         assert_eq!(first.fail_cache_result(sibling_id), Some(sibling_result));
     }
