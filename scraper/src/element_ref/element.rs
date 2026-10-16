@@ -376,4 +376,31 @@ mod tests {
             assert_eq!(cached_result(&fragment, element, 8), None);
         }
     }
+
+    #[test]
+    fn fail_cache_propagates_child_failures_without_visiting_skipped_siblings() {
+        let fragment = Html::parse_fragment(
+            "<div><a id=a><i id=h></i><i id=j></i><i id=k></i><b id=b></b><c id=c></c><d id=outer-d><i id=inner-h></i><i id=inner-j></i><i id=inner-k></i><b id=inner-b></b><c id=inner-c></c><d id=inner-d><i id=e></i></d></d></a></div>",
+        );
+        assert!(matches_with_fail_caches(&fragment, "a > b + c ~ d #e", "e"));
+
+        for (element, prefix_length) in [("inner-b", 4), ("inner-c", 6), ("inner-d", 8)] {
+            assert_eq!(
+                cached_result(&fragment, element, prefix_length),
+                Some(FailCacheResult::NotMatchedAndRestartFromClosestDescendant),
+                "unexpected cache result on #{element}",
+            );
+        }
+        for element in [
+            "a", "h", "j", "k", "outer-d", "inner-h", "inner-j", "inner-k",
+        ] {
+            for prefix_length in [2, 4, 6, 8] {
+                assert_eq!(
+                    cached_result(&fragment, element, prefix_length),
+                    None,
+                    "unexpected cache on #{element} for prefix {prefix_length}",
+                );
+            }
+        }
+    }
 }
