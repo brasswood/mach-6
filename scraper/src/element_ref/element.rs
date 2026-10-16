@@ -185,9 +185,29 @@ impl Element for ElementRef<'_> {
 mod tests {
     use crate::html::Html;
     use crate::selector::Selector;
-    use style::values::AtomIdent;
     use selectors::attr::CaseSensitivity;
+    use selectors::kleene_value::KleeneValue;
+    use selectors::matching::{self, FailCacheResult};
+    use selectors::parser::{FailCachePrefixIdGenerator, FailCachePrefixIds};
     use selectors::Element;
+    use std::sync::Arc;
+    use style::selector_parser::{SelectorImpl, SelectorParser};
+    use style::stylesheets::UrlExtraData;
+    use style::values::AtomIdent;
+
+    #[derive(Debug)]
+    struct PrefixIdGenerator;
+
+    impl FailCachePrefixIdGenerator<SelectorImpl> for PrefixIdGenerator {
+        fn get_or_intern(
+            &self,
+            _: &selectors::parser::Selector<SelectorImpl>,
+            prefix_length: usize,
+            _: bool,
+        ) -> Option<u16> {
+            Some(matching::FIRST_SIBLING_FAIL_CACHE_PREFIX_ID + prefix_length as u16)
+        }
+    }
 
     #[test]
     fn test_has_id() {
