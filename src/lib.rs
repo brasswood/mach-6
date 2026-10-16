@@ -168,12 +168,12 @@ fn prepare_selectors<'selector>(
     }
 }
 
-fn translate_element_matches_to_original<'new, 'original>(
-    element_matches: &ElementMatches<'new>,
+fn translate_element_matches_to_original<'original>(
+    element_matches: OwnedElementMatches,
     reverse_map: &HashMap<String, SmallVec<[&'original Selector; 2]>>,
 ) -> OwnedElementMatches {
-    let selectors_or_shared_styles = match &element_matches.selectors {
-        SelectorsOrSharedStyles::Selectors(selectors) => {
+    let selectors_or_shared_styles = match element_matches.selectors {
+        OwnedSelectorsOrSharedStyles::Selectors(selectors) => {
             let mut set: HashSet<by_address::ByAddress<&Selector>> = HashSet::new();
             for selector in selectors {
                 let original_selectors = reverse_map
@@ -196,12 +196,12 @@ fn translate_element_matches_to_original<'new, 'original>(
                 .collect();
             OwnedSelectorsOrSharedStyles::Selectors(selectors)
         }
-        SelectorsOrSharedStyles::SharedWithElement(id) => {
-            OwnedSelectorsOrSharedStyles::SharedWithElement(*id)
+        OwnedSelectorsOrSharedStyles::SharedWithElement(id) => {
+            OwnedSelectorsOrSharedStyles::SharedWithElement(id)
         }
     };
     OwnedElementMatches {
-        element: element_matches.element.into(),
+        element: element_matches.element,
         selectors: selectors_or_shared_styles,
     }
 }
@@ -211,11 +211,11 @@ fn do_website_with_configured_optimizations(
     optimizations: Optimizations,
 ) -> (OwnedDocumentMatches, Statistics) {
     // must return OwnedDocumentMatches, because the list of input selectors will be owned by this function
-    let document = website.document();
+    let document = website.fresh_document();
     let selectors = website
         .get_matcher(Optimizations::from_none())
         .get_selectors();
-    let prepared = prepare_selectors(document, &selectors, optimizations);
+    let prepared = prepare_selectors(&document, &selectors, optimizations);
     let (stylesheet, stylesheet_lock) = stylesheet_from_selectors(prepared.selectors.iter());
     let matching_context = MatchingContext::new(
         std::iter::once(&stylesheet),
@@ -224,18 +224,12 @@ fn do_website_with_configured_optimizations(
     );
     let (matches, stats, _) = match_selectors_with_style_sharing(
         document,
-        &matching_context,
+        matching_context,
         false,
     );
-    let owned = OwnedDocumentMatches(
-        matches
-            .0
-            .iter()
-            .map(|element_matches| {
-                translate_element_matches_to_original(element_matches, &prepared.reverse_map)
-            })
-            .collect(),
-    );
+    let owned = OwnedDocumentMatches(matches.0.into_iter().map(|element_matches| {
+        translate_element_matches_to_original(element_matches, &prepared.reverse_map)
+    }).collect());
     (owned, stats)
 }
 
