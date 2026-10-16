@@ -256,7 +256,7 @@ mod selector_summary {
 
     use crate::WebsiteResult;
 
-    use super::{SelectorSlowRejectSamples, SelectorString};
+    use super::{NotMatchedResultCounts, SelectorRejectSamples, SelectorString};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
@@ -279,10 +279,14 @@ mod selector_summary {
     pub(crate) struct SelectorStatsJson {
         pub(crate) means_cycles: HashMap<SelectorString, u64>,
         pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
+        pub(crate) slow_reject_counts: HashMap<SelectorString, usize>,
+        pub(crate) classic_global_failures: HashMap<SelectorString, usize>,
+        pub(crate) classic_descendant_restarts: HashMap<SelectorString, usize>,
+        pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
     }
 
-    impl From<&[SelectorSlowRejectSamples]> for SelectorStatsJson {
-        fn from(value: &[SelectorSlowRejectSamples]) -> Self {
+    impl From<&[SelectorRejectSamples]> for SelectorStatsJson {
+        fn from(value: &[SelectorRejectSamples]) -> Self {
             Self {
                 means_cycles: value
                     .iter()
@@ -292,8 +296,21 @@ mod selector_summary {
                     .iter()
                     .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().cycles()))
                     .collect(),
+                slow_reject_counts: value.iter().map(|row| (row.selector.clone(), row.reject_count)).collect(),
+                classic_global_failures: result_counts(value, |counts| counts.classic_global_failures),
+                classic_descendant_restarts: result_counts(value, |counts| counts.classic_descendant_restarts),
+                classic_sibling_restarts: result_counts(value, |counts| counts.classic_sibling_restarts),
             }
         }
+    }
+
+    fn result_counts(
+        rows: &[SelectorRejectSamples],
+        select: impl Fn(&NotMatchedResultCounts) -> usize,
+    ) -> HashMap<SelectorString, usize> {
+        rows.iter()
+            .map(|row| (row.selector.clone(), select(&row.not_matched_result_counts)))
+            .collect()
     }
 }
 
