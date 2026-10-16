@@ -42,13 +42,44 @@ impl From<&Selector> for SelectorString {
     }
 }
 
-/// A selector and its aggregate (i.e. for every element) slow-reject time in
-/// each sample
+/// A selector and its aggregate reject time and count in each sample.
 #[derive(Clone, Debug)]
-struct SelectorSlowRejectSamples {
+struct SelectorRejectSamples {
     selector: SelectorString,
     aggregate_durations: Samples<tsc_timer::Duration>,
-    slow_reject_count: usize,
+    reject_count: usize,
+}
+
+#[derive(Default)]
+struct SelectorRejectMeasurements {
+    aggregate_durations: Vec<tsc_timer::Duration>,
+    reject_count: usize,
+}
+
+impl SelectorRejectMeasurements {
+    fn add_sample(&mut self, sample_index: usize, duration: tsc_timer::Duration, count: usize) {
+        self.reject_count += count;
+        if self.aggregate_durations.len() == sample_index {
+            self.aggregate_durations.push(duration);
+        } else {
+            self.aggregate_durations[sample_index] += duration;
+        }
+    }
+}
+
+fn into_sorted_selector_reject_samples(
+    measurements: HashMap<SelectorString, SelectorRejectMeasurements>,
+) -> Vec<SelectorRejectSamples> {
+    let mut samples: Vec<_> = measurements
+        .into_iter()
+        .map(|(selector, measurements)| SelectorRejectSamples {
+            selector,
+            aggregate_durations: Samples::from_vec(measurements.aggregate_durations),
+            reject_count: measurements.reject_count,
+        })
+        .collect();
+    samples.sort_unstable_by_key(|row| Reverse(row.aggregate_durations.mean()));
+    samples
 }
 
 /// Aggregated data for one matching variant in the website report.
