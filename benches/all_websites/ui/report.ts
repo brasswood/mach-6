@@ -1294,7 +1294,15 @@ function renderVariantDetails(bar: BarView): string {
   const selectorsSummary = typeof bar.selectorsSummary === "function"
     ? bar.selectorsSummary()
     : bar.selectorsSummary;
+  const selectorFailCacheSummary = typeof bar.selectorFailCacheSummary === "function"
+    ? bar.selectorFailCacheSummary()
+    : bar.selectorFailCacheSummary;
   const topSlowRejectSelectors = buildSelectorRows(selectorsSummary);
+  const topFailCacheRejectSelectors = buildSelectorRows(
+    selectorFailCacheSummary,
+    selectorFailCacheSummary.fail_cache_reject_counts,
+    true
+  );
   return [
     '<section class="variant-details">',
     '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
@@ -1316,6 +1324,15 @@ function renderVariantDetails(bar: BarView): string {
     '<table class="selector-breakdown-table">',
     '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th></tr></thead>',
     '<tbody>' + renderSelectorRows(topSlowRejectSelectors) + '</tbody>',
+    '</table>',
+    '</div>',
+    '</details>',
+    '<details class="selector-breakdown">',
+    '<summary>Fail-Cache-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+    '<div class="selector-breakdown-inner">',
+    '<table class="selector-breakdown-table">',
+    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Fail-Cache-Reject Cycles</th><th class="col-count">Fail-Cache Reject Count</th></tr></thead>',
+    '<tbody>' + renderSelectorRows(topFailCacheRejectSelectors) + '</tbody>',
     '</table>',
     '</div>',
     '</details>',
