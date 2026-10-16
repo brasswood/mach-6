@@ -96,7 +96,7 @@ fn selector_reject_samples(
     rows: &[SmallVec<[(&Selector, SelectorStats); 16]>],
     fail_cache_rejects: bool,
 ) -> Vec<SelectorRejectSamples> {
-    let mut measurements = HashMap::new();
+    let mut measurements: HashMap<SelectorString, SelectorRejectMeasurements> = HashMap::new();
     for (sample_index, row) in rows.iter().enumerate() {
         for (selector, stats) in row {
             let (duration, count, outcomes) = match *stats {
