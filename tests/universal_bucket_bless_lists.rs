@@ -104,3 +104,17 @@ fn universal_bless_lists_persist_through_descendants() {
         3
     );
 }
+
+#[test]
+fn child_activations_do_not_persist_beyond_immediate_children() {
+    let html =
+        "<div class='a'><div class='b'></div><div class='a'><div class='d'></div></div></div>";
+    let (before, before_stats) = run(html, &[".a > :not(.x)"], false);
+    let (after, after_stats) = run(html, &[".a > :not(.x)"], true);
+    assert_eq!(before, after);
+    assert_eq!(before_stats.counts.selector_map_hits, 5);
+    assert_eq!(before_stats.counts.slow_accepts, 3);
+    assert_eq!(after_stats.counts.selector_map_hits, 2);
+    assert_eq!(after_stats.counts.bless_list_hits, 3);
+    assert_eq!(after_stats.counts.slow_accepts, 3);
+}
