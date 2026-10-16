@@ -47,6 +47,7 @@ interface WebsiteJson {
 
 interface SummaryJson {
   before_preprocessing: BenchmarkRunSummaryJson;
+  with_bless_list?: BenchmarkRunSummaryJson;
   preprocessing: PreprocessingSummaryJson;
   after_preprocessing: BenchmarkRunSummaryJson;
 }
@@ -96,6 +97,7 @@ interface TimingsJsonBody {
 
 interface SelectorsSummaryJson {
   before_preprocessing: SelectorStatsJson;
+  with_bless_list?: SelectorStatsJson;
   after_preprocessing: SelectorStatsJson;
 }
 
@@ -891,18 +893,26 @@ function buildBar(
 function buildWebsiteBars(
   website: WebsiteJson,
   getAggregateSelectors: (() => SelectorsSummaryJson) | null = null
-): [BarView, BarView, BarView] {
+): BarView[] {
   const getSelectors = (key: keyof SelectorsSummaryJson): SelectorStatsSource => {
     if (getAggregateSelectors === null) {
-      return website.selector_slow_rejects_summary[key];
+      return website.selector_slow_rejects_summary[key] ?? emptySelectorStats();
     }
-    return () => getAggregateSelectors()[key];
+    return () => getAggregateSelectors()[key] ?? emptySelectorStats();
   };
-  return [
-    buildBar("Before Preprocessing", website.summary.before_preprocessing, getSelectors("before_preprocessing"), null),
+  const bars = [
+    buildBar("Before Preprocessing", website.summary.before_preprocessing, getSelectors("before_preprocessing"), null)
+  ];
+  const withBlessList = website.summary.with_bless_list;
+  const withBlessListSelectors = website.selector_slow_rejects_summary.with_bless_list;
+  if (withBlessList !== undefined && withBlessListSelectors !== undefined) {
+    bars.push(buildBar("With Bless List", withBlessList, getSelectors("with_bless_list"), null));
+  }
+  bars.push(
     buildBar("After Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), null, false),
     buildBar("With Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), website.summary.preprocessing)
-  ];
+  );
+  return bars;
 }
 
 function buildWebsiteView(
@@ -1587,6 +1597,7 @@ function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
     return false;
   }
   return isSelectorStatsJson(record.before_preprocessing)
+    && (record.with_bless_list === undefined || isSelectorStatsJson(record.with_bless_list))
     && isSelectorStatsJson(record.after_preprocessing);
 }
 
@@ -1596,6 +1607,7 @@ function isSummaryJson(value: unknown): value is SummaryJson {
     return false;
   }
   return isBenchmarkRunSummaryJson(record.before_preprocessing)
+    && (record.with_bless_list === undefined || isBenchmarkRunSummaryJson(record.with_bless_list))
     && isPreprocessingSummaryJson(record.preprocessing)
     && isBenchmarkRunSummaryJson(record.after_preprocessing);
 }
