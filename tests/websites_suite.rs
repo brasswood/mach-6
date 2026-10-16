@@ -262,6 +262,21 @@ __REPEATED_SELECTOR__ { color: blue }
         mach_6::do_website(&website, Algorithm::WithFailCaches, None);
     let baseline = SerDocumentMatches::from(&baseline);
     assert!(stats.counts.fail_cache_rejects > 0, "{stats:?}");
+    let result_counts = stats.counts.not_matched_result_counts;
+    assert!(
+        result_counts.fail_cache_global_failures
+            + result_counts.fail_cache_descendant_restarts
+            + result_counts.fail_cache_sibling_restarts
+            > 0,
+        "fixture must record results returned from fail-cache hits: {result_counts:?}"
+    );
+    assert!(
+        result_counts.classic_global_failures
+            + result_counts.classic_descendant_restarts
+            + result_counts.classic_sibling_restarts
+            > 0,
+        "fixture must also record results returned from regular matching: {result_counts:?}"
+    );
     let matches = |class, selector| baseline.0.values().any(|element| {
         element.html.contains(&format!("class=\"{class}\"")) && element.selectors.contains(selector)
     });
