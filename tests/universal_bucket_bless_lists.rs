@@ -35,7 +35,7 @@ fn run(html: &str, selectors: &[&str], enabled: bool) -> (SetDocumentMatches, St
     };
     let context =
         MatchingContext::new(std::iter::once(&stylesheet), stylesheet_lock, optimizations);
-    let (matches, stats, _) = match_selectors_with_style_sharing(document, context, false);
+    let (matches, stats, _, _) = match_selectors_with_style_sharing(document, context, false);
     (
         SetDocumentMatches::from(matches),
         stats,
