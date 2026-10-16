@@ -160,11 +160,12 @@ impl PreprocessingResult {
     }
 }
 
-/// All report data for one website: the baseline matching variant, the
-/// preprocessing step, and the post-preprocessing matching variant.
+/// All report data for one website: the baseline and bless-list matching
+/// variants, the preprocessing step, and the post-preprocessing variant.
 struct WebsiteResult {
     website: String,
     before_preprocessing: MatchBenchResult,
+    with_bless_list: MatchBenchResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
 }
@@ -190,6 +191,18 @@ fn main() {
         let before_preprocessing = bench_website(
             &format!("{} before preprocessing", w.name),
             || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
+        );
+        let with_bless_list = bench_website(
+            &format!("{} with bless list", w.name),
+            || {
+                (
+                    w.fresh_document(),
+                    w.get_matcher(Optimizations {
+                        universal_tail_bless_lists: true,
+                        ..Optimizations::from_none()
+                    }),
+                )
+            },
         );
         let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
         let substrings =
@@ -236,6 +249,7 @@ fn main() {
         let result = WebsiteResult {
             website: w.name,
             before_preprocessing,
+            with_bless_list,
             preprocessing: PreprocessingResult::new(
                 indexing_results,
                 overall_is_conversion_results,
@@ -546,4 +560,3 @@ fn copy_html_js() -> io::Result<()> {
         )?;
     Ok(())
 }
-

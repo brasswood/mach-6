@@ -98,6 +98,7 @@ mod overall_summary {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
         pub(crate) before_preprocessing: BenchmarkRunSummaryJson,
+        pub(crate) with_bless_list: BenchmarkRunSummaryJson,
         pub(crate) preprocessing: PreprocessingSummaryJson,
         pub(crate) after_preprocessing: BenchmarkRunSummaryJson,
     }
@@ -106,6 +107,7 @@ mod overall_summary {
         fn from(value: &WebsiteResult) -> Self {
             Self {
                 before_preprocessing: BenchmarkRunSummaryJson::from(&value.before_preprocessing),
+                with_bless_list: BenchmarkRunSummaryJson::from(&value.with_bless_list),
                 preprocessing: PreprocessingSummaryJson::from(&value.preprocessing),
                 after_preprocessing: BenchmarkRunSummaryJson::from(&value.after_preprocessing),
             }
@@ -223,6 +225,7 @@ mod selector_summary {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
         pub(crate) before_preprocessing: SelectorStatsJson,
+        pub(crate) with_bless_list: SelectorStatsJson,
         pub(crate) after_preprocessing: SelectorStatsJson,
     }
 
@@ -230,6 +233,7 @@ mod selector_summary {
         fn from(value: &WebsiteResult) -> Self {
             Self {
                 before_preprocessing: SelectorStatsJson::from(value.before_preprocessing.selector_slow_reject_times.as_slice()),
+                with_bless_list: SelectorStatsJson::from(value.with_bless_list.selector_slow_reject_times.as_slice()),
                 after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.selector_slow_reject_times.as_slice())
             }
         }
@@ -269,6 +273,7 @@ mod samples {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SamplesJson {
         pub(crate) before_preprocessing: TimingsSamplesJson,
+        pub(crate) with_bless_list: TimingsSamplesJson,
         pub(crate) after_preprocessing: TimingsSamplesJson,
     }
 
@@ -276,6 +281,7 @@ mod samples {
         fn from(value: &WebsiteResult) -> Self {
             Self {
                 before_preprocessing: TimingsSamplesJson::from(&value.before_preprocessing),
+                with_bless_list: TimingsSamplesJson::from(&value.with_bless_list),
                 after_preprocessing: TimingsSamplesJson::from(&value.after_preprocessing),
             }
         }
