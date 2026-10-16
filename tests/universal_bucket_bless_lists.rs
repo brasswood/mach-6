@@ -131,3 +131,32 @@ fn universal_bless_lists_do_not_duplicate_matching_selectors() {
     assert_eq!(after_stats.counts.bless_list_hits, 4);
     assert_eq!(after_stats.counts.slow_accepts, 4);
 }
+
+#[test]
+fn universal_bless_lists_scale_to_many_selectors() {
+    let mut html = String::new();
+    let mut selectors = Vec::with_capacity(1000);
+    for index in 1..=1000 {
+        html.push_str(&format!("<div class='n{index}'>"));
+        selectors.push(format!(".n{index} *"));
+    }
+    for _ in 0..1000 {
+        html.push_str("</div>");
+    }
+    std::thread::Builder::new()
+        .name("deep-universal-bucket-bless-lists".into())
+        .stack_size(32 * 1024 * 1024)
+        .spawn(move || {
+            let selector_refs = selectors.iter().map(String::as_str).collect::<Vec<_>>();
+            let before_stats = run(&html, &selector_refs, false).1;
+            assert_eq!(before_stats.counts.selector_map_hits, 1_001_000);
+            assert_eq!(before_stats.counts.slow_accepts, 499_500);
+            let after_stats = run(&html, &selector_refs, true).1;
+            assert_eq!(after_stats.counts.selector_map_hits, 1000);
+            assert_eq!(after_stats.counts.bless_list_hits, 499_500);
+            assert_eq!(after_stats.counts.slow_accepts, 499_500);
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
