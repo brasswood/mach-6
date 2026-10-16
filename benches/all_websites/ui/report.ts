@@ -461,6 +461,46 @@ function populateCompareSelect(
   }
 }
 
+function installCompareSelectDropdown(
+  dropdown: HTMLDetailsElement,
+  searchInput: HTMLInputElement,
+  select: HTMLSelectElement,
+  optionsContainer: HTMLElement,
+  selectedLabel: HTMLElement,
+  noMatchesMessage: HTMLElement
+): void {
+  const renderOptions = (): void => {
+    const query = searchInput.value.trim().toLowerCase();
+    const matches = Array.from(select.options).filter((option) => (option.textContent ?? "").toLowerCase().includes(query));
+    optionsContainer.replaceChildren();
+    for (const option of matches) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "report-dropdown-option";
+      button.textContent = option.textContent ?? option.value;
+      button.addEventListener("click", () => {
+        select.value = option.value;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        selectedLabel.textContent = button.textContent;
+        searchInput.value = "";
+        renderOptions();
+        dropdown.open = false;
+      });
+      optionsContainer.appendChild(button);
+    }
+    noMatchesMessage.hidden = matches.length > 0;
+  };
+  selectedLabel.textContent = select.selectedOptions[0]?.textContent ?? "Select a report";
+  renderOptions();
+  dropdown.addEventListener("toggle", () => {
+    if (!dropdown.open) return;
+    searchInput.value = "";
+    renderOptions();
+    searchInput.focus();
+  });
+  searchInput.addEventListener("input", renderOptions);
+}
+
 function installCompareSelectSearch(
   searchInput: HTMLInputElement,
   select: HTMLSelectElement,
