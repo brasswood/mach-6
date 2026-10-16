@@ -367,6 +367,37 @@ where
     }
 }
 
+fn bench_function_with_setup<S, I, F, R>(
+    name: &str,
+    setup: S,
+    func: F,
+    num_samples: u64,
+) -> TimedResults<R>
+where
+    S: Fn() -> I,
+    F: Fn(I) -> R,
+{
+    const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
+    let mut samples_vec = Vec::with_capacity(num_samples as usize);
+    eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
+    warm_up_time(&WARM_UP_TIME, || {
+        func(setup());
+    });
+    eprint!("measuring {num_samples} samples...");
+    let mut total_duration = tsc_timer::Duration::from_cycles(0);
+    for _ in 0..num_samples {
+        let input = setup();
+        let sample_start = tsc_timer::Start::now();
+        samples_vec.push(func(input));
+        total_duration += sample_start.elapsed();
+    }
+    eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
+    TimedResults {
+        total_duration,
+        samples: Samples::from_vec(samples_vec),
+    }
+}
+
 fn warm_up_iterations<F, R>(warm_up_iterations: usize, func: F)
 where
     F: Fn() -> R
