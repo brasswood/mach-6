@@ -1110,7 +1110,10 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
   };
 }
 
-function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
+function aggregateSelectorStats(
+  stats: SelectorStatsJson[],
+  rejectCountsKey: "slow_reject_counts" | "fail_cache_reject_counts"
+): SelectorStatsJson {
   const selectorKeys = new Set<string>();
   for (const entry of stats) {
     for (const key of Object.keys(entry.stddevs_cycles)) {
@@ -1123,18 +1126,27 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
     stddevsCycles[key] = combineStddevs(stats.map((entry) => entry.stddevs_cycles[key] ?? 0));
   }
 
+  const rejectCounts = sumRecordValues(stats.map((entry) => entry[rejectCountsKey] ?? {}));
   return {
     means_cycles: sumRecordValues(stats.map((entry) => entry.means_cycles)),
     stddevs_cycles: stddevsCycles,
-    slow_reject_counts: sumRecordValues(stats.map((entry) => entry.slow_reject_counts ?? {}))
+    [rejectCountsKey]: rejectCounts
   };
 }
 
 function buildAggregateSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
   return {
-    baseline: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.baseline)),
-    fail_caches: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.fail_caches)),
-    after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
+    baseline: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.baseline), "slow_reject_counts"),
+    fail_caches: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.fail_caches), "slow_reject_counts"),
+    after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing), "slow_reject_counts")
+  };
+}
+
+function buildAggregateFailCacheSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
+  return {
+    baseline: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).baseline), "fail_cache_reject_counts"),
+    fail_caches: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).fail_caches), "fail_cache_reject_counts"),
+    after_preprocessing: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).after_preprocessing), "fail_cache_reject_counts")
   };
 }
 
@@ -1189,21 +1201,29 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
       baseline: emptySelectorStats(),
       fail_caches: emptySelectorStats(),
       after_preprocessing: emptySelectorStats()
-    }
+    },
+    selector_fail_cache_summary: emptySelectorSummary()
   };
 }
 
 function buildAggregateWebsiteView(websites: WebsiteJson[]): WebsiteView {
   const aggregateWebsite = buildAggregateWebsiteJson(websites);
   let aggregateSelectors: SelectorsSummaryJson | null = null;
+  let aggregateFailCacheSelectors: SelectorsSummaryJson | null = null;
   const getAggregateSelectors = (): SelectorsSummaryJson => {
     if (aggregateSelectors === null) {
       aggregateSelectors = buildAggregateSelectorSummary(websites);
     }
     return aggregateSelectors;
   };
-  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite, getAggregateSelectors);
-  return buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true, getAggregateSelectors);
+  const getAggregateFailCacheSelectors = (): SelectorsSummaryJson => {
+    if (aggregateFailCacheSelectors === null) {
+      aggregateFailCacheSelectors = buildAggregateFailCacheSelectorSummary(websites);
+    }
+    return aggregateFailCacheSelectors;
+  };
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite, getAggregateSelectors, getAggregateFailCacheSelectors);
+  return buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true, getAggregateSelectors, getAggregateFailCacheSelectors);
 }
 
 function buildReportWebsiteViews(report: ReportJson): WebsiteView[] {
@@ -1762,7 +1782,10 @@ function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
     && Object.values(stddevs).every(isFiniteNumber)
     && (record.slow_reject_counts === undefined
       || (getRecord(record.slow_reject_counts) !== null
-        && Object.values(getRecord(record.slow_reject_counts)!).every(isFiniteNumber)));
+        && Object.values(getRecord(record.slow_reject_counts)!).every(isFiniteNumber)))
+    && (record.fail_cache_reject_counts === undefined
+      || (getRecord(record.fail_cache_reject_counts) !== null
+        && Object.values(getRecord(record.fail_cache_reject_counts)!).every(isFiniteNumber)));
 }
 
 function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
@@ -1802,7 +1825,9 @@ function isWebsiteJson(value: unknown): value is WebsiteJson {
   }
   return typeof record.website === "string"
     && isSummaryJson(record.summary)
-    && isSelectorsSummaryJson(record.selector_slow_rejects_summary);
+    && isSelectorsSummaryJson(record.selector_slow_rejects_summary)
+    && (record.selector_fail_cache_summary === undefined
+      || isSelectorsSummaryJson(record.selector_fail_cache_summary));
 }
 
 function isReportJson(value: unknown): value is ReportJson {
