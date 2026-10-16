@@ -41,3 +41,16 @@ fn run(html: &str, selectors: &[&str], enabled: bool) -> (SetDocumentMatches, St
         stats,
     )
 }
+
+#[test]
+fn universal_tail_uses_the_parent_activator() {
+    let html = "<div class='a'><div class='b'><div class='c'></div></div></div>";
+    let (before, before_stats) = run(html, &[".b .a *"], false);
+    let (after, after_stats) = run(html, &[".b .a *"], true);
+    assert_eq!(before, after);
+    assert_eq!(before_stats.counts.slow_rejects, 1);
+    assert_eq!(before_stats.counts.selector_map_hits, 4);
+    assert_eq!(after_stats.counts.slow_rejects, 0);
+    assert_eq!(after_stats.counts.selector_map_hits, 1);
+    assert_eq!(after_stats.counts.bless_list_hits, 0);
+}
