@@ -38,7 +38,7 @@ impl SelectorMapElement for ElementRef<'_> {
     fn traversal_parent(&self) -> Option<Self> {
         let parent_node = self.node.parent()?;
         match parent_node.value() {
-            Node::Document => None,
+            Node::Document | Node::Fragment => None,
             Node::Element(_) => Some(ElementRef::new(parent_node)),
             other => panic!("Did not expect parent of element to be {:?}.", other),
         }
