@@ -16,6 +16,7 @@ type SegmentKind =
 type SortDatasetKey = "totalCycles" | "slowRejectCycles";
 type CompareSide = "left" | "right";
 type ReportSource = "nightly" | "local";
+type SelectorStatsSource = SelectorStatsJson | (() => SelectorStatsJson);
 
 interface ReportJson {
   metadata: ReportMetadataJson;
@@ -163,7 +164,7 @@ interface BarView {
   totalLengthCycles: bigint;
   slowRejectCycles: bigint;
   counts: CountingStatsJson;
-  topSlowRejectSelectors: SelectorRow[];
+  selectorsSummary: SelectorStatsSource;
   showExpandedDetails: boolean;
 }
 
@@ -818,7 +819,7 @@ function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
 function buildBar(
   label: string,
   summary: BenchmarkRunSummaryJson,
-  selectorsSummary: SelectorStatsJson,
+  selectorsSummary: SelectorStatsSource,
   includeFailCachePreprocessing: FailCachePreprocessingSummaryJson | null,
   includePreprocessing: PreprocessingSummaryJson | null,
   showExpandedDetails = true
@@ -879,7 +880,7 @@ function buildBar(
     totalLengthCycles,
     slowRejectCycles: slowRejectSegment.meanCycles,
     counts: summary.counts,
-    topSlowRejectSelectors: buildSelectorRows(selectorsSummary),
+    selectorsSummary,
     showExpandedDetails
   };
 }
@@ -1166,6 +1167,10 @@ function renderSelectorRows(rows: SelectorRow[]): string {
 }
 
 function renderVariantDetails(bar: BarView): string {
+  const selectorsSummary = typeof bar.selectorsSummary === "function"
+    ? bar.selectorsSummary()
+    : bar.selectorsSummary;
+  const topSlowRejectSelectors = buildSelectorRows(selectorsSummary);
   return [
     '<section class="variant-details">',
     '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
@@ -1186,7 +1191,7 @@ function renderVariantDetails(bar: BarView): string {
     '<div class="selector-breakdown-inner">',
     '<table class="selector-breakdown-table">',
     '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th></tr></thead>',
-    '<tbody>' + renderSelectorRows(bar.topSlowRejectSelectors) + '</tbody>',
+    '<tbody>' + renderSelectorRows(topSlowRejectSelectors) + '</tbody>',
     '</table>',
     '</div>',
     '</details>',
