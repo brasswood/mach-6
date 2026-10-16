@@ -72,7 +72,7 @@ struct MatchBenchResult {
 impl MatchBenchResult {
     fn new(
         stats: TimedResults<Statistics>,
-        per_match_stats: TimedResults<SmallVec<[(&Selector, SelectorStats); 16]>>,
+        per_match_stats: TimedResults<SmallVec<[(Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
             .samples
@@ -96,7 +96,8 @@ impl MatchBenchResult {
                     SelectorStats::ScopeProximity(sp) =>
                         sp.time_slow_rejecting,
                 };
-                let samples = map.entry(SelectorString::from(selector)).or_default();
+                let selector = SelectorString::from(&selector);
+                let samples = map.entry(selector).or_default();
                 // If this is the first time we have touched the vector at this
                 // selector for this sample (samples.len() == i), push a new
                 // Duration onto the end. Otherwise, samples.len() == i + 1,
@@ -186,13 +187,11 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let matching_context = w.get_matcher(Optimizations::from_none());
         let before_preprocessing = bench_website(
             &format!("{} before preprocessing", w.name),
-            w.document(),
-            &matching_context,
+            || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
         );
-        let selectors = matching_context.get_selectors();
+        let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
         let substrings =
           concretize::substrings_from_selectors(selectors.iter());
         let indexing_results = bench_function(
@@ -221,15 +220,18 @@ fn main() {
         let preprocessed_selectors = preprocessing::preprocess(w.document(), &selectors);
         let (preprocessed_stylesheet, preprocessed_lock) =
             stylesheet_from_selectors(preprocessed_selectors.iter());
-        let preprocessed_context = MatchingContext::new(
-            std::iter::once(&preprocessed_stylesheet),
-            preprocessed_lock,
-            Optimizations::from_none(),
-        );
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
-            w.document(),
-            &preprocessed_context,
+            || {
+                (
+                    w.fresh_document(),
+                    MatchingContext::new(
+                        std::iter::once(&preprocessed_stylesheet),
+                        preprocessed_lock.clone(),
+                        Optimizations::from_none(),
+                    ),
+                )
+            },
         );
         let result = WebsiteResult {
             website: w.name,
@@ -271,25 +273,25 @@ fn main() {
     };
 }
 
-fn bench_website(
-    benchmark_name: &str,
-    document: &Html,
-    matching_context: &MatchingContext,
-) -> MatchBenchResult {
-    let overall_stats = bench_function(
+fn bench_website<F>(benchmark_name: &str, setup: F) -> MatchBenchResult
+where
+    F: Fn() -> (Html, MatchingContext),
+{
+    let overall_stats = bench_function_with_setup(
         benchmark_name,
-        || {
-            let (_, overall_stats, _) =
-                mach_6::match_selectors_with_style_sharing(
-                    document,
-                    matching_context,
-                    false,
-                );
+        &setup,
+        |(document, matching_context)| {
+            let (_, overall_stats, _) = mach_6::match_selectors_with_style_sharing(
+                document,
+                matching_context,
+                false,
+            );
             overall_stats
         },
         NUM_SAMPLES,
     );
     print!("Getting selector stats for {benchmark_name}...");
+    let (document, matching_context) = setup();
     let (_, _, per_match_stats) = mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
