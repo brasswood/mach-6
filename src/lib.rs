@@ -321,31 +321,37 @@ pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Ite
 }
 
 pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: Option<&DocumentMatches>) -> (String, SetDocumentMatches, Statistics){
-    let matching_context = website.get_matcher();
     let (matches, stats) = match algorithm {
-        Algorithm::Naive => (
-            OwnedDocumentMatches::from(&match_selectors(&website.document(), &matching_context.get_selectors())),
-            Statistics::default()
-        ),
+        Algorithm::Naive => {
+            let matching_context = website.get_matcher(Optimizations::from_none());
+            (
+                OwnedDocumentMatches::from(&match_selectors(
+                    &website.document(),
+                    &matching_context.get_selectors(),
+                )),
+                Statistics::default(),
+            )
+        },
         Algorithm::WithStyleSharing => {
+            let matching_context = website.get_matcher(Optimizations::from_none());
             let (matches, stats) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    Optimizations::from_none(),
                     None,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithBlessList => {
+            let optimizations = Optimizations {
+                universal_tail_bless_lists: true,
+                ..Optimizations::from_none()
+            };
+            let matching_context = website.get_matcher(optimizations);
             let (matches, stats) =
                 match_selectors_with_style_sharing(
                     &website.document(),
                     &matching_context,
-                    Optimizations {
-                        universal_tail_bless_lists: true,
-                        ..Optimizations::from_none()
-                    },
                     None,
                 );
             (OwnedDocumentMatches::from(&matches), stats)
@@ -356,6 +362,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 Optimizations {
                     is_conversion: true,
                     distribution: false,
+                    ..Optimizations::from_none()
                 },
             ),
         Algorithm::WithDistribution =>
@@ -364,6 +371,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 Optimizations {
                     is_conversion: true,
                     distribution: true,
+                    ..Optimizations::from_none()
                 },
             ),
         Algorithm::Mach7 => {
@@ -373,6 +381,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     Statistics::default()
                 )
             } else {
+                let matching_context = website.get_matcher(Optimizations::from_none());
                 let selectors = matching_context.get_selectors();
                 let document_matches = match_selectors(&website.document(), &selectors);
                 (
@@ -498,9 +507,9 @@ fn collect_selectors_from_map(
 pub fn match_selectors_with_style_sharing<'document>(
     document: &'document Html,
     matching_context: &'document MatchingContext,
-    _optimizations: Optimizations,
     selector_stats: Option<&mut SmallVec<[(&'document Selector, SelectorStats); 16]>>,
 ) -> (DocumentMatches<'document>, Statistics) {
+    let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
@@ -698,7 +707,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_map,
         cascade_data,
         &mut bless_list,
-        _optimizations,
+        optimizations,
         &mut stats
     );
     (DocumentMatches(result), stats)
@@ -785,7 +794,12 @@ mod tests {
             &websites_path().join("is_conversion_test")
         )?.unwrap();
         let converted: Vec<_> =
-            convert_to_is_selectors(&website.document(), &website.get_matcher().get_selectors())
+            convert_to_is_selectors(
+                &website.document(),
+                &website
+                    .get_matcher(Optimizations::from_none())
+                    .get_selectors(),
+            )
                 .iter()
                 .map(Selector::to_css_string)
                 .collect();
@@ -832,14 +846,18 @@ mod tests {
         );
         let selectors = [".a *", ".a > *", ".missing *"].map(parse_selector);
         let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
-        let context = super::MatchingContext::new(std::iter::once(&stylesheet), lock, false);
+        let optimizations = Optimizations {
+            universal_tail_bless_lists: enabled,
+            ..Optimizations::from_none()
+        };
+        let context = super::MatchingContext::new(
+            std::iter::once(&stylesheet),
+            lock,
+            optimizations,
+        );
         let (matches, stats) = super::match_selectors_with_style_sharing(
             &document,
             &context,
-            Optimizations {
-                universal_tail_bless_lists: enabled,
-                ..Optimizations::from_none()
-            },
             None,
         );
         (
@@ -892,13 +910,16 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("is_conversion_test")
         )?.unwrap();
-        let selectors = website.get_matcher().get_selectors();
+        let selectors = website
+            .get_matcher(Optimizations::from_none())
+            .get_selectors();
         let prepared = super::prepare_selectors(
             &website.document(),
             &selectors,
             Optimizations {
                 is_conversion: true,
                 distribution: false,
+                ..Optimizations::from_none()
             },
         );
         let reverse_map: HashMap<_, Vec<_>> = prepared
