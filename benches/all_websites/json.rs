@@ -168,8 +168,15 @@ mod overall_summary {
         pub(crate) sharing_instances: usize,
         pub(crate) selector_map_hits: usize,
         pub(crate) fast_rejects: usize,
+        pub(crate) fail_cache_rejects: usize,
         pub(crate) slow_rejects: usize,
         pub(crate) slow_accepts: usize,
+        pub(crate) fail_cache_global_failures: usize,
+        pub(crate) fail_cache_descendant_restarts: usize,
+        pub(crate) fail_cache_sibling_restarts: usize,
+        pub(crate) classic_global_failures: usize,
+        pub(crate) classic_descendant_restarts: usize,
+        pub(crate) classic_sibling_restarts: usize,
         pub(crate) filled_fail_caches: Option<usize>,
         pub(crate) total_fail_caches: Option<usize>,
     }
@@ -180,8 +187,15 @@ mod overall_summary {
                 sharing_instances: value.counting_stats.sharing_instances,
                 selector_map_hits: value.counting_stats.selector_map_hits,
                 fast_rejects: value.counting_stats.fast_rejects,
+                fail_cache_rejects: value.counting_stats.fail_cache_rejects,
                 slow_rejects: value.counting_stats.slow_rejects,
                 slow_accepts: value.counting_stats.slow_accepts,
+                fail_cache_global_failures: value.counting_stats.fail_cache_global_failures,
+                fail_cache_descendant_restarts: value.counting_stats.fail_cache_descendant_restarts,
+                fail_cache_sibling_restarts: value.counting_stats.fail_cache_sibling_restarts,
+                classic_global_failures: value.counting_stats.classic_global_failures,
+                classic_descendant_restarts: value.counting_stats.classic_descendant_restarts,
+                classic_sibling_restarts: value.counting_stats.classic_sibling_restarts,
                 filled_fail_caches: value
                     .fail_cache_measurements
                     .map(|measurements| measurements.filled_caches),
@@ -211,6 +225,7 @@ mod overall_summary {
     pub(crate) struct TimingsJsonBody {
         pub(crate) updating_bloom_filter_cycles: u64,
         pub(crate) slow_rejecting_cycles: u64,
+        pub(crate) fail_cache_rejecting_cycles: u64,
         pub(crate) slow_accepting_cycles: u64,
         pub(crate) fast_rejecting_cycles: u64,
         pub(crate) checking_style_sharing_cycles: u64,
@@ -223,6 +238,7 @@ mod overall_summary {
             Self {
                 updating_bloom_filter_cycles: value.updating_bloom_filter.cycles(),
                 slow_rejecting_cycles: value.slow_rejecting.cycles(),
+                fail_cache_rejecting_cycles: value.fail_cache_rejecting.cycles(),
                 slow_accepting_cycles: value.slow_accepting.cycles(),
                 fast_rejecting_cycles: value.fast_rejecting.cycles(),
                 checking_style_sharing_cycles: value.checking_style_sharing.cycles(),
