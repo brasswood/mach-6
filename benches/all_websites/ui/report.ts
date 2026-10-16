@@ -513,10 +513,12 @@ function installCompareSelectDropdown(
   dropdown: HTMLDetailsElement,
   searchInput: HTMLInputElement,
   select: HTMLSelectElement,
-  optionsContainer: HTMLElement,
-  selectedLabel: HTMLElement,
   noMatchesMessage: HTMLElement
 ): void {
+  const optionsContainer = dropdown.querySelector<HTMLElement>(".report-dropdown-options");
+  const selectedLabel = dropdown.querySelector<HTMLElement>(".report-dropdown-selected");
+  if (!optionsContainer || !selectedLabel) return;
+
   const renderOptions = (): void => {
     const query = searchInput.value.trim().toLowerCase();
     const matches = Array.from(select.options).filter((option) => (option.textContent ?? "").toLowerCase().includes(query));
@@ -549,24 +551,6 @@ function installCompareSelectDropdown(
   searchInput.addEventListener("input", renderOptions);
   document.addEventListener("click", (event) => {
     if (event.target instanceof Node && !dropdown.contains(event.target)) dropdown.open = false;
-  });
-}
-
-function installCompareSelectSearch(
-  searchInput: HTMLInputElement,
-  select: HTMLSelectElement,
-  noMatchesMessage: HTMLElement
-): void {
-  searchInput.addEventListener("input", () => {
-    const query = searchInput.value.trim().toLowerCase();
-    let matchCount = 0;
-    for (const option of Array.from(select.options)) {
-      option.hidden = query.length > 0 && !option.textContent?.toLowerCase().includes(query);
-      if (!option.hidden) {
-        matchCount += 1;
-      }
-    }
-    noMatchesMessage.hidden = matchCount > 0;
   });
 }
 
@@ -1789,6 +1773,8 @@ async function main(): Promise<void> {
   const compareRightFileField = document.getElementById("compare-right-file-field");
   const compareLeft = document.getElementById("compare-left");
   const compareRight = document.getElementById("compare-right");
+  const compareLeftDropdown = document.getElementById("compare-left-dropdown");
+  const compareRightDropdown = document.getElementById("compare-right-dropdown");
   const compareLeftSearch = document.getElementById("compare-left-search");
   const compareRightSearch = document.getElementById("compare-right-search");
   const compareLeftNoMatches = document.getElementById("compare-left-no-matches");
@@ -1813,6 +1799,8 @@ async function main(): Promise<void> {
     || !(compareRightFileField instanceof HTMLElement)
     || !(compareLeft instanceof HTMLSelectElement)
     || !(compareRight instanceof HTMLSelectElement)
+    || !(compareLeftDropdown instanceof HTMLDetailsElement)
+    || !(compareRightDropdown instanceof HTMLDetailsElement)
     || !(compareLeftSearch instanceof HTMLInputElement)
     || !(compareRightSearch instanceof HTMLInputElement)
     || !(compareLeftNoMatches instanceof HTMLElement)
@@ -1827,9 +1815,6 @@ async function main(): Promise<void> {
     || !(sortControls instanceof HTMLElement)) {
     return;
   }
-
-  installCompareSelectSearch(compareLeftSearch, compareLeft, compareLeftNoMatches);
-  installCompareSelectSearch(compareRightSearch, compareRight, compareRightNoMatches);
 
   byTotal.addEventListener("click", () => {
     sortBy("totalCycles", byTotal, list, byTotal, bySlow);
@@ -1868,6 +1853,8 @@ async function main(): Promise<void> {
       compareStatus,
       raw.metadata
     );
+    installCompareSelectDropdown(compareLeftDropdown, compareLeftSearch, compareLeft, compareLeftNoMatches);
+    installCompareSelectDropdown(compareRightDropdown, compareRightSearch, compareRight, compareRightNoMatches);
     installCompareHandler(
       raw,
       compareRun,
