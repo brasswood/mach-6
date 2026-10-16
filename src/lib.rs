@@ -617,7 +617,6 @@ pub fn match_selectors_with_style_sharing<'document>(
                 &mut activation_context,
             );
         }
-        // The candidate loop below will consume activated rules by rightmost compound.
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Start::now();
@@ -674,11 +673,31 @@ pub fn match_selectors_with_style_sharing<'document>(
                 );
                 matching_context.set_use_fail_caches(optimizations.fail_caches);
                 // 1.3.2: Use the selector map to get matching rules
-                let mut matched_selectors = bless_list[..inherited_bless_list_len]
+                let mut matched_selectors: SmallVec<[&'a Selector; 16]> = bless_list[..inherited_bless_list_len]
                     .iter()
                     .copied()
                     .collect();
                 let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
+                for (rule, last_depth) in
+                    &universal_bless_list[..inherited_universal_bless_list_len]
+                {
+                    if *last_depth < element_depth {
+                        continue;
+                    }
+                    stats.counts.bless_list_hits += 1;
+                    let (matched, rule_stats) = matching::matches_rightmost_compound(
+                        rule.selector(),
+                        &element,
+                        &mut matching_context,
+                    );
+                    if let Some(selector_stats) = sel_stats.as_mut() {
+                        selector_stats.push((rule.selector(), SelectorStats::Bloom(rule_stats)));
+                    }
+                    *stats += rule_stats;
+                    if matched {
+                        matched_selectors.push(rule.selector());
+                    }
+                }
                 *stats += selector_map.get_all_matching_rules_with_universal_tails(
                     element,
                     element, // TODO: ????
@@ -689,7 +708,9 @@ pub fn match_selectors_with_style_sharing<'document>(
                     CascadeLevel::same_tree_author_normal(),
                     cascade_data,
                     context.shared.stylist,
-                    optimizations.universal_tail_bless_lists,
+                    optimizations.universal_tail_bless_lists
+                        || optimizations.universal_bucket_bless_lists,
+                    optimizations.universal_bucket_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
                 // 1.3.3: add the matched selectors to the list
@@ -703,7 +724,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                if inherited_bless_list_len == 0 {
+                if inherited_bless_list_len == 0 && active_universal_bless_list_len == 0 {
                     let start = Start::now();
                     context.thread_local.sharing_cache.insert_if_possible(
                         &element ,
