@@ -1042,6 +1042,18 @@ mod tests {
             assert_eq!(originals.len(), 1);
             assert_eq!(originals[0].to_css_string(), "div:is(.left, .right)");
         }
+
+        let complex = parse_selector(":is(:is(.select-field[data-astro-cid-vetxfr23]) .option).selected");
+        let complex_selectors = vec![complex.clone()];
+        let prepared = super::prepare_selectors(
+            &document,
+            &complex_selectors,
+            Optimizations {
+                distribution: true,
+                ..Optimizations::from_none()
+            },
+        );
+        assert_eq!(prepared.selectors, vec![complex]);
     }
 
     #[test]

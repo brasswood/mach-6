@@ -104,8 +104,14 @@ impl<'selector> Iterator for DistributedSelectors<'selector> {
 impl<'selector> DistributedSelectors<'selector> {
     pub fn from_selector(selector: &'selector Selector) -> Self {
         let components = selector.iter_raw_parse_order_from(0);
+        let has_complex_is = components.clone().any(|component| {
+            let Component::Is(selectors) = component else { return false; };
+            selectors.slice().iter().any(|selector| {
+                selector.iter_raw_match_order().any(Component::is_combinator)
+            })
+        });
         let has_ambiguous_type = Self::has_ambiguous_type(selector);
-        let stack = if has_ambiguous_type || components.clone().all(|component| !matches!(component, Component::Is(_))) {
+        let stack = if has_complex_is || has_ambiguous_type || components.clone().all(|component| !matches!(component, Component::Is(_))) {
             // Common/fast case: no :is() components, no distributing. Just clone this selector.
             StackOrNoOp::NoOp(std::iter::once(selector.clone()))
         } else {
