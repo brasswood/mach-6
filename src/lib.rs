@@ -510,14 +510,14 @@ fn collect_selectors_from_map(
     }
 }
 
-pub fn match_selectors_with_style_sharing<'document>(
-    document: &'document Html,
-    matching_context: &'document MatchingContext,
+pub fn match_selectors_with_style_sharing(
+    document: Html,
+    matching_context: MatchingContext,
     get_selector_stats: bool,
 ) -> (
-    DocumentMatches<'document>,
+    OwnedDocumentMatches,
     Statistics,
-    Option<SmallVec<[(&'document Selector, SelectorStats); 16]>>,
+    Option<SmallVec<[(Selector, SelectorStats); 16]>>,
 ) {
     let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
@@ -752,7 +752,7 @@ pub fn match_selectors_with_style_sharing<'document>(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    let mut selector_stats: Option<SmallVec<[(&'document Selector, SelectorStats); 16]>> =
+    let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
         get_selector_stats.then(SmallVec::new);
     let mut bless_list = SmallVec::new();
     let mut universal_bless_list = SmallVec::new();
@@ -770,7 +770,20 @@ pub fn match_selectors_with_style_sharing<'document>(
         optimizations,
         &mut stats
     );
-    (DocumentMatches(result), stats, selector_stats)
+    let matches = DocumentMatches(result);
+    let selector_stats = selector_stats.map(|stats| {
+        stats.into_iter()
+            .map(|(selector, stats)| (selector.clone(), stats))
+            .collect()
+    });
+    let owned_matches = OwnedDocumentMatches::from(&matches);
+    drop(matches);
+    drop(bless_list);
+    drop(style_context);
+    drop(shared_style_context);
+    drop(ua_or_user_guard);
+    drop(author_guard);
+    (owned_matches, stats, selector_stats)
 }
 
 pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
