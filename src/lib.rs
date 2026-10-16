@@ -311,19 +311,6 @@ fn element_to_string(el: ElementRef<'_>) -> String {
     out
 } // thanks, ChatGPT
 
-fn assert_childrens_parent_is_me(parent: &ElementRef) {
-    // assert that all of my children's parent is me
-    for child in parent.child_elements() {
-        if child.traversal_parent().unwrap() != *parent {
-            let mut msg = String::new();
-            writeln!(&mut msg, "me: {:?}", parent).unwrap();
-            writeln!(&mut msg, "my child: {:?}", child).unwrap();
-            writeln!(&mut msg, "my child's traversal_parent: {:?}", child.traversal_parent().unwrap()).unwrap();
-            panic!("child's traversal_parent was not equal to me!\n{msg}");
-        }
-    }
-}
-
 pub fn do_all_websites(websites: &Path, algorithm: Algorithm) -> Result<impl Iterator<Item = Result<(String, SetDocumentMatches, Statistics)>>> {
     Ok(get_all_documents_and_selectors(websites)?
         .map(move |r| {
