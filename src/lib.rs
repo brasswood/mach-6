@@ -307,9 +307,10 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
     let (matches, stats) = match algorithm {
         Algorithm::Naive => {
             let matching_context = website.get_matcher(Optimizations::from_none());
+            let document = website.fresh_document();
             (
                 OwnedDocumentMatches::from(&match_selectors(
-                    &website.document(),
+                    &document,
                     &matching_context.get_selectors(),
                 )),
                 Statistics::default(),
@@ -317,13 +318,14 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         },
         Algorithm::WithStyleSharing => {
             let matching_context = website.get_matcher(Optimizations::from_none());
+            let document = website.fresh_document();
             let (matches, stats, _) =
                 match_selectors_with_style_sharing(
-                    &website.document(),
-                    &matching_context,
+                    document,
+                    matching_context,
                     false,
                 );
-            (OwnedDocumentMatches::from(&matches), stats)
+            (matches, stats)
         },
         Algorithm::WithBlessList => {
             let optimizations = Optimizations {
@@ -331,13 +333,14 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 ..Optimizations::from_none()
             };
             let matching_context = website.get_matcher(optimizations);
+            let document = website.fresh_document();
             let (matches, stats, _) =
                 match_selectors_with_style_sharing(
-                    &website.document(),
-                    &matching_context,
+                    document,
+                    matching_context,
                     false,
                 );
-            (OwnedDocumentMatches::from(&matches), stats)
+            (matches, stats)
         },
         Algorithm::WithUniversalBucketBlessList => {
             let optimizations = Optimizations {
@@ -345,13 +348,14 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 ..Optimizations::from_none()
             };
             let matching_context = website.get_matcher(optimizations);
+            let document = website.fresh_document();
             let (matches, stats, _) =
                 match_selectors_with_style_sharing(
-                    &website.document(),
-                    &matching_context,
+                    document,
+                    matching_context,
                     false,
                 );
-            (OwnedDocumentMatches::from(&matches), stats)
+            (matches, stats)
         },
         Algorithm::WithIsConversion =>
             do_website_with_configured_optimizations(
@@ -380,7 +384,8 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             } else {
                 let matching_context = website.get_matcher(Optimizations::from_none());
                 let selectors = matching_context.get_selectors();
-                let document_matches = match_selectors(&website.document(), &selectors);
+                let document = website.fresh_document();
+                let document_matches = match_selectors(&document, &selectors);
                 (
                     OwnedDocumentMatches::from(&mach_7(&document_matches)),
                     Statistics::default()
@@ -923,12 +928,12 @@ mod tests {
             optimizations,
         );
         let (matches, stats, _) = super::match_selectors_with_style_sharing(
-            &document,
-            &context,
+            document,
+            context,
             false,
         );
         (
-            SetDocumentMatches::from(crate::structs::owned::OwnedDocumentMatches::from(&matches)),
+            SetDocumentMatches::from(matches),
             stats,
         )
     }
