@@ -243,6 +243,14 @@ mod tests {
         .0 == KleeneValue::True
     }
 
+    fn cached_result(html: &Html, element_id: &str, prefix_length: u16) -> Option<FailCacheResult> {
+        let selector = Selector::parse(&format!("#{element_id}")).unwrap();
+        html.select(&selector)
+            .next()
+            .unwrap()
+            .fail_cache_result(matching::FIRST_SIBLING_FAIL_CACHE_PREFIX_ID + prefix_length)
+    }
+
     #[test]
     fn test_has_id() {
         let html = "<p id='link_id_456'>hey there</p>";
