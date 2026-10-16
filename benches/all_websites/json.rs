@@ -298,6 +298,22 @@ mod selector_summary {
         pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
     }
 
+    impl From<&[SelectorRejectSamples]> for FailCacheSelectorStatsJson {
+        fn from(value: &[SelectorRejectSamples]) -> Self {
+            Self {
+                means_cycles: value.iter().map(|row| (row.selector.clone(), row.aggregate_durations.mean().cycles())).collect(),
+                stddevs_cycles: value.iter().map(|row| (row.selector.clone(), row.aggregate_durations.stddev().cycles())).collect(),
+                fail_cache_reject_counts: value.iter().map(|row| (row.selector.clone(), row.reject_count)).collect(),
+                fail_cache_global_failures: result_counts(value, |counts| counts.fail_cache_global_failures),
+                fail_cache_descendant_restarts: result_counts(value, |counts| counts.fail_cache_descendant_restarts),
+                fail_cache_sibling_restarts: result_counts(value, |counts| counts.fail_cache_sibling_restarts),
+                classic_global_failures: result_counts(value, |counts| counts.classic_global_failures),
+                classic_descendant_restarts: result_counts(value, |counts| counts.classic_descendant_restarts),
+                classic_sibling_restarts: result_counts(value, |counts| counts.classic_sibling_restarts),
+            }
+        }
+    }
+
     impl From<&[SelectorRejectSamples]> for SelectorStatsJson {
         fn from(value: &[SelectorRejectSamples]) -> Self {
             Self {
