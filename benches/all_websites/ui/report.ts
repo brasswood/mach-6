@@ -1038,10 +1038,14 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
 }
 
 function buildAggregateSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
-  return {
+  const summary: SelectorsSummaryJson = {
     before_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.before_preprocessing)),
     after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
   };
+  if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
+    summary.with_bless_list = aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.with_bless_list!));
+  }
+  return summary;
 }
 
 function emptySelectorStats(): SelectorStatsJson {
@@ -1055,27 +1059,33 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
   const preprocessingBreakdowns = websites.map((website) => {
     return getPreprocessingBreakdown(website.summary.preprocessing);
   });
+  const summary: SummaryJson = {
+    before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
+    preprocessing: {
+      mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
+        return sum + breakdown.indexingCycles;
+      }, 0n)),
+      mean_is_conversion_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
+        return sum + breakdown.indexingCycles + breakdown.otherPreprocessingCycles;
+      }, 0n)),
+      mean_distributing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
+        return sum + breakdown.distributionCycles;
+      }, 0n))
+    },
+    after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
+  };
+  const selectorSummary: SelectorsSummaryJson = {
+    before_preprocessing: emptySelectorStats(),
+    after_preprocessing: emptySelectorStats()
+  };
+  if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
+    summary.with_bless_list = aggregateBenchmarkRunSummary(websites.map((website) => website.summary.with_bless_list!));
+    selectorSummary.with_bless_list = emptySelectorStats();
+  }
   return {
     website: "All Websites (" + websites.length.toString() + ")",
-    summary: {
-      before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
-      preprocessing: {
-        mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
-          return sum + breakdown.indexingCycles;
-        }, 0n)),
-        mean_is_conversion_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
-          return sum + breakdown.indexingCycles + breakdown.otherPreprocessingCycles;
-        }, 0n)),
-        mean_distributing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
-          return sum + breakdown.distributionCycles;
-        }, 0n))
-      },
-      after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
-    },
-    selector_slow_rejects_summary: {
-      before_preprocessing: emptySelectorStats(),
-      after_preprocessing: emptySelectorStats()
-    }
+    summary,
+    selector_slow_rejects_summary: selectorSummary
   };
 }
 
