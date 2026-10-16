@@ -134,7 +134,8 @@
     .compare-field[hidden] {
       display: none;
     }
-    .compare-field label {
+    .compare-field label,
+    .compare-field-label {
       font-size: 12px;
       font-weight: 700;
       color: var(--muted);
@@ -151,6 +152,32 @@
       color: var(--fg);
       font: inherit;
       font-size: 14px;
+    }
+    .report-dropdown {
+      position: relative;
+    }
+    .report-dropdown[open] {
+      z-index: 2;
+    }
+    .report-dropdown-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      list-style: none;
+      cursor: pointer;
+    }
+    .report-dropdown-trigger::-webkit-details-marker {
+      display: none;
+    }
+    .report-dropdown-selected {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .report-dropdown-caret {
+      flex: none;
+      color: var(--muted);
     }
     .compare-hint {
       margin: 0;
