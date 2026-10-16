@@ -285,6 +285,19 @@ mod selector_summary {
         pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
     }
 
+    #[derive(Clone, Serialize, Deserialize)]
+    pub(crate) struct FailCacheSelectorStatsJson {
+        pub(crate) means_cycles: HashMap<SelectorString, u64>,
+        pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
+        pub(crate) fail_cache_reject_counts: HashMap<SelectorString, usize>,
+        pub(crate) fail_cache_global_failures: HashMap<SelectorString, usize>,
+        pub(crate) fail_cache_descendant_restarts: HashMap<SelectorString, usize>,
+        pub(crate) fail_cache_sibling_restarts: HashMap<SelectorString, usize>,
+        pub(crate) classic_global_failures: HashMap<SelectorString, usize>,
+        pub(crate) classic_descendant_restarts: HashMap<SelectorString, usize>,
+        pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
+    }
+
     impl From<&[SelectorRejectSamples]> for SelectorStatsJson {
         fn from(value: &[SelectorRejectSamples]) -> Self {
             Self {
