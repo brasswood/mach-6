@@ -218,6 +218,16 @@
       text-align: left;
       cursor: pointer;
     }
+    .report-dropdown-option.is-loaded {
+      background: var(--bar-bg);
+      font-weight: 600;
+    }
+    .report-dropdown-option.is-loaded::after {
+      content: "✓";
+      float: right;
+      margin-left: 10px;
+      color: var(--bar);
+    }
     .report-dropdown-option:hover,
     .report-dropdown-option:focus-visible {
       background: #e7f2ef;
