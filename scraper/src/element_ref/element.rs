@@ -209,6 +209,40 @@ mod tests {
         }
     }
 
+    fn matches_with_fail_caches(html: &Html, selector_text: &str, target_id: &str) -> bool {
+        let url_data = UrlExtraData::from(url::Url::parse("about:blank").unwrap());
+        let selector = SelectorParser::parse_author_origin_no_namespace(selector_text, &url_data)
+            .unwrap()
+            .slice()[0]
+            .clone();
+        let prefixes = FailCachePrefixIds::new(
+            selector.clone(),
+            vec![8, 6, 4, 2].into_boxed_slice(),
+            Arc::new(PrefixIdGenerator),
+        );
+        let target_selector = Selector::parse(&format!("#{target_id}")).unwrap();
+        let target = html.select(&target_selector).next().unwrap();
+        let mut caches = matching::SelectorCaches::default();
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            None,
+            &mut caches,
+            matching::QuirksMode::NoQuirks,
+            matching::NeedsSelectorFlags::No,
+            matching::MatchingForInvalidation::No,
+        );
+        context.set_use_fail_caches(true);
+        matching::matches_selector_kleene(
+            &selector,
+            0,
+            None,
+            Some(&prefixes),
+            &target,
+            &mut context,
+        )
+        .0 == KleeneValue::True
+    }
+
     #[test]
     fn test_has_id() {
         let html = "<p id='link_id_456'>hey there</p>";
