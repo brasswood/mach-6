@@ -79,3 +79,28 @@ fn other_universal_bucket_selectors_use_the_parent_activator() {
     assert_eq!(after_stats.counts.slow_rejects, 0);
     assert_eq!(after_stats.counts.bless_list_hits, 0);
 }
+
+#[test]
+fn universal_bless_lists_persist_through_descendants() {
+    let html = "<div class='a'><div class='b'><div class='c'><div class='d'></div></div><div class='e'><div class='f'></div></div></div></div>";
+    let selectors = [
+        ".a *",
+        ".a .b :not(.d)",
+        ".a .b .c :has(.d)",
+        ".a .b .e :nth-child(even)",
+    ];
+    let (before, before_stats) = run(html, &selectors, false);
+    let (after, after_stats) = run(html, &selectors, true);
+    assert_eq!(before, after);
+    assert_eq!(before_stats.counts.selector_map_hits, 28);
+    assert_eq!(
+        before_stats.counts.slow_rejects + before_stats.counts.fast_rejects,
+        20
+    );
+    assert_eq!(after_stats.counts.selector_map_hits, 4);
+    assert_eq!(after_stats.counts.bless_list_hits, 11);
+    assert_eq!(
+        after_stats.counts.slow_rejects + after_stats.counts.fast_rejects,
+        3
+    );
+}
