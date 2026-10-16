@@ -92,6 +92,33 @@ fn into_sorted_selector_reject_samples(
     samples
 }
 
+fn selector_reject_samples(
+    rows: &[SmallVec<[(&Selector, SelectorStats); 16]>],
+    fail_cache_rejects: bool,
+) -> Vec<SelectorRejectSamples> {
+    let mut measurements = HashMap::new();
+    for (sample_index, row) in rows.iter().enumerate() {
+        for (selector, stats) in row {
+            let (duration, count, outcomes) = match *stats {
+                SelectorStats::Bloom(stats) => {
+                    let duration = if fail_cache_rejects { stats.time_fail_cache_rejecting } else { stats.time_slow_rejecting };
+                    (duration.unwrap_or_default(), usize::from(duration.is_some()), if duration.is_some() { stats.not_matched_result_counts } else { NotMatchedResultCounts::default() })
+                }
+                SelectorStats::ScopeProximity(stats) => if fail_cache_rejects {
+                    (stats.time_fail_cache_rejecting, stats.fail_cache_rejects, stats.fail_cache_reject_not_matched_result_counts)
+                } else {
+                    (stats.time_slow_rejecting, stats.slow_rejects, stats.slow_reject_not_matched_result_counts)
+                },
+            };
+            measurements
+                .entry(SelectorString::from(*selector))
+                .or_default()
+                .add_sample(sample_index, duration, count, outcomes);
+        }
+    }
+    into_sorted_selector_reject_samples(measurements)
+}
+
 /// Aggregated data for one matching variant in the website report.
 ///
 /// A "variant" here means one of the two selector-matching configurations we
