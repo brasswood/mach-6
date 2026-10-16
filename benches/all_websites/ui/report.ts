@@ -461,6 +461,24 @@ function populateCompareSelect(
   }
 }
 
+function installCompareSelectSearch(
+  searchInput: HTMLInputElement,
+  select: HTMLSelectElement,
+  noMatchesMessage: HTMLElement
+): void {
+  searchInput.addEventListener("input", () => {
+    const query = searchInput.value.trim().toLowerCase();
+    let matchCount = 0;
+    for (const option of Array.from(select.options)) {
+      option.hidden = query.length > 0 && !option.textContent?.toLowerCase().includes(query);
+      if (!option.hidden) {
+        matchCount += 1;
+      }
+    }
+    noMatchesMessage.hidden = matchCount > 0;
+  });
+}
+
 function setCompareModeVisibility(
   reportSource: ReportSource,
   leftSelectField: HTMLElement,
@@ -1571,6 +1589,10 @@ async function main(): Promise<void> {
   const compareRightFileField = document.getElementById("compare-right-file-field");
   const compareLeft = document.getElementById("compare-left");
   const compareRight = document.getElementById("compare-right");
+  const compareLeftSearch = document.getElementById("compare-left-search");
+  const compareRightSearch = document.getElementById("compare-right-search");
+  const compareLeftNoMatches = document.getElementById("compare-left-no-matches");
+  const compareRightNoMatches = document.getElementById("compare-right-no-matches");
   const compareLeftFile = document.getElementById("compare-left-file");
   const compareRightFile = document.getElementById("compare-right-file");
   const compareStatus = document.getElementById("compare-status");
@@ -1591,6 +1613,10 @@ async function main(): Promise<void> {
     || !(compareRightFileField instanceof HTMLElement)
     || !(compareLeft instanceof HTMLSelectElement)
     || !(compareRight instanceof HTMLSelectElement)
+    || !(compareLeftSearch instanceof HTMLInputElement)
+    || !(compareRightSearch instanceof HTMLInputElement)
+    || !(compareLeftNoMatches instanceof HTMLElement)
+    || !(compareRightNoMatches instanceof HTMLElement)
     || !(compareLeftFile instanceof HTMLInputElement)
     || !(compareRightFile instanceof HTMLInputElement)
     || !(compareStatus instanceof HTMLElement)
@@ -1601,6 +1627,9 @@ async function main(): Promise<void> {
     || !(sortControls instanceof HTMLElement)) {
     return;
   }
+
+  installCompareSelectSearch(compareLeftSearch, compareLeft, compareLeftNoMatches);
+  installCompareSelectSearch(compareRightSearch, compareRight, compareRightNoMatches);
 
   byTotal.addEventListener("click", () => {
     sortBy("totalCycles", byTotal, list, byTotal, bySlow);
