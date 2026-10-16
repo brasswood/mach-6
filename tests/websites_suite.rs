@@ -94,6 +94,7 @@ fn all_algorithms_correct() -> Result<()> {
         Algorithm::WithStyleSharing,
         Algorithm::WithFailCaches,
         Algorithm::WithBlessList,
+        Algorithm::WithUniversalBucketBlessList,
         Algorithm::WithIsConversion,
         Algorithm::WithDistribution,
         Algorithm::Mach7,
@@ -183,6 +184,7 @@ fn statistics_dont_change() -> Result<()> {
                 Algorithm::WithStyleSharing,
                 Algorithm::WithFailCaches,
                 Algorithm::WithBlessList,
+                Algorithm::WithUniversalBucketBlessList,
                 Algorithm::WithIsConversion,
                 Algorithm::WithDistribution,
                 /* Algorithm::Mach7 just produces default statistics*/
