@@ -185,13 +185,16 @@
       left: 0;
       right: 0;
       z-index: 3;
-      display: grid;
+      display: none;
       gap: 6px;
       padding: 8px;
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 6px;
       box-shadow: 0 8px 24px rgba(29, 35, 43, 0.15);
+    }
+    .report-dropdown[open] .report-dropdown-menu {
+      display: grid;
     }
     .report-dropdown-search {
       box-sizing: border-box;
