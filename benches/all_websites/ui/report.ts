@@ -479,6 +479,7 @@ function installCompareSelectDropdown(
       const button = document.createElement("button");
       button.type = "button";
       button.className = "report-dropdown-option";
+      button.classList.toggle("is-loaded", option.dataset.loaded === "true");
       button.textContent = option.textContent ?? option.value;
       button.addEventListener("click", () => {
         select.value = option.value;
@@ -492,6 +493,7 @@ function installCompareSelectDropdown(
     }
     noMatchesMessage.hidden = matches.length > 0;
   };
+  select.addEventListener("change", renderOptions);
   selectedLabel.textContent = select.selectedOptions[0]?.textContent ?? "Select a report";
   renderOptions();
   dropdown.addEventListener("toggle", () => {
@@ -701,6 +703,12 @@ function installCompareHandler(
   };
 
   const currentLabel = buildCurrentReportLabel(currentReport.metadata);
+  const markLoadedSelection = (select: HTMLSelectElement): void => {
+    for (const option of select.options) {
+      option.dataset.loaded = option.selected ? "true" : "false";
+    }
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  };
 
   const loadSelectedReport = async (side: CompareSide): Promise<LoadedReport> => {
     if (reportSource === "nightly") {
@@ -744,6 +752,8 @@ function installCompareHandler(
         + formatWebsiteCount(rightLoadedReport.report.websites.length) + " on the right.",
       false
     );
+    markLoadedSelection(leftSelect);
+    markLoadedSelection(rightSelect);
   };
 
   const renderOneSided = async (side: "left" | "right"): Promise<void> => {
@@ -760,6 +770,7 @@ function installCompareHandler(
         + formatWebsiteCount(loadedReport.report.websites.length) + ".",
       false
     );
+    markLoadedSelection(side === "left" ? leftSelect : rightSelect);
   };
 
   const installAction = (
