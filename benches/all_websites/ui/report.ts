@@ -103,6 +103,7 @@ interface FailCacheElementJson {
 interface FailCachePrefixJson {
   prefix_index: number;
   prefix_occurrences: number;
+  slow_rejecting_prefix_occurrences: number;
   hashings: number;
   internments: number;
   insertions: number;
@@ -1498,6 +1499,7 @@ function isFailCachePrefixJson(value: unknown): value is FailCachePrefixJson {
   return record !== null
     && isFiniteNumber(record.prefix_index)
     && isFiniteNumber(record.prefix_occurrences)
+    && isFiniteNumber(record.slow_rejecting_prefix_occurrences)
     && isFiniteNumber(record.hashings)
     && isFiniteNumber(record.internments)
     && isFiniteNumber(record.insertions);
