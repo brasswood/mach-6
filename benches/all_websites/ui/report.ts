@@ -1472,7 +1472,35 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     && isFiniteNumber(record.slow_rejects)
     && isFiniteNumber(record.slow_accepts)
     && isNullableFiniteNumber(record.filled_fail_caches)
-    && isNullableFiniteNumber(record.total_fail_caches);
+    && isNullableFiniteNumber(record.total_fail_caches)
+    && (record.fail_cache_instrumentation === undefined || isFailCacheInstrumentationJson(record.fail_cache_instrumentation));
+}
+
+function isFailCacheInstrumentationJson(value: unknown): value is FailCacheInstrumentationJson {
+  const record = getRecord(value);
+  return record !== null
+    && Array.isArray(record.caches)
+    && record.caches.every(isFailCacheElementJson)
+    && Array.isArray(record.prefixes)
+    && record.prefixes.every(isFailCachePrefixJson);
+}
+
+function isFailCacheElementJson(value: unknown): value is FailCacheElementJson {
+  const record = getRecord(value);
+  return record !== null
+    && isFiniteNumber(record.element_index)
+    && isFiniteNumber(record.insertions)
+    && isFiniteNumber(record.final_size);
+}
+
+function isFailCachePrefixJson(value: unknown): value is FailCachePrefixJson {
+  const record = getRecord(value);
+  return record !== null
+    && isFiniteNumber(record.prefix_index)
+    && isFiniteNumber(record.prefix_occurrences)
+    && isFiniteNumber(record.hashings)
+    && isFiniteNumber(record.internments)
+    && isFiniteNumber(record.insertions);
 }
 
 function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
@@ -1523,7 +1551,10 @@ function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
     return false;
   }
   return Object.values(means).every(isFiniteNumber)
-    && Object.values(stddevs).every(isFiniteNumber);
+    && Object.values(stddevs).every(isFiniteNumber)
+    && (record.slow_reject_counts === undefined
+      || (getRecord(record.slow_reject_counts) !== null
+        && Object.values(getRecord(record.slow_reject_counts)!).every(isFiniteNumber)));
 }
 
 function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
