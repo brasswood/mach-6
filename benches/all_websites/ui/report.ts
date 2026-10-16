@@ -80,6 +80,7 @@ interface BenchmarkRunSummaryJson {
 interface CountingStatsJson {
   sharing_instances: number;
   selector_map_hits: number;
+  bless_list_hits?: number | undefined;
   fast_rejects: number;
   fail_cache_rejects?: number;
   slow_rejects: number;
@@ -951,6 +952,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
     counts: {
       sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
+      bless_list_hits: sumNumbers(summaries.map((summary) => summary.counts.bless_list_hits ?? 0)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
       fail_cache_rejects: sumNumbers(summaries.map((summary) => summary.counts.fail_cache_rejects ?? 0)),
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
@@ -1133,6 +1135,7 @@ function renderVariantDetails(bar: BarView): string {
     '<table><tbody>',
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
+    '<tr><th>Bless List Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.bless_list_hits ?? 0)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Fail Cache Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fail_cache_rejects ?? 0)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
@@ -1446,6 +1449,7 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
   }
   return isFiniteNumber(record.sharing_instances)
     && isFiniteNumber(record.selector_map_hits)
+    && (record.bless_list_hits === undefined || isFiniteNumber(record.bless_list_hits))
     && isFiniteNumber(record.fast_rejects)
     && (record.fail_cache_rejects === undefined || isFiniteNumber(record.fail_cache_rejects))
     && isFiniteNumber(record.slow_rejects)

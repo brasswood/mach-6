@@ -167,6 +167,8 @@ mod overall_summary {
     pub(crate) struct CountingStatsJson {
         pub(crate) sharing_instances: usize,
         pub(crate) selector_map_hits: usize,
+        #[serde(default)]
+        pub(crate) bless_list_hits: usize,
         pub(crate) fast_rejects: usize,
         pub(crate) fail_cache_rejects: usize,
         pub(crate) slow_rejects: usize,
@@ -180,6 +182,7 @@ mod overall_summary {
             Self {
                 sharing_instances: value.counting_stats.sharing_instances,
                 selector_map_hits: value.counting_stats.selector_map_hits,
+                bless_list_hits: value.counting_stats.bless_list_hits,
                 fast_rejects: value.counting_stats.fast_rejects,
                 fail_cache_rejects: value.counting_stats.fail_cache_rejects,
                 slow_rejects: value.counting_stats.slow_rejects,
