@@ -160,3 +160,22 @@ fn universal_bless_lists_scale_to_many_selectors() {
         .join()
         .unwrap();
 }
+
+#[test]
+fn universal_bucket_bless_lists_follow_selector_map_bucket_classification() {
+    let html =
+        "<div class='a'><div class='b'></div><div class='c'></div><div class='d'></div></div>";
+    let (before, before_stats) = run(html, &[".a :is(.b, .c)"], false);
+    let (after, after_stats) = run(html, &[".a :is(.b, .c)"], true);
+    assert_eq!(before, after);
+    assert_eq!(before_stats.counts.selector_map_hits, 2);
+    assert_eq!(after_stats.counts.selector_map_hits, 2);
+    assert_eq!(after_stats.counts.bless_list_hits, 0);
+
+    let (before, before_stats) = run(html, &[".a :is(*, .b)"], false);
+    let (after, after_stats) = run(html, &[".a :is(*, .b)"], true);
+    assert_eq!(before, after);
+    assert_eq!(before_stats.counts.selector_map_hits, 5);
+    assert_eq!(after_stats.counts.selector_map_hits, 1);
+    assert_eq!(after_stats.counts.bless_list_hits, 3);
+}
