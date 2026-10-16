@@ -238,6 +238,31 @@ fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
 }
 
 #[test]
+fn fail_cache_rejects_exhausted_descendant_branches() {
+    let directory = tempfile::tempdir().unwrap();
+    let fixture = r#"<style>
+[data-present] .d { color: green }
+</style>
+<div><i class="d"></i><b class="d"></b></div>
+<section data-present><div><i class="d"></i></div></section>"#;
+    std::fs::write(directory.path().join("fixture.html"), fixture).unwrap();
+    let website = get_document_and_selectors(directory.path())
+        .unwrap()
+        .expect("fixture should parse");
+
+    let baseline = mach_6::do_website(&website, Algorithm::Naive, None).1;
+    let (_, with_fail_caches, stats) =
+        mach_6::do_website(&website, Algorithm::WithFailCaches, None);
+    let baseline = SerDocumentMatches::from(&baseline);
+    assert!(stats.counts.fail_cache_rejects > 0, "{stats:?}");
+    assert!(baseline.0.values().any(|element| {
+        element.html.contains("class=\"d\"")
+            && element.selectors.contains("[data-present] .d")
+    }));
+    assert_eq!(baseline, SerDocumentMatches::from(&with_fail_caches));
+}
+
+#[test]
 fn fail_cache_hits_preserve_sibling_and_ancestor_backtracking() {
     let directory = tempfile::tempdir().unwrap();
     let repeated_selector = vec![".a + .b ~ .c .d"; 64].join(", ");
