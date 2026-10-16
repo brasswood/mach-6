@@ -249,6 +249,7 @@ impl MatchingContext {
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
+            false,
         );
         for sheet in stylesheets {
             stylist.append_stylesheet(sheet.clone(), &stylesheet_lock.read());
@@ -748,7 +749,7 @@ pub fn match_selectors_with_style_sharing(
     };
     let mut style_context = StyleContext {
         shared: &shared_style_context,
-        thread_local: &mut ThreadLocalStyleContext::new(),
+        thread_local: &mut ThreadLocalStyleContext::new(false),
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
