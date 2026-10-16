@@ -503,6 +503,21 @@ pub fn match_selectors_with_style_sharing<'document>(
         let start = tsc_timer::Start::now();
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
         stats.times.updating_bloom_filter += start.elapsed();
+        if optimizations.universal_tail_bless_lists {
+            let mut activation_context = matching::MatchingContext::new(
+                matching::MatchingMode::Normal,
+                Some(context.thread_local.bloom_filter.filter()),
+                &mut context.thread_local.selector_caches,
+                matching::QuirksMode::NoQuirks,
+                matching::NeedsSelectorFlags::No,
+                matching::MatchingForInvalidation::No,
+            );
+            *stats += cascade_data.universal_tail_rules().get_matching_universal_tails(
+                element,
+                bless_list,
+                &mut activation_context,
+            );
+        }
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Start::now();
@@ -571,7 +586,7 @@ pub fn match_selectors_with_style_sharing<'document>(
                     CascadeLevel::same_tree_author_normal(),
                     cascade_data,
                     context.shared.stylist,
-                    false,
+                    optimizations.universal_tail_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
                 // 1.3.3: add the matched selectors to the list
