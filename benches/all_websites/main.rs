@@ -151,29 +151,58 @@ impl MatchBenchResult {
         let mut fail_cache_rejects: HashMap<SelectorString, SelectorRejectMeasurements> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
-                let (slow_reject_duration, slow_reject_count, fail_cache_reject_duration, fail_cache_reject_count) = match selector_stats {
+                let (
+                    slow_reject_duration,
+                    slow_reject_count,
+                    slow_reject_result_counts,
+                    fail_cache_reject_duration,
+                    fail_cache_reject_count,
+                    fail_cache_reject_result_counts,
+                ) = match selector_stats {
                     SelectorStats::Bloom(bq) => (
                         bq.time_slow_rejecting.unwrap_or_default(),
                         usize::from(bq.time_slow_rejecting.is_some()),
+                        if bq.time_slow_rejecting.is_some() {
+                            bq.not_matched_result_counts
+                        } else {
+                            NotMatchedResultCounts::default()
+                        },
                         bq.time_fail_cache_rejecting.unwrap_or_default(),
                         usize::from(bq.time_fail_cache_rejecting.is_some()),
+                        if bq.time_fail_cache_rejecting.is_some() {
+                            bq.not_matched_result_counts
+                        } else {
+                            NotMatchedResultCounts::default()
+                        },
                     ),
                     SelectorStats::ScopeProximity(sp) => (
                         sp.time_slow_rejecting,
                         sp.slow_rejects,
+                        sp.slow_reject_not_matched_result_counts,
                         sp.time_fail_cache_rejecting,
                         sp.fail_cache_rejects,
+                        sp.fail_cache_reject_not_matched_result_counts,
                     ),
                 };
                 let selector = SelectorString::from(&selector);
                 slow_rejects
                     .entry(selector.clone())
                     .or_default()
-                    .add_sample(i, slow_reject_duration, slow_reject_count);
+                    .add_sample(
+                        i,
+                        slow_reject_duration,
+                        slow_reject_count,
+                        slow_reject_result_counts,
+                    );
                 fail_cache_rejects
                     .entry(selector)
                     .or_default()
-                    .add_sample(i, fail_cache_reject_duration, fail_cache_reject_count);
+                    .add_sample(
+                        i,
+                        fail_cache_reject_duration,
+                        fail_cache_reject_count,
+                        fail_cache_reject_result_counts,
+                    );
             }
         }
 
