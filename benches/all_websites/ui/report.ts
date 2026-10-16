@@ -45,6 +45,7 @@ interface WebsiteJson {
   website: string;
   summary: SummaryJson;
   selector_slow_rejects_summary: SelectorsSummaryJson;
+  selector_fail_cache_summary?: SelectorsSummaryJson;
 }
 
 interface SummaryJson {
@@ -166,6 +167,7 @@ interface BarView {
   slowRejectCycles: bigint;
   counts: CountingStatsJson;
   selectorsSummary: SelectorStatsSource;
+  selectorFailCacheSummary: SelectorStatsSource;
   showExpandedDetails: boolean;
 }
 
@@ -886,6 +888,7 @@ function buildBar(
   label: string,
   summary: BenchmarkRunSummaryJson,
   selectorsSummary: SelectorStatsSource,
+  selectorFailCacheSummary: SelectorStatsSource,
   includeFailCachePreprocessing: FailCachePreprocessingSummaryJson | null,
   includePreprocessing: PreprocessingSummaryJson | null,
   showExpandedDetails = true
@@ -947,13 +950,15 @@ function buildBar(
     slowRejectCycles: slowRejectSegment.meanCycles,
     counts: summary.counts,
     selectorsSummary,
+    selectorFailCacheSummary,
     showExpandedDetails
   };
 }
 
 function buildWebsiteBars(
   website: WebsiteJson,
-  getAggregateSelectors: (() => SelectorsSummaryJson) | null = null
+  getAggregateSelectors: (() => SelectorsSummaryJson) | null = null,
+  getAggregateFailCacheSelectors: (() => SelectorsSummaryJson) | null = null
 ): [BarView, BarView, BarView, BarView, BarView] {
   const getSelectors = (key: keyof SelectorsSummaryJson): SelectorStatsSource => {
     if (getAggregateSelectors === null) {
@@ -961,12 +966,18 @@ function buildWebsiteBars(
     }
     return () => getAggregateSelectors()[key];
   };
+  const getFailCacheSelectors = (key: keyof SelectorsSummaryJson): SelectorStatsSource => {
+    if (getAggregateFailCacheSelectors === null) {
+      return (website.selector_fail_cache_summary ?? emptySelectorSummary())[key];
+    }
+    return () => getAggregateFailCacheSelectors()[key];
+  };
   return [
-    buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), null, null),
-    buildBar("Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), null, null, false),
-    buildBar("Interning + Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), website.summary.fail_cache_preprocessing, null),
-    buildBar("After Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), null, null, false),
-    buildBar("With Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), null, website.summary.preprocessing)
+    buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), getFailCacheSelectors("baseline"), null, null),
+    buildBar("Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), getFailCacheSelectors("fail_caches"), null, null, false),
+    buildBar("Interning + Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), getFailCacheSelectors("fail_caches"), website.summary.fail_cache_preprocessing, null),
+    buildBar("After Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), getFailCacheSelectors("after_preprocessing"), null, null, false),
+    buildBar("With Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), getFailCacheSelectors("after_preprocessing"), null, website.summary.preprocessing)
   ];
 }
 
@@ -974,9 +985,10 @@ function buildWebsiteView(
   website: WebsiteJson,
   aggregateBars: readonly BarView[],
   isAggregate = false,
-  getAggregateSelectors: (() => SelectorsSummaryJson) | null = null
+  getAggregateSelectors: (() => SelectorsSummaryJson) | null = null,
+  getAggregateFailCacheSelectors: (() => SelectorsSummaryJson) | null = null
 ): WebsiteView {
-  const bars = buildWebsiteBars(website, getAggregateSelectors);
+  const bars = buildWebsiteBars(website, getAggregateSelectors, getAggregateFailCacheSelectors);
   const contextBars = bars.map((bar, index) => {
     const aggregateBar = aggregateBars[index];
     if (!aggregateBar) {
@@ -1130,7 +1142,16 @@ function emptySelectorStats(): SelectorStatsJson {
   return {
     means_cycles: {},
     stddevs_cycles: {},
-    slow_reject_counts: {}
+    slow_reject_counts: {},
+    fail_cache_reject_counts: {}
+  };
+}
+
+function emptySelectorSummary(): SelectorsSummaryJson {
+  return {
+    baseline: emptySelectorStats(),
+    fail_caches: emptySelectorStats(),
+    after_preprocessing: emptySelectorStats()
   };
 }
 
