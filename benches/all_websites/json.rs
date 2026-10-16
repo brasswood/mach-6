@@ -74,6 +74,7 @@ pub(crate) struct WebsiteJson {
     pub(crate) website: String,
     pub(crate) summary: overall_summary::SummaryJson,
     pub(crate) selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson,
+    pub(crate) selector_fail_cache_summary: selector_summary::SelectorFailCacheSummaryJson,
     pub(crate) samples: samples::SamplesJson,
 }
 
@@ -83,6 +84,7 @@ impl From<&WebsiteResult> for WebsiteJson {
             website: value.website.clone(),
             summary: overall_summary::SummaryJson::from(value),
             selector_slow_rejects_summary: selector_summary::SelectorsSummaryJson::from(value),
+            selector_fail_cache_summary: selector_summary::SelectorFailCacheSummaryJson::from(value),
             samples: samples::SamplesJson::from(value),
         }
     }
@@ -318,6 +320,23 @@ mod selector_summary {
                 baseline: SelectorStatsJson::from(value.baseline.selector_slow_reject_times.as_slice()),
                 fail_caches: SelectorStatsJson::from(value.fail_caches.selector_slow_reject_times.as_slice()),
                 after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.selector_slow_reject_times.as_slice())
+            }
+        }
+    }
+
+    #[derive(Clone, Serialize, Deserialize)]
+    pub(crate) struct SelectorFailCacheSummaryJson {
+        pub(crate) baseline: FailCacheSelectorStatsJson,
+        pub(crate) fail_caches: FailCacheSelectorStatsJson,
+        pub(crate) after_preprocessing: FailCacheSelectorStatsJson,
+    }
+
+    impl From<&WebsiteResult> for SelectorFailCacheSummaryJson {
+        fn from(value: &WebsiteResult) -> Self {
+            Self {
+                baseline: FailCacheSelectorStatsJson::from(value.baseline.selector_fail_cache_reject_times.as_slice()),
+                fail_caches: FailCacheSelectorStatsJson::from(value.fail_caches.selector_fail_cache_reject_times.as_slice()),
+                after_preprocessing: FailCacheSelectorStatsJson::from(value.after_preprocessing.selector_fail_cache_reject_times.as_slice()),
             }
         }
     }
