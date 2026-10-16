@@ -203,21 +203,18 @@ fn statistics_dont_change() -> Result<()> {
 #[test]
 fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
     let directory = tempfile::tempdir().unwrap();
-    let repeated_selector = std::iter::repeat("[data-present] .d")
+    let repeated_selector = std::iter::repeat("[data-present] + .x .d")
         .take(512)
         .collect::<Vec<_>>()
         .join(", ");
     let fixture = r#"<!doctype html>
             <style>
-                .a .b { color: red }
-                .a .c { color: blue }
-                [data-present] .d { color: green }
+                [data-present] + .x .d { color: green }
                 __REPEATED_SELECTOR__ { color: lime }
-                [data-present] .e { color: black }
+                [data-present] + .x .e { color: black }
             </style>
-            <div class="a"><div class="between"><span class="b c"></span></div></div>
-            <div class="x y"><span class="d e"></span></div>
-            <div><span class="d e"></span></div>"#
+            <div><span class="k"></span><span class="x"><i class="d e"></i><b class="d e"></b></span></div>
+            <div><span data-present></span><span class="x"><i class="d e"></i></span></div>"#
         .replace("__REPEATED_SELECTOR__", &repeated_selector);
     std::fs::write(
         directory.path().join("fixture.html"),
@@ -231,7 +228,7 @@ fn fail_cache_hits_preserve_matching_for_shared_prefixes() {
     let baseline = mach_6::do_website(&website, Algorithm::Naive, None).1;
     let (_, with_fail_caches, stats) =
         mach_6::do_website(&website, Algorithm::WithFailCaches, None);
-    assert!(stats.counts.fail_cache_rejects > 0, "fixture must exercise a cache hit");
+    assert!(stats.counts.fail_cache_rejects > 0, "{stats:?}");
 
     assert_eq!(
         SerDocumentMatches::from(&baseline),
