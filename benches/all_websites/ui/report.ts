@@ -900,7 +900,8 @@ function installCompareHandler(
 function buildSelectorRows(
   stats: SelectorStatsJson,
   rejectCounts: Record<string, number> | undefined = stats.slow_reject_counts,
-  onlyRejectingSelectors = false
+  onlyRejectingSelectors = false,
+  resultCountKeys: SelectorResultCountKey[] = CLASSIC_RESULT_COUNT_KEYS
 ): SelectorRow[] {
   const rows = Object.entries(stats.means_cycles).map(([selector, meanCycles]) => {
     const stddevCycles = stats.stddevs_cycles[selector];
@@ -911,7 +912,8 @@ function buildSelectorRows(
       selector,
       meanCycles: toBigInt(meanCycles),
       stddevCycles: toBigInt(stddevCycles),
-      rejectCount: rejectCounts?.[selector] ?? null
+      rejectCount: rejectCounts?.[selector] ?? null,
+      resultCounts: resultCountKeys.map((key) => stats[key]?.[selector] ?? null)
     };
   });
   const rejectingRows = onlyRejectingSelectors
@@ -1123,6 +1125,12 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       fail_cache_rejects: sumNumbers(summaries.map((summary) => summary.counts.fail_cache_rejects ?? 0)),
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
       slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts)),
+      fail_cache_global_failures: sumNullableNumbers(summaries.map((summary) => summary.counts.fail_cache_global_failures ?? null)),
+      fail_cache_descendant_restarts: sumNullableNumbers(summaries.map((summary) => summary.counts.fail_cache_descendant_restarts ?? null)),
+      fail_cache_sibling_restarts: sumNullableNumbers(summaries.map((summary) => summary.counts.fail_cache_sibling_restarts ?? null)),
+      classic_global_failures: sumNullableNumbers(summaries.map((summary) => summary.counts.classic_global_failures ?? null)),
+      classic_descendant_restarts: sumNullableNumbers(summaries.map((summary) => summary.counts.classic_descendant_restarts ?? null)),
+      classic_sibling_restarts: sumNullableNumbers(summaries.map((summary) => summary.counts.classic_sibling_restarts ?? null)),
       filled_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.filled_fail_caches)),
       total_fail_caches: sumNullableNumbers(summaries.map((summary) => summary.counts.total_fail_caches)),
       ...(hashings === null ? {} : { hashings })
@@ -1154,7 +1162,8 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
 
 function aggregateSelectorStats(
   stats: SelectorStatsJson[],
-  rejectCountsKey: "slow_reject_counts" | "fail_cache_reject_counts"
+  rejectCountsKey: "slow_reject_counts" | "fail_cache_reject_counts",
+  resultCountKeys: SelectorResultCountKey[]
 ): SelectorStatsJson {
   const selectorKeys = new Set<string>();
   for (const entry of stats) {
@@ -1169,26 +1178,31 @@ function aggregateSelectorStats(
   }
 
   const rejectCounts = sumRecordValues(stats.map((entry) => entry[rejectCountsKey] ?? {}));
+  const resultCounts: Partial<Record<SelectorResultCountKey, Record<string, number>>> = {};
+  for (const key of resultCountKeys) {
+    resultCounts[key] = sumRecordValues(stats.map((entry) => entry[key] ?? {}));
+  }
   return {
     means_cycles: sumRecordValues(stats.map((entry) => entry.means_cycles)),
     stddevs_cycles: stddevsCycles,
-    [rejectCountsKey]: rejectCounts
+    [rejectCountsKey]: rejectCounts,
+    ...resultCounts
   };
 }
 
 function buildAggregateSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
   return {
-    baseline: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.baseline), "slow_reject_counts"),
-    fail_caches: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.fail_caches), "slow_reject_counts"),
-    after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing), "slow_reject_counts")
+    baseline: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.baseline), "slow_reject_counts", CLASSIC_RESULT_COUNT_KEYS),
+    fail_caches: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.fail_caches), "slow_reject_counts", CLASSIC_RESULT_COUNT_KEYS),
+    after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing), "slow_reject_counts", CLASSIC_RESULT_COUNT_KEYS)
   };
 }
 
 function buildAggregateFailCacheSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
   return {
-    baseline: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).baseline), "fail_cache_reject_counts"),
-    fail_caches: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).fail_caches), "fail_cache_reject_counts"),
-    after_preprocessing: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).after_preprocessing), "fail_cache_reject_counts")
+    baseline: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).baseline), "fail_cache_reject_counts", FAIL_CACHE_RESULT_COUNT_KEYS),
+    fail_caches: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).fail_caches), "fail_cache_reject_counts", FAIL_CACHE_RESULT_COUNT_KEYS),
+    after_preprocessing: aggregateSelectorStats(websites.map((website) => (website.selector_fail_cache_summary ?? emptySelectorSummary()).after_preprocessing), "fail_cache_reject_counts", FAIL_CACHE_RESULT_COUNT_KEYS)
   };
 }
 
