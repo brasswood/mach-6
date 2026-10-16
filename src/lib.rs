@@ -38,6 +38,7 @@ use style::selector_map::SelectorMap;
 use style::servo_arc::Arc;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
+use style::stylist::UniversalBucketRule;
 use style::sharing::StyleSharingTarget;
 use style::stylesheets::Origin;
 use style::thread_state::{self, ThreadState};
@@ -71,6 +72,7 @@ pub enum Algorithm {
     Naive,
     WithStyleSharing,
     WithBlessList,
+    WithUniversalBucketBlessList,
     WithIsConversion,
     WithDistribution,
     Mach7,
@@ -81,6 +83,7 @@ pub struct Optimizations {
     pub is_conversion: bool,
     pub distribution: bool,
     pub universal_tail_bless_lists: bool,
+    pub universal_bucket_bless_lists: bool,
 }
 
 impl Optimizations {
@@ -354,6 +357,19 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                     &matching_context,
                     None,
                 );
+            (OwnedDocumentMatches::from(&matches), stats)
+        },
+        Algorithm::WithUniversalBucketBlessList => {
+            let optimizations = Optimizations {
+                universal_bucket_bless_lists: true,
+                ..Optimizations::from_none()
+            };
+            let matching_context = website.get_matcher(optimizations);
+            let (matches, stats) = match_selectors_with_style_sharing(
+                &website.document(),
+                &matching_context,
+                None,
+            );
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithIsConversion =>

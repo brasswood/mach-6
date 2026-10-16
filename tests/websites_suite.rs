@@ -93,6 +93,7 @@ fn all_algorithms_correct() -> Result<()> {
     let algorithms = [
         Algorithm::WithStyleSharing,
         Algorithm::WithBlessList,
+        Algorithm::WithUniversalBucketBlessList,
         Algorithm::WithIsConversion,
         Algorithm::WithDistribution,
         Algorithm::Mach7,
@@ -181,6 +182,7 @@ fn statistics_dont_change() -> Result<()> {
             for algorithm in [
                 Algorithm::WithStyleSharing,
                 Algorithm::WithBlessList,
+                Algorithm::WithUniversalBucketBlessList,
                 Algorithm::WithIsConversion,
                 Algorithm::WithDistribution,
                 /* Algorithm::Mach7 just produces default statistics*/
