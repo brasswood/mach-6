@@ -54,3 +54,28 @@ fn universal_tail_uses_the_parent_activator() {
     assert_eq!(after_stats.counts.selector_map_hits, 1);
     assert_eq!(after_stats.counts.bless_list_hits, 0);
 }
+
+#[test]
+fn other_universal_bucket_selectors_use_the_parent_activator() {
+    let mut html = String::from("<div class='a1 a2 a3 a4 a5 a6'><div class='b'>");
+    for index in 1..=5 {
+        html.push_str(&format!("<div class='c{index}'></div>"));
+    }
+    html.push_str("</div></div>");
+    let selectors = [
+        ".b .a1 *",
+        ".b .a2 :not(.d)",
+        ".b .a3 :has(.d)",
+        ".b .a4 :empty",
+        ".b .a5 :nth-child(even)",
+        ".b .a6 :nth-last-child(odd)",
+    ];
+    let (before, before_stats) = run(&html, &selectors, false);
+    let (after, after_stats) = run(&html, &selectors, true);
+    assert_eq!(before, after);
+    assert_eq!(before_stats.counts.selector_map_hits, 48);
+    assert_eq!(before_stats.counts.slow_rejects, 30);
+    assert_eq!(after_stats.counts.selector_map_hits, 6);
+    assert_eq!(after_stats.counts.slow_rejects, 0);
+    assert_eq!(after_stats.counts.bless_list_hits, 0);
+}
