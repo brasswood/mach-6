@@ -58,6 +58,40 @@ struct SelectorRejectMeasurements {
     not_matched_result_counts: NotMatchedResultCounts,
 }
 
+impl SelectorRejectMeasurements {
+    fn add_sample(
+        &mut self,
+        sample_index: usize,
+        duration: tsc_timer::Duration,
+        count: usize,
+        not_matched_result_counts: NotMatchedResultCounts,
+    ) {
+        self.reject_count += count;
+        self.not_matched_result_counts += not_matched_result_counts;
+        if self.aggregate_durations.len() == sample_index {
+            self.aggregate_durations.push(duration);
+        } else {
+            self.aggregate_durations[sample_index] += duration;
+        }
+    }
+}
+
+fn into_sorted_selector_reject_samples(
+    measurements: HashMap<SelectorString, SelectorRejectMeasurements>,
+) -> Vec<SelectorRejectSamples> {
+    let mut samples: Vec<_> = measurements
+        .into_iter()
+        .map(|(selector, measurements)| SelectorRejectSamples {
+            selector,
+            aggregate_durations: Samples::from_vec(measurements.aggregate_durations),
+            reject_count: measurements.reject_count,
+            not_matched_result_counts: measurements.not_matched_result_counts,
+        })
+        .collect();
+    samples.sort_unstable_by_key(|row| Reverse(row.aggregate_durations.mean()));
+    samples
+}
+
 /// Aggregated data for one matching variant in the website report.
 ///
 /// A "variant" here means one of the two selector-matching configurations we
