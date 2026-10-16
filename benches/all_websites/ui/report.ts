@@ -1335,12 +1335,13 @@ function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): 
 
 function renderCompareCell(
   website: WebsiteView | null,
-  missingLabel: string
+  missingLabel: string,
+  reportSide: CompareSide
 ): string {
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsite(website);
+  return renderWebsite(website, reportSide);
 }
 
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
@@ -1403,14 +1404,24 @@ function renderCompareResults(
     return [
       '<section class="compare-row" data-website-name="' + escapeHtml(website.name) + '">',
       '<div class="compare-column">',
-      renderCompareCell(website.left, "Not present in left report."),
+      renderCompareCell(website.left, "Not present in left report.", "left"),
       '</div>',
       '<div class="compare-column">',
-      renderCompareCell(website.right, "Not present in right report."),
+      renderCompareCell(website.right, "Not present in right report.", "right"),
       '</div>',
       '</section>'
     ].join("");
   }).join("");
+  installWebsiteDetailsHandlers(
+    compareResults,
+    compareWebsites.flatMap((website) => website.left === null ? [] : [website.left]),
+    "left"
+  );
+  installWebsiteDetailsHandlers(
+    compareResults,
+    compareWebsites.flatMap((website) => website.right === null ? [] : [website.right]),
+    "right"
+  );
   compareResults.hidden = false;
 }
 
