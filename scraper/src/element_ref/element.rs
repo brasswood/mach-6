@@ -331,4 +331,25 @@ mod tests {
         assert!(first.insert_fail_cache_result(sibling_id, sibling_result));
         assert_eq!(first.fail_cache_result(sibling_id), Some(sibling_result));
     }
+
+    #[test]
+    fn fail_cache_waits_for_propagated_later_sibling_failures() {
+        let fragment = Html::parse_fragment(
+            "<div id=top><i id=k></i><b id=b></b><c id=c></c><d id=d><i id=e></i></d></div>",
+        );
+        assert!(!matches_with_fail_caches(
+            &fragment,
+            "a + b + c + d #e",
+            "e",
+        ));
+
+        assert_eq!(cached_result(&fragment, "k", 2), None);
+        for (element, prefix_length) in [("b", 4), ("c", 6), ("d", 8)] {
+            assert_eq!(
+                cached_result(&fragment, element, prefix_length),
+                Some(FailCacheResult::NotMatchedAndRestartFromClosestLaterSibling),
+                "unexpected cache result on #{element}",
+            );
+        }
+    }
 }
