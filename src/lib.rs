@@ -535,10 +535,16 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_map: &'a SelectorMap<Rule>,
         cascade_data: &'a CascadeData,
         bless_list: &mut SmallVec<[&'a Selector; 16]>,
+        universal_bless_list: &mut SmallVec<[(&'a UniversalBucketRule, usize); 16]>,
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
         let inherited_bless_list_len = bless_list.len();
+        let inherited_universal_bless_list_len = universal_bless_list.len();
+        let active_universal_bless_list_len = universal_bless_list[..inherited_universal_bless_list_len]
+            .iter()
+            .filter(|(_, last_depth)| *last_depth >= element_depth)
+            .count();
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
@@ -550,7 +556,22 @@ pub fn match_selectors_with_style_sharing<'document>(
         let start = tsc_timer::Start::now();
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
         stats.times.updating_bloom_filter += start.elapsed();
-        if optimizations.universal_tail_bless_lists {
+        if optimizations.universal_bucket_bless_lists {
+            let mut activation_context = matching::MatchingContext::new(
+                matching::MatchingMode::Normal,
+                Some(context.thread_local.bloom_filter.filter()),
+                &mut context.thread_local.selector_caches,
+                matching::QuirksMode::NoQuirks,
+                matching::NeedsSelectorFlags::No,
+                matching::MatchingForInvalidation::No,
+            );
+            *stats += cascade_data.universal_bucket_rules().get_matching_universal_bucket_rules(
+                element,
+                element_depth,
+                universal_bless_list,
+                &mut activation_context,
+            );
+        } else if optimizations.universal_tail_bless_lists {
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
                 Some(context.thread_local.bloom_filter.filter()),
@@ -565,10 +586,13 @@ pub fn match_selectors_with_style_sharing<'document>(
                 &mut activation_context,
             );
         }
+        // The candidate loop below will consume activated rules by rightmost compound.
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Start::now();
-        let style_sharing_result = if inherited_bless_list_len != 0 {
+        let style_sharing_result = if inherited_bless_list_len != 0
+            || active_universal_bless_list_len != 0
+        {
             None
         } else {
             target.share_style_if_possible(context)
@@ -672,11 +696,13 @@ pub fn match_selectors_with_style_sharing<'document>(
                 selector_map,
                 cascade_data,
                 bless_list,
+                universal_bless_list,
                 optimizations,
                 stats
             );
         }
         bless_list.truncate(inherited_bless_list_len);
+        universal_bless_list.truncate(inherited_universal_bless_list_len);
     }
     let author_guard = matching_context.stylesheet_lock().read();
     let ua_or_user_lock = SharedRwLock::new();
@@ -712,10 +738,10 @@ pub fn match_selectors_with_style_sharing<'document>(
     let mut result = Vec::new();
     let mut stats = Statistics::default();
     let mut bless_list = SmallVec::new();
+    let mut universal_bless_list = SmallVec::new();
 
-    let root = document.root_element();
     preorder_traversal(
-        root,
+        document.root_element(),
         0,
         &mut style_context,
         &mut result,
@@ -723,6 +749,7 @@ pub fn match_selectors_with_style_sharing<'document>(
         selector_map,
         cascade_data,
         &mut bless_list,
+        &mut universal_bless_list,
         optimizations,
         &mut stats
     );
