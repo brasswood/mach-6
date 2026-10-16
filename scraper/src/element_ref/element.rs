@@ -352,4 +352,28 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn fail_cache_propagates_descendant_failures_before_a_later_match() {
+        let fragment = Html::parse_fragment(
+            "<div id=outer-root><a id=outer-a></a><i id=outer-j1></i><b id=outer-b></b><i id=outer-j2></i><c id=outer-c></c><i id=outer-j3></i><d id=d><i id=h1><i id=h2><i id=inner-k></i><i id=inner-j1></i><b id=inner-b></b><i id=inner-j2></i><c id=inner-c></c><i id=inner-j3></i><d id=inner-d><i id=e></i></d></i></i></d></div>",
+        );
+        assert!(matches_with_fail_caches(&fragment, "a ~ b ~ c ~ d #e", "e"));
+
+        let descendant = Some(FailCacheResult::NotMatchedAndRestartFromClosestDescendant);
+        for (element, prefix_length) in [
+            ("inner-k", 2),
+            ("inner-j1", 2),
+            ("inner-b", 4),
+            ("inner-j2", 4),
+            ("inner-c", 6),
+            ("inner-j3", 6),
+            ("inner-d", 8),
+        ] {
+            assert_eq!(cached_result(&fragment, element, prefix_length), descendant);
+        }
+        for element in ["d", "h1", "h2"] {
+            assert_eq!(cached_result(&fragment, element, 8), None);
+        }
+    }
 }
