@@ -96,9 +96,10 @@ struct MatchBenchResult {
     counting_stats: CountingStats,
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
-    /// All slow-rejecting selectors and their aggregate slow-reject durations
-    /// for each sample. Sorted in descending order by mean.
-    selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
+    /// Per-selector slow-reject durations and counts, sorted by mean duration.
+    selector_slow_reject_times: Vec<SelectorRejectSamples>,
+    /// Per-selector fail-cache-reject durations and counts, sorted by mean duration.
+    selector_fail_cache_reject_times: Vec<SelectorRejectSamples>,
     /// Detailed fail-cache measurements, if enabled at runtime.
     fail_cache_measurements: Option<FailCacheMeasurements>,
 }
@@ -136,46 +137,42 @@ impl MatchBenchResult {
             .map(|stats| stats.times)
             .collect();
 
-        let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
-        let mut reject_counts: HashMap<SelectorString, usize> = HashMap::new();
+        let mut slow_rejects: HashMap<SelectorString, SelectorRejectMeasurements> = HashMap::new();
+        let mut fail_cache_rejects: HashMap<SelectorString, SelectorRejectMeasurements> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
-                let (slow_reject_duration, slow_reject_count) = match selector_stats {
+                let (slow_reject_duration, slow_reject_count, fail_cache_reject_duration, fail_cache_reject_count) = match selector_stats {
                     SelectorStats::Bloom(bq) => (
                         bq.time_slow_rejecting.unwrap_or_default(),
                         usize::from(bq.time_slow_rejecting.is_some()),
+                        bq.time_fail_cache_rejecting.unwrap_or_default(),
+                        usize::from(bq.time_fail_cache_rejecting.is_some()),
                     ),
-                    SelectorStats::ScopeProximity(sp) => (sp.time_slow_rejecting, sp.slow_rejects),
+                    SelectorStats::ScopeProximity(sp) => (
+                        sp.time_slow_rejecting,
+                        sp.slow_rejects,
+                        sp.time_fail_cache_rejecting,
+                        sp.fail_cache_rejects,
+                    ),
                 };
                 let selector = SelectorString::from(&selector);
-                *reject_counts.entry(selector.clone()).or_default() += slow_reject_count;
-                let samples = map.entry(selector).or_default();
-                // If this is the first time we have touched the vector at this
-                // selector for this sample (samples.len() == i), push a new
-                // Duration onto the end. Otherwise, samples.len() == i + 1,
-                // which means we have already started building up an aggregate
-                // duration for this sample, so just accumulate that. 
-                if samples.len() == i {
-                    samples.push(slow_reject_duration);
-                } else {
-                    samples[i] += slow_reject_duration;
-                }
+                slow_rejects
+                    .entry(selector.clone())
+                    .or_default()
+                    .add_sample(i, slow_reject_duration, slow_reject_count);
+                fail_cache_rejects
+                    .entry(selector)
+                    .or_default()
+                    .add_sample(i, fail_cache_reject_duration, fail_cache_reject_count);
             }
         }
 
-        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)| {
-            SelectorSlowRejectSamples {
-                slow_reject_count: reject_counts.remove(&selector).unwrap_or_default(),
-                selector,
-                aggregate_durations: Samples::from_vec(durations),
-            }
-        }).collect();
-        sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
         MatchBenchResult {
             total_duration: stats.total_duration,
             counting_stats,
             timing_stats: Samples::from_vec(timing_stats),
-            selector_slow_reject_times: sorted,
+            selector_slow_reject_times: into_sorted_selector_reject_samples(slow_rejects),
+            selector_fail_cache_reject_times: into_sorted_selector_reject_samples(fail_cache_rejects),
             fail_cache_measurements: None,
         }
     }
