@@ -342,10 +342,11 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             (OwnedDocumentMatches::from(&matches), stats)
         },
         Algorithm::WithFailCaches => {
+            let matcher = website.get_matcher_with_fail_caches(true);
             let (matches, stats) =
                 match_selectors_with_style_sharing(
                     &website.document(),
-                    &matching_context,
+                    &matcher,
                     Optimizations {
                         fail_caches: true,
                         ..Optimizations::from_none()
