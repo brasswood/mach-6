@@ -137,6 +137,7 @@ interface SelectorStatsJson {
   means_cycles: Record<string, number>;
   stddevs_cycles: Record<string, number>;
   slow_reject_counts?: Record<string, number>;
+  fail_cache_reject_counts?: Record<string, number>;
 }
 
 interface SegmentInfo {
@@ -148,7 +149,7 @@ interface SelectorRow {
   selector: string;
   meanCycles: bigint;
   stddevCycles: bigint;
-  slowRejectCount: number | null;
+  rejectCount: number | null;
 }
 
 interface SegmentView {
@@ -852,7 +853,11 @@ function installCompareHandler(
   });
 }
 
-function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
+function buildSelectorRows(
+  stats: SelectorStatsJson,
+  rejectCounts: Record<string, number> | undefined = stats.slow_reject_counts,
+  onlyRejectingSelectors = false
+): SelectorRow[] {
   const rows = Object.entries(stats.means_cycles).map(([selector, meanCycles]) => {
     const stddevCycles = stats.stddevs_cycles[selector];
     if (stddevCycles === undefined) {
@@ -862,16 +867,19 @@ function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
       selector,
       meanCycles: toBigInt(meanCycles),
       stddevCycles: toBigInt(stddevCycles),
-      slowRejectCount: stats.slow_reject_counts?.[selector] ?? null
+      rejectCount: rejectCounts?.[selector] ?? null
     };
   });
-  rows.sort((left, right) => {
+  const rejectingRows = onlyRejectingSelectors
+    ? rows.filter((row) => (row.rejectCount ?? 0) > 0)
+    : rows;
+  rejectingRows.sort((left, right) => {
     if (left.meanCycles === right.meanCycles) {
       return left.selector.localeCompare(right.selector);
     }
     return left.meanCycles > right.meanCycles ? -1 : 1;
   });
-  return rows.slice(0, MAX_SLOW_REJECT_ROWS);
+  return rejectingRows.slice(0, MAX_SLOW_REJECT_ROWS);
 }
 
 function buildBar(
@@ -1255,7 +1263,7 @@ function renderSelectorRows(rows: SelectorRow[]): string {
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
       '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles)) + '</div></td>',
-      '<td class="col-count">' + renderOptionalCount(row.slowRejectCount) + '</td>',
+      '<td class="col-count">' + renderOptionalCount(row.rejectCount) + '</td>',
       '</tr>'
     ].join("");
   }).join("");
