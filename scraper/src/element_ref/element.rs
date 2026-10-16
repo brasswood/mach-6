@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_cache_waits_for_propagated_later_sibling_failures() {
+    fn fail_cache_propagates_global_result_after_descendant_exhaustion() {
         let fragment = Html::parse_fragment(
             "<div id=top><i id=k></i><b id=b></b><c id=c></c><d id=d><i id=e></i></d></div>",
         );
@@ -344,10 +344,17 @@ mod tests {
         ));
 
         assert_eq!(cached_result(&fragment, "k", 2), None);
-        for (element, prefix_length) in [("b", 4), ("c", 6), ("d", 8)] {
+        for (element, prefix_length) in [("b", 4), ("c", 6)] {
             assert_eq!(
                 cached_result(&fragment, element, prefix_length),
                 Some(FailCacheResult::NotMatchedAndRestartFromClosestLaterSibling),
+                "unexpected cache result on #{element}",
+            );
+        }
+        for element in ["d", "top"] {
+            assert_eq!(
+                cached_result(&fragment, element, 8),
+                Some(FailCacheResult::NotMatchedGlobally),
                 "unexpected cache result on #{element}",
             );
         }
