@@ -970,6 +970,20 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
   };
 }
 
+function buildAggregateSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
+  return {
+    before_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.before_preprocessing)),
+    after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
+  };
+}
+
+function emptySelectorStats(): SelectorStatsJson {
+  return {
+    means_cycles: {},
+    stddevs_cycles: {}
+  };
+}
+
 function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
   const preprocessingBreakdowns = websites.map((website) => {
     return getPreprocessingBreakdown(website.summary.preprocessing);
@@ -992,16 +1006,27 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
       after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
     },
     selector_slow_rejects_summary: {
-      before_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.before_preprocessing)),
-      after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
+      before_preprocessing: emptySelectorStats(),
+      after_preprocessing: emptySelectorStats()
     }
   };
 }
 
+function buildAggregateWebsiteView(websites: WebsiteJson[]): WebsiteView {
+  const aggregateWebsite = buildAggregateWebsiteJson(websites);
+  let aggregateSelectors: SelectorsSummaryJson | null = null;
+  const getAggregateSelectors = (): SelectorsSummaryJson => {
+    if (aggregateSelectors === null) {
+      aggregateSelectors = buildAggregateSelectorSummary(websites);
+    }
+    return aggregateSelectors;
+  };
+  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite, getAggregateSelectors);
+  return buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true, getAggregateSelectors);
+}
+
 function buildReportWebsiteViews(report: ReportJson): WebsiteView[] {
-  const aggregateWebsite = buildAggregateWebsiteJson(report.websites);
-  const aggregateWebsiteBars = buildWebsiteBars(aggregateWebsite);
-  const aggregateWebsiteView = buildWebsiteView(aggregateWebsite, aggregateWebsiteBars, true);
+  const aggregateWebsiteView = buildAggregateWebsiteView(report.websites);
   return [
     aggregateWebsiteView,
     ...report.websites.map((website) => buildWebsiteView(website, aggregateWebsiteView.bars))
