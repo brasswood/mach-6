@@ -166,6 +166,7 @@ impl StdDev for TimingStats {
             checking_style_sharing: stddev(|sample| sample.checking_style_sharing),
             querying_selector_map: stddev(|sample| sample.querying_selector_map),
             fast_rejecting: stddev(|sample| sample.fast_rejecting),
+            fail_cache_rejecting: stddev(|sample| sample.fail_cache_rejecting),
             slow_rejecting: stddev(|sample| sample.slow_rejecting),
             slow_accepting: stddev(|sample| sample.slow_accepting),
             inserting_into_sharing_cache: stddev(|sample| sample.inserting_into_sharing_cache),
@@ -173,4 +174,3 @@ impl StdDev for TimingStats {
         }
     }
 }
-
