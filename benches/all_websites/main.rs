@@ -281,18 +281,18 @@ where
         benchmark_name,
         &setup,
         |(document, matching_context)| {
-            let (_, overall_stats, _) = mach_6::match_selectors_with_style_sharing(
+            let (_, overall_stats, _, matching_time) = mach_6::match_selectors_with_style_sharing(
                 document,
                 matching_context,
                 false,
             );
-            overall_stats
+            (matching_time, overall_stats)
         },
         NUM_SAMPLES,
     );
     print!("Getting selector stats for {benchmark_name}...");
     let (document, matching_context) = setup();
-    let (_, _, per_match_stats) = mach_6::match_selectors_with_style_sharing(
+    let (_, _, per_match_stats, _) = mach_6::match_selectors_with_style_sharing(
         document,
         matching_context,
         true,
@@ -375,7 +375,7 @@ fn bench_function_with_setup<S, I, F, R>(
 ) -> TimedResults<R>
 where
     S: Fn() -> I,
-    F: Fn(I) -> R,
+    F: Fn(I) -> (tsc_timer::Duration, R),
 {
     const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
@@ -387,9 +387,9 @@ where
     let mut total_duration = tsc_timer::Duration::from_cycles(0);
     for _ in 0..num_samples {
         let input = setup();
-        let sample_start = tsc_timer::Start::now();
-        samples_vec.push(func(input));
-        total_duration += sample_start.elapsed();
+        let (matching_time, result) = func(input);
+        samples_vec.push(result);
+        total_duration += matching_time;
     }
     eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
     TimedResults {
