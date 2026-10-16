@@ -1351,9 +1351,9 @@ function renderExpandedBar(bar: BarView): string {
   ].join("");
 }
 
-function renderSelectorRows(rows: SelectorRow[]): string {
+function renderSelectorRows(rows: SelectorRow[], resultCountKeys: SelectorResultCountKey[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="3">No selector stats captured.</td></tr>';
+    return '<tr><td colspan="' + (3 + resultCountKeys.length).toString() + '">No selector stats captured.</td></tr>';
   }
   return rows.map((row) => {
     return [
@@ -1361,9 +1361,22 @@ function renderSelectorRows(rows: SelectorRow[]): string {
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
       '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles)) + '</div></td>',
       '<td class="col-count">' + renderOptionalCount(row.rejectCount) + '</td>',
+      ...row.resultCounts.map((count) => '<td class="col-result-count">' + renderOptionalCount(count) + '</td>'),
       '</tr>'
     ].join("");
   }).join("");
+}
+
+function renderSelectorResultCountHeaders(keys: SelectorResultCountKey[]): string {
+  return keys.map((key) => {
+    return '<th class="col-result-count">' + escapeHtml(SELECTOR_RESULT_COUNT_LABELS[key]) + '</th>';
+  }).join("");
+}
+
+function renderSelectorColumnGroup(keys: SelectorResultCountKey[]): string {
+  return '<colgroup><col class="col-selector"><col class="col-time"><col class="col-count">'
+    + keys.map(() => '<col class="col-result-count">').join("")
+    + '</colgroup>';
 }
 
 function renderVariantDetails(bar: BarView): string {
@@ -1377,7 +1390,8 @@ function renderVariantDetails(bar: BarView): string {
   const topFailCacheRejectSelectors = buildSelectorRows(
     selectorFailCacheSummary,
     selectorFailCacheSummary.fail_cache_reject_counts,
-    true
+    true,
+    FAIL_CACHE_RESULT_COUNT_KEYS
   );
   return [
     '<section class="variant-details">',
@@ -1843,12 +1857,17 @@ function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
   }
   return Object.values(means).every(isFiniteNumber)
     && Object.values(stddevs).every(isFiniteNumber)
-    && (record.slow_reject_counts === undefined
-      || (getRecord(record.slow_reject_counts) !== null
-        && Object.values(getRecord(record.slow_reject_counts)!).every(isFiniteNumber)))
-    && (record.fail_cache_reject_counts === undefined
-      || (getRecord(record.fail_cache_reject_counts) !== null
-        && Object.values(getRecord(record.fail_cache_reject_counts)!).every(isFiniteNumber)));
+    && isOptionalNumberRecord(record.slow_reject_counts)
+    && isOptionalNumberRecord(record.fail_cache_reject_counts)
+    && FAIL_CACHE_RESULT_COUNT_KEYS.every((key) => isOptionalNumberRecord(record[key]));
+}
+
+function isOptionalNumberRecord(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+  const record = getRecord(value);
+  return record !== null && Object.values(record).every(isFiniteNumber);
 }
 
 function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
