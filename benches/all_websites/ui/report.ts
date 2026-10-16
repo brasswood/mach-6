@@ -174,6 +174,12 @@ interface SelectorStatsJson {
   stddevs_cycles: Record<string, number>;
   slow_reject_counts?: Record<string, number>;
   fail_cache_reject_counts?: Record<string, number>;
+  fail_cache_global_failures?: Record<string, number>;
+  fail_cache_descendant_restarts?: Record<string, number>;
+  fail_cache_sibling_restarts?: Record<string, number>;
+  classic_global_failures?: Record<string, number>;
+  classic_descendant_restarts?: Record<string, number>;
+  classic_sibling_restarts?: Record<string, number>;
 }
 
 interface SegmentInfo {
@@ -186,6 +192,7 @@ interface SelectorRow {
   meanCycles: bigint;
   stddevCycles: bigint;
   rejectCount: number | null;
+  resultCounts: Array<number | null>;
 }
 
 interface SegmentView {
@@ -1370,24 +1377,30 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Prefix Hashings</th><td>' + renderOptionalCount(getHashings(bar.counts)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
+    '<tr><th>Fail-Cache Global Failures</th><td>' + renderOptionalCount(bar.counts.fail_cache_global_failures ?? null) + '</td></tr>',
+    '<tr><th>Fail-Cache Descendant Restarts</th><td>' + renderOptionalCount(bar.counts.fail_cache_descendant_restarts ?? null) + '</td></tr>',
+    '<tr><th>Fail-Cache Sibling Restarts</th><td>' + renderOptionalCount(bar.counts.fail_cache_sibling_restarts ?? null) + '</td></tr>',
+    '<tr><th>Classic Global Failures</th><td>' + renderOptionalCount(bar.counts.classic_global_failures ?? null) + '</td></tr>',
+    '<tr><th>Classic Descendant Restarts</th><td>' + renderOptionalCount(bar.counts.classic_descendant_restarts ?? null) + '</td></tr>',
+    '<tr><th>Classic Sibling Restarts</th><td>' + renderOptionalCount(bar.counts.classic_sibling_restarts ?? null) + '</td></tr>',
     '<tr><th>Filled Fail Caches</th><td>' + renderOptionalCount(bar.counts.filled_fail_caches) + '</td></tr>',
     '<tr><th>Total Fail Caches</th><td>' + renderOptionalCount(bar.counts.total_fail_caches) + '</td></tr>',
     '</tbody></table>',
     '<details class="selector-breakdown">',
     '<summary>Slow-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
     '<div class="selector-breakdown-inner">',
-    '<table class="selector-breakdown-table">',
-    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th></tr></thead>',
-    '<tbody>' + renderSelectorRows(topSlowRejectSelectors) + '</tbody>',
+    '<table class="selector-breakdown-table">' + renderSelectorColumnGroup(CLASSIC_RESULT_COUNT_KEYS),
+    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th>' + renderSelectorResultCountHeaders(CLASSIC_RESULT_COUNT_KEYS) + '</tr></thead>',
+    '<tbody>' + renderSelectorRows(topSlowRejectSelectors, CLASSIC_RESULT_COUNT_KEYS) + '</tbody>',
     '</table>',
     '</div>',
     '</details>',
     '<details class="selector-breakdown">',
     '<summary>Fail-Cache-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
     '<div class="selector-breakdown-inner">',
-    '<table class="selector-breakdown-table">',
-    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Fail-Cache-Reject Cycles</th><th class="col-count">Fail-Cache Reject Count</th></tr></thead>',
-    '<tbody>' + renderSelectorRows(topFailCacheRejectSelectors) + '</tbody>',
+    '<table class="selector-breakdown-table">' + renderSelectorColumnGroup(FAIL_CACHE_RESULT_COUNT_KEYS),
+    '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Fail-Cache-Reject Cycles</th><th class="col-count">Fail-Cache Reject Count</th>' + renderSelectorResultCountHeaders(FAIL_CACHE_RESULT_COUNT_KEYS) + '</tr></thead>',
+    '<tbody>' + renderSelectorRows(topFailCacheRejectSelectors, FAIL_CACHE_RESULT_COUNT_KEYS) + '</tbody>',
     '</table>',
     '</div>',
     '</details>',
@@ -1733,6 +1746,7 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     && (record.hashings === undefined || isFiniteNumber(record.hashings))
     && isFiniteNumber(record.slow_rejects)
     && isFiniteNumber(record.slow_accepts)
+    && FAIL_CACHE_RESULT_COUNT_KEYS.every((key) => record[key] === undefined || isNullableFiniteNumber(record[key]))
     && isNullableFiniteNumber(record.filled_fail_caches)
     && isNullableFiniteNumber(record.total_fail_caches)
     && (record.fail_cache_instrumentation === undefined || isFailCacheInstrumentationJson(record.fail_cache_instrumentation));
