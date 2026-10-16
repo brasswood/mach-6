@@ -505,6 +505,9 @@ fn collect_selectors_from_map(
     for rule in &map.universal_tails {
         push_rule(rule);
     }
+    for rule in &map.universal_buckets {
+        push_rule(rule);
+    }
     for (_, bucket) in map.id_hash.iter() {
         for rule in bucket {
             push_rule(rule);
