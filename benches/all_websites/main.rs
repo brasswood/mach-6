@@ -165,38 +165,14 @@ impl MatchBenchResult {
             .map(|stats| stats.times)
             .collect();
 
-        let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
-        for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
-            for (selector, selector_stats) in per_match_stats {
-                let slow_reject_duration = match selector_stats {
-                    SelectorStats::Bloom(bq) =>
-                        bq.time_slow_rejecting.unwrap_or_default(),
-                    SelectorStats::ScopeProximity(sp) =>
-                        sp.time_slow_rejecting,
-                };
-                let samples = map.entry(SelectorString::from(selector)).or_default();
-                // If this is the first time we have touched the vector at this
-                // selector for this sample (samples.len() == i), push a new
-                // Duration onto the end. Otherwise, samples.len() == i + 1,
-                // which means we have already started building up an aggregate
-                // duration for this sample, so just accumulate that. 
-                if samples.len() == i {
-                    samples.push(slow_reject_duration);
-                } else {
-                    samples[i] += slow_reject_duration;
-                }
-            }
-        }
-
-        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)|
-            SelectorSlowRejectSamples { selector, aggregate_durations: Samples::from_vec(durations) }
-        ).collect();
-        sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
+        let selector_slow_reject_times = selector_reject_samples(per_match_stats.samples.as_slice(), false);
+        let selector_fail_cache_reject_times = selector_reject_samples(per_match_stats.samples.as_slice(), true);
         MatchBenchResult {
             total_duration: stats.total_duration,
             counting_stats,
             timing_stats: Samples::from_vec(timing_stats),
-            selector_slow_reject_times: sorted,
+            selector_slow_reject_times,
+            selector_fail_cache_reject_times,
             fail_cache_measurements: None,
         }
     }
