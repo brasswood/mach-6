@@ -403,4 +403,21 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn fail_cache_upgrades_each_visited_ancestor_to_global_failure() {
+        let fragment = Html::parse_fragment(
+            "<div id=top><i id=outer-k></i><i id=outer-j1></i><b id=outer-b></b><i id=outer-j2></i><c id=outer-c></c><i id=outer-j3></i><d id=outer-d><i id=h1><i id=h2><i id=inner-k></i><i id=inner-j1></i><b id=inner-b></b><i id=inner-j2></i><c id=inner-c></c><i id=inner-j3></i><d id=inner-d><i id=h3><i id=h4><i id=e></i></i></i></d></i></i></d></div>",
+        );
+        assert!(!matches_with_fail_caches(
+            &fragment,
+            "a ~ b ~ c ~ d #e",
+            "e",
+        ));
+
+        let global = Some(FailCacheResult::NotMatchedGlobally);
+        for element in ["top", "outer-d", "h1", "h2", "inner-d", "h3", "h4"] {
+            assert_eq!(cached_result(&fragment, element, 8), global, "#{element}");
+        }
+    }
 }
