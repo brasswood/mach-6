@@ -303,7 +303,7 @@ mod selector_summary {
 
     use crate::WebsiteResult;
 
-    use super::{SelectorSlowRejectSamples, SelectorString};
+    use super::{SelectorRejectSamples, SelectorString};
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
@@ -329,8 +329,8 @@ mod selector_summary {
         pub(crate) slow_reject_counts: HashMap<SelectorString, usize>,
     }
 
-    impl From<&[SelectorSlowRejectSamples]> for SelectorStatsJson {
-        fn from(value: &[SelectorSlowRejectSamples]) -> Self {
+    impl From<&[SelectorRejectSamples]> for SelectorStatsJson {
+        fn from(value: &[SelectorRejectSamples]) -> Self {
             Self {
                 means_cycles: value
                     .iter()
@@ -342,7 +342,33 @@ mod selector_summary {
                     .collect(),
                 slow_reject_counts: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.slow_reject_count))
+                    .map(|row| (row.selector.clone(), row.reject_count))
+                    .collect(),
+            }
+        }
+    }
+
+    #[derive(Clone, Serialize, Deserialize)]
+    pub(crate) struct FailCacheSelectorStatsJson {
+        pub(crate) means_cycles: HashMap<SelectorString, u64>,
+        pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
+        pub(crate) fail_cache_reject_counts: HashMap<SelectorString, usize>,
+    }
+
+    impl From<&[SelectorRejectSamples]> for FailCacheSelectorStatsJson {
+        fn from(value: &[SelectorRejectSamples]) -> Self {
+            Self {
+                means_cycles: value
+                    .iter()
+                    .map(|row| (row.selector.clone(), row.aggregate_durations.mean().cycles()))
+                    .collect(),
+                stddevs_cycles: value
+                    .iter()
+                    .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().cycles()))
+                    .collect(),
+                fail_cache_reject_counts: value
+                    .iter()
+                    .map(|row| (row.selector.clone(), row.reject_count))
                     .collect(),
             }
         }
