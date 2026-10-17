@@ -366,30 +366,11 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let fail_cache_optimizations = Optimizations {
-            fail_caches: true,
-            ..Optimizations::from_none()
-        };
-        let fail_cache_interning = bench_timed_subsection(
-            &format!("{} fail cache interning", w.name),
-            || {
-                let (_, _, _, _, matcher, _) = mach_6::match_selectors_with_style_sharing(
-                    w.fresh_document(),
-                    w.get_matcher(fail_cache_optimizations),
-                    false,
-                );
-                matcher.fail_cache_build_timings().prefix_interning
-            },
-            NUM_SAMPLES,
-        );
         let baseline = bench_website(
             &format!("{} baseline", w.name),
             || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
         );
-        let fail_caches = bench_website(
-            &format!("{} fail caches", w.name),
-            || (w.fresh_document(), w.get_matcher(fail_cache_optimizations)),
-        );
+        let (fail_cache_interning, fail_caches, fail_cache_measurements) = bench_fail_caches(&w);
         let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
         let substrings =
           concretize::substrings_from_selectors(selectors.iter());
@@ -432,7 +413,6 @@ fn main() {
                 )
             },
         );
-        let fail_cache_measurements = measure_fail_cache_fill(&w.name);
         let result = WebsiteResult {
             website: w.name,
             baseline,
@@ -473,6 +453,32 @@ fn main() {
         Ok(()) => eprintln!("Wrote report to {}", report_dir().display()),
         Err(e) => error!("{e}"),
     };
+}
+
+/// Returns (Interning time, Main Timing Results, Fail Cache Measurements)
+fn bench_fail_caches(website: &ParsedWebsite) -> (TimedResults<tsc_timer::Duration>, MatchBenchResult, FailCacheMeasurements) {
+    let fail_cache_optimizations = Optimizations {
+        fail_caches: true,
+        ..Optimizations::from_none()
+    };
+    let fail_cache_interning = bench_timed_subsection(
+        &format!("{} fail cache interning", website.name),
+        || {
+            let (_, _, _, _, matcher, _) = mach_6::match_selectors_with_style_sharing(
+                website.fresh_document(),
+                website.get_matcher(fail_cache_optimizations),
+                false,
+            );
+            matcher.fail_cache_build_timings().prefix_interning
+        },
+        NUM_SAMPLES,
+    );
+    let fail_caches = bench_website(
+        &format!("{} fail caches", website.name),
+        || (website.fresh_document(), website.get_matcher(fail_cache_optimizations)),
+    );
+    let fail_cache_measurements = measure_fail_cache_fill(&website.name);
+    (fail_cache_interning, fail_caches, fail_cache_measurements)
 }
 
 fn bench_website<F>(benchmark_name: &str, setup: F) -> MatchBenchResult
