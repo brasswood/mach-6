@@ -365,19 +365,27 @@ mod selector_summary {
 
     impl From<&[SelectorRejectSamples]> for SelectorStatsJson {
         fn from(value: &[SelectorRejectSamples]) -> Self {
+            /// Collects (k, v) pairs in the vector, asserting no duplicate keys.
+            fn collect_checked<K: std::hash::Hash + Eq, V>(items: impl Iterator<Item=(K, V)>) -> HashMap<K, V> {
+                let mut result = HashMap::new();
+                for (k, v) in items {
+                    result.entry(k).and_modify(|_| panic!()).or_insert(v);
+                }
+                result
+            }
             Self {
-                means_cycles: value
+                means_cycles: collect_checked(value
                     .iter()
                     .map(|row| (row.selector.clone(), row.aggregate_durations.mean().cycles()))
-                    .collect(),
-                stddevs_cycles: value
+                ),
+                stddevs_cycles: collect_checked(value
                     .iter()
                     .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().cycles()))
-                    .collect(),
-                slow_reject_counts: value
+                ),
+                slow_reject_counts: collect_checked(value
                     .iter()
                     .map(|row| (row.selector.clone(), row.reject_count))
-                    .collect(),
+                ),
                 classic_global_failures: result_counts(value, |counts| counts.classic_global_failures),
                 classic_descendant_restarts: result_counts(value, |counts| counts.classic_descendant_restarts),
                 classic_sibling_restarts: result_counts(value, |counts| counts.classic_sibling_restarts),
