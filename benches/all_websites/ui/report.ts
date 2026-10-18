@@ -933,12 +933,16 @@ function buildBar(
   summary: BenchmarkRunSummaryJson,
   selectorsSummary: SelectorStatsSource,
   selectorFailCacheSummary: SelectorStatsSource,
-  includeFailCachePreprocessing: FailCachePreprocessingSummaryJson | null,
+  failCachePreprocessing: FailCachePreprocessingSummaryJson | null,
   includePreprocessing: PreprocessingSummaryJson | null,
-  showExpandedDetails = true
+  showExpandedDetails = true,
+  showFailCacheInterning = true
 ): BarView {
   const means = summary.times.means;
   const stddevs = summary.times.stddevs;
+  const interningCycles = failCachePreprocessing === null
+    ? 0n
+    : getFailCachePreprocessingBreakdown(failCachePreprocessing).interningCycles;
   const measuredMatchDurations: SegmentView[] = [
     { kind: "updatingBloomFilter", meanCycles: toBigInt(means.updating_bloom_filter_cycles), stddevCycles: toBigInt(stddevs.updating_bloom_filter_cycles) },
     { kind: "checkingStyleSharing", meanCycles: toBigInt(means.checking_style_sharing_cycles), stddevCycles: toBigInt(stddevs.checking_style_sharing_cycles) },
@@ -954,13 +958,12 @@ function buildBar(
   }, 0n);
   measuredMatchDurations.push({
     kind: "other",
-    meanCycles: toBigInt(summary.mean_cycles) - measuredMatchSum,
+    meanCycles: toBigInt(summary.mean_cycles) - measuredMatchSum - interningCycles,
     stddevCycles: null
   });
 
   const segments: SegmentView[] = [];
-  if (includeFailCachePreprocessing) {
-    const { interningCycles } = getFailCachePreprocessingBreakdown(includeFailCachePreprocessing);
+  if (failCachePreprocessing && showFailCacheInterning) {
     segments.push({ kind: "interning", meanCycles: interningCycles, stddevCycles: null });
   }
   if (includePreprocessing) {
@@ -1018,7 +1021,7 @@ function buildWebsiteBars(
   };
   return [
     buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), getFailCacheSelectors("baseline"), null, null),
-    buildBar("Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), getFailCacheSelectors("fail_caches"), null, null, false),
+    buildBar("Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), getFailCacheSelectors("fail_caches"), website.summary.fail_cache_preprocessing, null, false, false),
     buildBar("Interning + Fail Caches", website.summary.fail_caches, getSelectors("fail_caches"), getFailCacheSelectors("fail_caches"), website.summary.fail_cache_preprocessing, null),
     buildBar("After Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), getFailCacheSelectors("after_preprocessing"), null, null, false),
     buildBar("With Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), getFailCacheSelectors("after_preprocessing"), null, website.summary.preprocessing)
