@@ -366,10 +366,7 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let baseline = bench_website(
-            &format!("{} baseline", w.name),
-            || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
-        );
+        let baseline = bench_baseline(&w);
         let (fail_cache_interning, fail_caches, fail_cache_measurements) = bench_fail_caches(&w);
         let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
         let substrings =
@@ -453,6 +450,13 @@ fn main() {
         Ok(()) => eprintln!("Wrote report to {}", report_dir().display()),
         Err(e) => error!("{e}"),
     };
+}
+
+fn bench_baseline(website: &ParsedWebsite) -> MatchBenchResult {
+    bench_website(
+        &format!("{} baseline", website.name),
+        || (website.fresh_document(), website.get_matcher(Optimizations::from_none())),
+    )
 }
 
 /// Returns (Interning time, Main Timing Results, Fail Cache Measurements)
