@@ -757,6 +757,9 @@ pub fn match_selectors_with_style_sharing(
     let mut bless_list = SmallVec::new();
 
     let root = document.root_element();
+    if optimizations.fail_caches {
+        stylist.intern_all_prefixes();
+    }
     let matching_time = {
         let start = tsc_timer::Start::now();
         preorder_traversal(
@@ -949,6 +952,28 @@ mod tests {
             SetDocumentMatches::from(matches),
             stats,
         )
+    }
+
+    #[test]
+    fn fail_cache_prefixes_are_interned_before_traversal() {
+        let document = scraper::Html::parse_document(
+            "<main class='a'><section class='b'></section></main>",
+        );
+        let selectors = [parse_selector(".a .b"), parse_selector("main > section")];
+        let (stylesheet, lock) = super::stylesheet_from_selectors(selectors.iter());
+        let context = super::MatchingContext::new(
+            std::iter::once(&stylesheet),
+            lock,
+            Optimizations {
+                fail_caches: true,
+                ..Optimizations::from_none()
+            },
+        );
+
+        let (_, _, _, _, context, _) =
+            super::match_selectors_with_style_sharing(document, context, false);
+
+        assert_eq!(context.fail_cache_build_timings().prefix_interning_calls, 2);
     }
 
     #[test]
