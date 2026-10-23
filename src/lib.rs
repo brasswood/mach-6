@@ -681,18 +681,16 @@ pub fn match_selectors_with_style_sharing(
                     selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                if inherited_bless_list_len == 0 && active_universal_bless_list_len == 0 {
-                    let start = Start::now();
-                    context.thread_local.sharing_cache.insert_if_possible(
-                        &element ,
-                        &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
-                        // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
-                        None,
-                        element_depth,
-                        &context.shared,
-                    );
-                    stats.times.inserting_into_sharing_cache += start.elapsed();
-                }
+                let start = Start::now();
+                context.thread_local.sharing_cache.insert_if_possible(
+                    &element ,
+                    &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
+                    // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
+                    None,
+                    element_depth,
+                    &context.shared,
+                );
+                stats.times.inserting_into_sharing_cache += start.elapsed();
             }
         }
         // 2. traverse children
