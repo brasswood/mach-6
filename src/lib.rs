@@ -584,13 +584,7 @@ pub fn match_selectors_with_style_sharing(
         // 1.3: Check if we can share styles
         let mut target = StyleSharingTarget::new(element);
         let start = Start::now();
-        let style_sharing_result = if inherited_bless_list_len != 0
-            || active_universal_bless_list_len != 0
-        {
-            None
-        } else {
-            target.share_style_if_possible(context)
-        };
+        let style_sharing_result = target.share_style_if_possible(context);
         stats.times.checking_style_sharing += start.elapsed();
         match style_sharing_result {
             Some((other_element, shared_styles)) => {
