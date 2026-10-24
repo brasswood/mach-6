@@ -160,11 +160,12 @@ impl PreprocessingResult {
     }
 }
 
-/// All report data for one website: the baseline and bless-list matching
-/// variants, the preprocessing step, and the post-preprocessing variant.
+/// All report data for one website: the baseline, breadth-first, and bless-list
+/// matching variants, the preprocessing step, and the post-preprocessing variant.
 struct WebsiteResult {
     website: String,
     before_preprocessing: MatchBenchResult,
+    with_style_sharing_breadth_first: MatchBenchResult,
     with_bless_list: MatchBenchResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
@@ -191,6 +192,12 @@ fn main() {
         let before_preprocessing = bench_website(
             &format!("{} before preprocessing", w.name),
             || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
+            false,
+        );
+        let with_style_sharing_breadth_first = bench_website(
+            &format!("{} With Style Sharing (Breadth-First)", w.name),
+            || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
+            true,
         );
         let with_bless_list = bench_website(
             &format!("{} with bless list", w.name),
@@ -203,6 +210,7 @@ fn main() {
                     }),
                 )
             },
+            false,
         );
         let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
         let substrings =
@@ -245,10 +253,12 @@ fn main() {
                     ),
                 )
             },
+            false,
         );
         let result = WebsiteResult {
             website: w.name,
             before_preprocessing,
+            with_style_sharing_breadth_first,
             with_bless_list,
             preprocessing: PreprocessingResult::new(
                 indexing_results,
@@ -287,7 +297,7 @@ fn main() {
     };
 }
 
-fn bench_website<F>(benchmark_name: &str, setup: F) -> MatchBenchResult
+fn bench_website<F>(benchmark_name: &str, setup: F, breadth_first: bool) -> MatchBenchResult
 where
     F: Fn() -> (Html, MatchingContext),
 {
@@ -295,22 +305,30 @@ where
         benchmark_name,
         &setup,
         |(document, matching_context)| {
-            let (_, overall_stats, _, matching_time) = mach_6::match_selectors_with_style_sharing(
-                document,
-                matching_context,
-                false,
-            );
+            let (_, overall_stats, _, matching_time) = if breadth_first {
+                mach_6::match_selectors_with_style_sharing_breadth_first(
+                    document,
+                    matching_context,
+                    false,
+                )
+            } else {
+                mach_6::match_selectors_with_style_sharing(document, matching_context, false)
+            };
             (matching_time, overall_stats)
         },
         NUM_SAMPLES,
     );
     print!("Getting selector stats for {benchmark_name}...");
     let (document, matching_context) = setup();
-    let (_, _, per_match_stats, _) = mach_6::match_selectors_with_style_sharing(
-        document,
-        matching_context,
-        true,
-    );
+    let (_, _, per_match_stats, _) = if breadth_first {
+        mach_6::match_selectors_with_style_sharing_breadth_first(
+            document,
+            matching_context,
+            true,
+        )
+    } else {
+        mach_6::match_selectors_with_style_sharing(document, matching_context, true)
+    };
     println!("done.");
     let results = TimedResults {
         total_duration: tsc_timer::Duration::from_cycles(0), // whatever
