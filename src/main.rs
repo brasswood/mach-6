@@ -7,10 +7,7 @@
 use std::{collections::HashMap, path::PathBuf};
 use clap::Parser;
 use mach_6::{
-    Algorithm,
-    parse::get_document_and_selectors,
-    result::Result,
-    structs::{ser::SerDocumentMatches, set::SetDocumentMatches},
+    Algorithm, parse::get_document_and_selectors, result::Result, structs::{ser::{DebugSerDocumentMatches, SerDocumentMatches}, set::SetDocumentMatches},
 };
 use serde_yml;
 use selectors::matching::Statistics;
@@ -29,6 +26,10 @@ struct Args {
     /// Which matching algorithm to run
     #[arg(long, value_enum, default_value_t = Algorithm::Naive)]
     algorithm: Algorithm,
+
+    /// Output debug YAML (includes style sharing information)
+    #[arg(short, long)]
+    debug: bool,
 }
 
 fn main() -> mach_6::result::Result<()> {
@@ -37,6 +38,7 @@ fn main() -> mach_6::result::Result<()> {
         websites,
         website,
         algorithm,
+        debug,
     } = Args::parse();
     let result: Result<Vec<(String, SetDocumentMatches, Statistics)>> = if let Some(website) = website {
         Ok(get_document_and_selectors(&website)?
@@ -46,10 +48,18 @@ fn main() -> mach_6::result::Result<()> {
         let websites = websites.unwrap_or_else(|| PathBuf::from("websites"));
         mach_6::do_all_websites(&websites, algorithm)?.collect()
     };
-    let result: HashMap<String, SerDocumentMatches> = result?
-        .into_iter()
-        .map(|(name, matches, _stats)| (name, SerDocumentMatches::from(&matches)))
-        .collect();
-    println!("{}", serde_yml::to_string(&result).unwrap());
+    if debug {
+        let result: HashMap<String, DebugSerDocumentMatches> = result?
+            .into_iter()
+            .map(|(name, matches, _stats)| (name, DebugSerDocumentMatches::from(&matches)))
+            .collect();
+        println!("{}", serde_yml::to_string(&result).unwrap());
+    } else {
+        let result: HashMap<String, SerDocumentMatches> = result?
+            .into_iter()
+            .map(|(name, matches, _stats)| (name, SerDocumentMatches::from(&matches)))
+            .collect();
+        println!("{}", serde_yml::to_string(&result).unwrap());
+    }
     Ok(())
 }
