@@ -91,6 +91,7 @@ fn all_algorithms_correct() -> Result<()> {
 
     let website_paths = website_paths_for_tests()?;
     let algorithms = [
+        Algorithm::NaiveBreadthFirst,
         Algorithm::WithStyleSharing,
         Algorithm::WithBlessList,
         Algorithm::WithUniversalBucketBlessList,

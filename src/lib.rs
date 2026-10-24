@@ -70,6 +70,7 @@ use crate::structs::{
 #[derive(Debug, Display, Clone, Copy, ValueEnum)]
 pub enum Algorithm {
     Naive,
+    NaiveBreadthFirst,
     WithStyleSharing,
     WithBlessList,
     WithUniversalBucketBlessList,
@@ -312,6 +313,17 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             let document = website.fresh_document();
             (
                 OwnedDocumentMatches::from(&match_selectors(
+                    &document,
+                    &matching_context.get_selectors(),
+                )),
+                Statistics::default(),
+            )
+        },
+        Algorithm::NaiveBreadthFirst => {
+            let matching_context = website.get_matcher(Optimizations::from_none());
+            let document = website.fresh_document();
+            (
+                OwnedDocumentMatches::from(&match_selectors_breadth_first(
                     &document,
                     &matching_context.get_selectors(),
                 )),
