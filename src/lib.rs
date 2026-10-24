@@ -25,6 +25,7 @@ use style::traversal_flags::TraversalFlags;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::fmt::Write as _;
 use std::path::Path;
 use scraper::ElementRef;
@@ -436,6 +437,57 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
     let mut caches: SelectorCaches = Default::default();
     let mut result = Vec::new();
     preorder_traversal(document.root_element(), selectors, &mut result, &mut caches);
+    DocumentMatches(result)
+}
+
+pub fn match_selectors_breadth_first<'a>(document: &'a Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
+{
+    fn match_element<'a>(
+        element: ElementRef<'a>, 
+        selectors: &'a [Selector],
+        matches: &mut Vec<ElementMatches<'a>>,
+        caches: &mut SelectorCaches,
+    ) {
+        // 1. do thing
+        // 1.1: create a MatchingContext
+        let mut context = matching::MatchingContext::new(
+            matching::MatchingMode::Normal,
+            None,
+            caches,
+            matching::QuirksMode::NoQuirks,
+            matching::NeedsSelectorFlags::No,
+            matching::MatchingForInvalidation::No,
+        );
+        // 1.2: get matching selectors naively
+        let matched_selectors = selectors
+            .iter()
+            .filter(|s| {
+                // Debug element if applicable
+                #[cfg(feature = "debug_element")]
+                debug_element_selector(element, &element_to_string(element), s);
+                let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
+                debug_assert_eq!(stats.time_fast_rejecting, None);
+                res
+            })
+            .collect();
+        matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
+    }
+    // Initialize the queue.
+    // Servo initializes with capacity `work_unit_max * 2` here, where `work_unit_max` = 16. According to Amp.
+    // https://ampcode.com/threads/T-01a16f1f-b2a8-7316-bbe2-730b18dfcdcc
+    let mut queue = VecDeque::with_capacity(32);
+    queue.push_back(document.root_element());
+    // Initialize some other stuff
+    let mut caches: SelectorCaches = Default::default();
+    let mut result = Vec::new();
+    // Do the breadth-first traversal
+    while let Some(elt) = queue.pop_front() {
+        // Match!
+        match_element(elt, selectors, &mut result, &mut caches);
+        for child in elt.child_elements() {
+            queue.push_back(child);
+        }
+    }
     DocumentMatches(result)
 }
 
