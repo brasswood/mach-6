@@ -14,6 +14,16 @@ use selectors::matching::TimingStats;
 use style::Atom;
 use test_log::test;
 
+const ALGORITHMS: [Algorithm; 7] = [
+    Algorithm::NaiveBreadthFirst,
+    Algorithm::WithStyleSharing,
+    Algorithm::WithBlessList,
+    Algorithm::WithUniversalBucketBlessList,
+    Algorithm::WithIsConversion,
+    Algorithm::WithDistribution,
+    Algorithm::Mach7,
+];
+
 fn website_paths_for_tests() -> Result<Vec<Result<PathBuf>>> {
     let websites = websites_path();
     match std::env::var("MACH6_WEBSITE_FILTER") {
@@ -90,16 +100,7 @@ fn all_algorithms_correct() -> Result<()> {
     };
 
     let website_paths = website_paths_for_tests()?;
-    let algorithms = [
-        Algorithm::NaiveBreadthFirst,
-        Algorithm::WithStyleSharing,
-        Algorithm::WithBlessList,
-        Algorithm::WithUniversalBucketBlessList,
-        Algorithm::WithIsConversion,
-        Algorithm::WithDistribution,
-        Algorithm::Mach7,
-    ]
-    .map(|alg| (alg, AtomicBool::new(false)));
+    let algorithms = ALGORITHMS.map(|alg| (alg, AtomicBool::new(false)));
     // start with a clean slate
     for (algorithm, _) in &algorithms {
         let path = equality_failures_alg(*algorithm);
@@ -180,14 +181,7 @@ fn statistics_dont_change() -> Result<()> {
         .into_par_iter()
         .map(|path| {
             let Some(website) = get_document_and_selectors(&path?)? else { return Ok(()); };
-            for algorithm in [
-                Algorithm::WithStyleSharing,
-                Algorithm::WithBlessList,
-                Algorithm::WithUniversalBucketBlessList,
-                Algorithm::WithIsConversion,
-                Algorithm::WithDistribution,
-                /* Algorithm::Mach7 just produces default statistics*/
-            ] {
+            for algorithm in ALGORITHMS {
                 let (_, _, mut stats1) = mach_6::do_website(&website, algorithm, None);
                 let (_, _, mut stats2) = mach_6::do_website(&website, algorithm, None);
                 // Ignore timing info, which we expect to change between runs.
