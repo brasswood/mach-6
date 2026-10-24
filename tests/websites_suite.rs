@@ -14,8 +14,7 @@ use selectors::matching::TimingStats;
 use style::Atom;
 use test_log::test;
 
-const ALGORITHMS: [Algorithm; 7] = [
-    Algorithm::NaiveBreadthFirst,
+const ALGORITHMS: [Algorithm; 6] = [
     Algorithm::WithStyleSharing,
     Algorithm::WithBlessList,
     Algorithm::WithUniversalBucketBlessList,

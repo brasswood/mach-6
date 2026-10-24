@@ -70,7 +70,6 @@ use crate::structs::{
 #[derive(Debug, Display, Clone, Copy, ValueEnum)]
 pub enum Algorithm {
     Naive,
-    NaiveBreadthFirst,
     WithStyleSharing,
     WithBlessList,
     WithUniversalBucketBlessList,
@@ -319,17 +318,6 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 Statistics::default(),
             )
         },
-        Algorithm::NaiveBreadthFirst => {
-            let matching_context = website.get_matcher(Optimizations::from_none());
-            let document = website.fresh_document();
-            (
-                OwnedDocumentMatches::from(&match_selectors_breadth_first(
-                    &document,
-                    &matching_context.get_selectors(),
-                )),
-                Statistics::default(),
-            )
-        },
         Algorithm::WithStyleSharing => {
             let matching_context = website.get_matcher(Optimizations::from_none());
             let document = website.fresh_document();
@@ -409,50 +397,9 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
     };
     (website.name.clone(), matches.into(), stats)
 }
+
 // TODO: figure out why iteration yields more elements than traversal
 pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
-{
-    fn preorder_traversal<'a>(
-        element: ElementRef<'a>, 
-        selectors: &'a [Selector],
-        matches: &mut Vec<ElementMatches<'a>>,
-        caches: &mut SelectorCaches,
-    ) {
-        // 1. do thing
-        // 1.1: create a MatchingContext
-        let mut context = matching::MatchingContext::new(
-            matching::MatchingMode::Normal,
-            None,
-            caches,
-            matching::QuirksMode::NoQuirks,
-            matching::NeedsSelectorFlags::No,
-            matching::MatchingForInvalidation::No,
-        );
-        // 1.2: get matching selectors naively
-        let matched_selectors = selectors
-            .iter()
-            .filter(|s| {
-                // Debug element if applicable
-                #[cfg(feature = "debug_element")]
-                debug_element_selector(element, &element_to_string(element), s);
-                let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
-                debug_assert_eq!(stats.time_fast_rejecting, None);
-                res
-            })
-            .collect();
-        matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
-        // 2. traverse children
-        for child in element.child_elements() {
-            preorder_traversal(child, selectors, matches, caches);
-        }
-    }
-    let mut caches: SelectorCaches = Default::default();
-    let mut result = Vec::new();
-    preorder_traversal(document.root_element(), selectors, &mut result, &mut caches);
-    DocumentMatches(result)
-}
-
-pub fn match_selectors_breadth_first<'a>(document: &'a Html, selectors: &'a [Selector]) -> DocumentMatches<'a>
 {
     fn match_element<'a>(
         element: ElementRef<'a>, 
