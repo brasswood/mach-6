@@ -47,6 +47,7 @@ interface WebsiteJson {
 
 interface SummaryJson {
   before_preprocessing: BenchmarkRunSummaryJson;
+  with_style_sharing_breadth_first?: BenchmarkRunSummaryJson;
   with_bless_list?: BenchmarkRunSummaryJson;
   preprocessing: PreprocessingSummaryJson;
   after_preprocessing: BenchmarkRunSummaryJson;
@@ -97,6 +98,7 @@ interface TimingsJsonBody {
 
 interface SelectorsSummaryJson {
   before_preprocessing: SelectorStatsJson;
+  with_style_sharing_breadth_first?: SelectorStatsJson;
   with_bless_list?: SelectorStatsJson;
   after_preprocessing: SelectorStatsJson;
 }
@@ -903,6 +905,11 @@ function buildWebsiteBars(
   const bars = [
     buildBar("Before Preprocessing", website.summary.before_preprocessing, getSelectors("before_preprocessing"), null)
   ];
+  const withStyleSharingBreadthFirst = website.summary.with_style_sharing_breadth_first;
+  const withStyleSharingBreadthFirstSelectors = website.selector_slow_rejects_summary.with_style_sharing_breadth_first;
+  if (withStyleSharingBreadthFirst !== undefined && withStyleSharingBreadthFirstSelectors !== undefined) {
+    bars.push(buildBar("With Style Sharing (Breadth-First)", withStyleSharingBreadthFirst, getSelectors("with_style_sharing_breadth_first"), null));
+  }
   const withBlessList = website.summary.with_bless_list;
   const withBlessListSelectors = website.selector_slow_rejects_summary.with_bless_list;
   if (withBlessList !== undefined && withBlessListSelectors !== undefined) {
@@ -1045,6 +1052,9 @@ function buildAggregateSelectorSummary(websites: WebsiteJson[]): SelectorsSummar
   if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
     summary.with_bless_list = aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.with_bless_list!));
   }
+  if (websites.every((website) => website.summary.with_style_sharing_breadth_first !== undefined && website.selector_slow_rejects_summary.with_style_sharing_breadth_first !== undefined)) {
+    summary.with_style_sharing_breadth_first = aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.with_style_sharing_breadth_first!));
+  }
   return summary;
 }
 
@@ -1081,6 +1091,10 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
   if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
     summary.with_bless_list = aggregateBenchmarkRunSummary(websites.map((website) => website.summary.with_bless_list!));
     selectorSummary.with_bless_list = emptySelectorStats();
+  }
+  if (websites.every((website) => website.summary.with_style_sharing_breadth_first !== undefined && website.selector_slow_rejects_summary.with_style_sharing_breadth_first !== undefined)) {
+    summary.with_style_sharing_breadth_first = aggregateBenchmarkRunSummary(websites.map((website) => website.summary.with_style_sharing_breadth_first!));
+    selectorSummary.with_style_sharing_breadth_first = emptySelectorStats();
   }
   return {
     website: "All Websites (" + websites.length.toString() + ")",
@@ -1607,6 +1621,7 @@ function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
     return false;
   }
   return isSelectorStatsJson(record.before_preprocessing)
+    && (record.with_style_sharing_breadth_first === undefined || isSelectorStatsJson(record.with_style_sharing_breadth_first))
     && (record.with_bless_list === undefined || isSelectorStatsJson(record.with_bless_list))
     && isSelectorStatsJson(record.after_preprocessing);
 }
@@ -1617,6 +1632,7 @@ function isSummaryJson(value: unknown): value is SummaryJson {
     return false;
   }
   return isBenchmarkRunSummaryJson(record.before_preprocessing)
+    && (record.with_style_sharing_breadth_first === undefined || isBenchmarkRunSummaryJson(record.with_style_sharing_breadth_first))
     && (record.with_bless_list === undefined || isBenchmarkRunSummaryJson(record.with_bless_list))
     && isPreprocessingSummaryJson(record.preprocessing)
     && isBenchmarkRunSummaryJson(record.after_preprocessing);
