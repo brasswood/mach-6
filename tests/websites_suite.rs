@@ -14,11 +14,13 @@ use selectors::matching::TimingStats;
 use style::Atom;
 use test_log::test;
 
-const ALGORITHMS: [Algorithm; 7] = [
+const ALGORITHMS: [Algorithm; 9] = [
     Algorithm::WithStyleSharing,
     Algorithm::WithStyleSharingBreadthFirst,
     Algorithm::WithBlessList,
+    Algorithm::WithBlessListBreadthFirst,
     Algorithm::WithUniversalBucketBlessList,
+    Algorithm::WithUniversalBucketBlessListBreadthFirst,
     Algorithm::WithIsConversion,
     Algorithm::WithDistribution,
     Algorithm::Mach7,
