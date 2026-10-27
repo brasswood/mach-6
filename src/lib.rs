@@ -7,6 +7,8 @@
 use clap::ValueEnum;
 use ::cssparser::ToCss as _;
 use derive_more::Display;
+use log::Level;
+use log::{debug, log_enabled};
 use rustc_hash::FxBuildHasher;
 use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
@@ -557,6 +559,9 @@ pub fn match_selectors_with_style_sharing(
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
+        if log_enabled!(target: "traversal", Level::Debug) { // this guard is needed to avoid evaluating expensive `element_to_string` argument
+            debug!("preorder_traversal({})", element_to_string(element));
+        }
         let inherited_bless_list_len = bless_list.len();
         let inherited_universal_bless_list_len = universal_bless_list.len();
         let active_universal_bless_list_len = universal_bless_list[..inherited_universal_bless_list_len]
@@ -833,6 +838,9 @@ pub fn match_selectors_with_style_sharing_breadth_first(
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
+        if log_enabled!(target: "traversal", Level::Debug) { // this guard is needed to avoid evaluating expensive `element_to_string` argument
+            debug!("match_element({})", element_to_string(element));
+        }
         let inherited_bless_list_len = bless_list.len();
         let inherited_universal_bless_list_len = universal_bless_list.len();
         let active_universal_bless_list_len = universal_bless_list[..inherited_universal_bless_list_len]
