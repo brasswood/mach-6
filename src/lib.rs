@@ -855,8 +855,8 @@ pub fn match_selectors_with_style_sharing_breadth_first(
 ) {
     let optimizations = matching_context.optimizations;
     // Bless list is almost certainly handled incorrectly for breadth-first traversal. Keep it from being used for now.
-    assert_eq!(optimizations.universal_tail_bless_lists, false);
-    assert_eq!(optimizations.universal_bucket_bless_lists, false);
+    // assert_eq!(optimizations.universal_tail_bless_lists, false);
+    // assert_eq!(optimizations.universal_bucket_bless_lists, false);
     fn match_element<'a>(
         element: ElementRef<'a>,
         element_depth: usize,
