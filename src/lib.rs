@@ -1025,7 +1025,7 @@ pub fn match_selectors_with_style_sharing_breadth_first(
                     &element ,
                     &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
                     // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
-                    None,
+                    Some(&mut target),
                     element_depth,
                     &context.shared,
                 );
