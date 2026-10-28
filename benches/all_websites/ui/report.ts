@@ -74,6 +74,7 @@ interface BenchmarkRunSummaryJson {
 
 interface CountingStatsJson {
   sharing_instances: number;
+  sharing_misses?: number | undefined;
   selector_map_hits: number;
   bless_list_hits?: number | undefined;
   fast_rejects: number;
@@ -996,6 +997,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
     mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
     counts: {
       sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
+      sharing_misses: sumNumbers(summaries.map((summary) => summary.counts.sharing_misses ?? 0)),
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
       bless_list_hits: sumNumbers(summaries.map((summary) => summary.counts.bless_list_hits ?? 0)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
@@ -1210,6 +1212,7 @@ function renderVariantDetails(bar: BarView): string {
     renderExpandedBar(bar),
     '<table><tbody>',
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
+    '<tr><th>Sharing Misses</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_misses ?? 0)) + '</td></tr>',
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
     '<tr><th>Bless List Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.bless_list_hits ?? 0)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
@@ -1562,6 +1565,7 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     return false;
   }
   return isFiniteNumber(record.sharing_instances)
+    && (record.sharing_misses === undefined || isFiniteNumber(record.sharing_misses))
     && isFiniteNumber(record.selector_map_hits)
     && (record.bless_list_hits === undefined || isFiniteNumber(record.bless_list_hits))
     && isFiniteNumber(record.fast_rejects)

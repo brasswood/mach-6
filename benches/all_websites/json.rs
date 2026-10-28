@@ -153,6 +153,8 @@ mod overall_summary {
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub(crate) struct CountingStatsJson {
         pub(crate) sharing_instances: usize,
+        #[serde(default)]
+        pub(crate) sharing_misses: usize,
         pub(crate) selector_map_hits: usize,
         #[serde(default)]
         pub(crate) bless_list_hits: usize,
@@ -165,6 +167,7 @@ mod overall_summary {
         fn from(value: CountingStats) -> Self {
             Self {
                 sharing_instances: value.sharing_instances,
+                sharing_misses: value.sharing_misses,
                 selector_map_hits: value.selector_map_hits,
                 bless_list_hits: value.bless_list_hits,
                 fast_rejects: value.fast_rejects,

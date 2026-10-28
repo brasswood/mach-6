@@ -646,6 +646,7 @@ pub fn match_selectors_with_style_sharing(
         let start = Start::now();
         let style_sharing_result = target.share_style_if_possible(context);
         stats.times.checking_style_sharing += start.elapsed();
+        stats.counts.sharing_misses += target.sharing_misses();
         match style_sharing_result {
             Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
@@ -925,6 +926,7 @@ pub fn match_selectors_with_style_sharing_breadth_first(
         let start = Start::now();
         let style_sharing_result = target.share_style_if_possible(context);
         stats.times.checking_style_sharing += start.elapsed();
+        stats.counts.sharing_misses += target.sharing_misses();
         match style_sharing_result {
             Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
@@ -1194,6 +1196,33 @@ mod tests {
         )?.unwrap();
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(stats.counts.sharing_instances, 5);
+        Ok(())
+    }
+
+    #[test]
+    fn counts_each_style_sharing_candidate_miss() -> Result<()> {
+        let document = scraper::Html::parse_document(
+            "<div class='a'></div><div class='b'></div>\
+             <div class='c'></div><div class='d'></div>",
+        );
+        let stylesheet_lock = style::shared_lock::SharedRwLock::new();
+        let stylesheet = crate::parse::parse_stylesheet(
+            ".a {} .b {} .c {} .d {}",
+            UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+            &stylesheet_lock,
+        )?;
+        let website = crate::parse::ParsedWebsite::new(
+            "sharing misses".to_owned(),
+            document,
+            vec![stylesheet],
+            stylesheet_lock,
+        );
+        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        // Four distinct sibling classes yield 1 + 2 + 3 misses; head/body add one.
+        assert_eq!(stats.counts.sharing_misses, 7);
+        let (_, _, breadth_first_stats) =
+            do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
+        assert_eq!(breadth_first_stats.counts.sharing_misses, 7);
         Ok(())
     }
 
