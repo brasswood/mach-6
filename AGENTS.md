@@ -7,7 +7,7 @@ The primary entry points are `./src/lib.rs:match_selectors*`. These functions ta
 
 Tests are in `./tests/`. `./tests/websites_suite.rs` compares the matching results of each selector matching algorithm on the corpus of websites in `websites/`. It is the primary correctness test for our algorithms/optimizations. The naive `match_selectors` algorithm is the reference.
 
-This repository contains a benchmark harness in the `benches` folder which benchmarks the code and generates an HTML report on how selector matching performs for the benchmarked websites.
+`benches/all_websites/` contains the benchmarking code for this project. `main.rs` measures the algorithms on the website corpus in `websites/`. `json.rs` defines the schema for the JSON report it produces. `ui/` contains the code for the webpage that visualizes the JSON report.
 
 ## Priorities
 Correctness is top priority. `cargo test` in the `mach-6` superproject should pass.
