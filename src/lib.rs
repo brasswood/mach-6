@@ -605,6 +605,7 @@ pub fn match_selectors_with_style_sharing(
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
+        stats.counts.num_elements += 1;
         if log_enabled!(target: "traversal", Level::Debug) { // this guard is needed to avoid evaluating expensive `element_to_string` argument
             debug!("preorder_traversal({})", element_to_string(element));
         }
@@ -820,7 +821,6 @@ pub fn match_selectors_with_style_sharing(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    stats.counts.num_elements = document.tree.nodes().filter_map(ElementRef::wrap).count();
     let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
         get_selector_stats.then(SmallVec::new);
     let mut bless_list = SmallVec::new();
@@ -888,6 +888,7 @@ pub fn match_selectors_with_style_sharing_breadth_first(
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
+        stats.counts.num_elements += 1;
         if log_enabled!(target: "traversal", Level::Debug) { // this guard is needed to avoid evaluating expensive `element_to_string` argument
             debug!("match_element({})", element_to_string(element));
         }
@@ -1087,7 +1088,6 @@ pub fn match_selectors_with_style_sharing_breadth_first(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    stats.counts.num_elements = document.tree.nodes().filter_map(ElementRef::wrap).count();
     let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
         get_selector_stats.then(SmallVec::new);
     let mut bless_list = SmallVec::new();
