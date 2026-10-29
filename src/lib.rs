@@ -843,7 +843,6 @@ pub fn match_selectors_with_style_sharing(
         );
         start.elapsed()
     };
-    stats.counts.num_selectors = stylist.num_selectors();
     let matches = DocumentMatches(result);
     let selector_stats = selector_stats.map(|stats| {
         stats.into_iter()
@@ -857,6 +856,7 @@ pub fn match_selectors_with_style_sharing(
     drop(shared_style_context);
     drop(ua_or_user_guard);
     drop(author_guard);
+    stats.counts.num_selectors = stylist.num_selectors();
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     (owned_matches, stats, selector_stats, matching_time)
 }
@@ -1127,7 +1127,6 @@ pub fn match_selectors_with_style_sharing_breadth_first(
         }
         start.elapsed()
     };
-    stats.counts.num_selectors = stylist.num_selectors();
     let matches = DocumentMatches(result);
     let selector_stats = selector_stats.map(|stats| {
         stats.into_iter()
@@ -1141,6 +1140,7 @@ pub fn match_selectors_with_style_sharing_breadth_first(
     drop(shared_style_context);
     drop(ua_or_user_guard);
     drop(author_guard);
+    stats.counts.num_selectors = stylist.num_selectors();
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     (owned_matches, stats, selector_stats, matching_time)
 }
