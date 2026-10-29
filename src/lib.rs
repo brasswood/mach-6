@@ -842,6 +842,7 @@ pub fn match_selectors_with_style_sharing(
         );
         start.elapsed()
     };
+    stats.counts.num_selectors = stylist.num_selectors();
     let matches = DocumentMatches(result);
     let selector_stats = selector_stats.map(|stats| {
         stats.into_iter()
@@ -1124,6 +1125,7 @@ pub fn match_selectors_with_style_sharing_breadth_first(
         }
         start.elapsed()
     };
+    stats.counts.num_selectors = stylist.num_selectors();
     let matches = DocumentMatches(result);
     let selector_stats = selector_stats.map(|stats| {
         stats.into_iter()
@@ -1262,9 +1264,11 @@ mod tests {
         );
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(stats.counts.sharing_accepts, 6);
+        assert_eq!(stats.counts.num_selectors, 2);
         let (_, _, breadth_first_stats) =
             do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
         assert_eq!(breadth_first_stats.counts.sharing_accepts, 6);
+        assert_eq!(breadth_first_stats.counts.num_selectors, 2);
         Ok(())
     }
 
