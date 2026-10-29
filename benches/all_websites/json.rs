@@ -152,6 +152,8 @@ mod overall_summary {
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub(crate) struct CountingStatsJson {
+        #[serde(default)]
+        pub(crate) num_elements: usize,
         pub(crate) sharing_instances: usize,
         #[serde(default)]
         pub(crate) sharing_misses: usize,
@@ -170,6 +172,7 @@ mod overall_summary {
     impl From<CountingStats> for CountingStatsJson {
         fn from(value: CountingStats) -> Self {
             Self {
+                num_elements: value.num_elements,
                 sharing_instances: value.sharing_instances,
                 sharing_misses: value.sharing_misses,
                 sharing_accepts: value.sharing_accepts,
