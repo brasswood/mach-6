@@ -66,7 +66,7 @@ use crate::structs::{
         SelectorsOrSharedStyles,
     },
     owned::OwnedDocumentMatches,
-    set::SetDocumentMatches,
+    set::{SetDocumentMatches, SetSelectorsOrSharedStyles},
 };
 
 #[derive(Debug, Display, Clone, Copy, ValueEnum)]
@@ -567,6 +567,20 @@ fn collect_selectors_from_map(
     }
 }
 
+fn count_sharing_accepts(matches: &OwnedDocumentMatches) -> usize {
+    let set_matches = SetDocumentMatches::from(matches.clone());
+    set_matches
+        .0
+        .values()
+        .filter_map(|element_matches| match &element_matches.selectors {
+            SetSelectorsOrSharedStyles::Selectors(_) => None,
+            SetSelectorsOrSharedStyles::SharedWithElement(_) => {
+                Some(set_matches.find_selectors(element_matches.element.id).len())
+            }
+        })
+        .sum()
+}
+
 pub fn match_selectors_with_style_sharing(
     document: Html,
     matching_context: MatchingContext,
@@ -841,6 +855,7 @@ pub fn match_selectors_with_style_sharing(
     drop(shared_style_context);
     drop(ua_or_user_guard);
     drop(author_guard);
+    stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     (owned_matches, stats, selector_stats, matching_time)
 }
 
@@ -1122,6 +1137,7 @@ pub fn match_selectors_with_style_sharing_breadth_first(
     drop(shared_style_context);
     drop(ua_or_user_guard);
     drop(author_guard);
+    stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     (owned_matches, stats, selector_stats, matching_time)
 }
 

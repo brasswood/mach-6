@@ -2,8 +2,6 @@ use log::{error, warn};
 use mach_6::{self, MatchingContext, Optimizations, get_all_documents_and_selectors, stylesheet_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
-use mach_6::structs::owned::OwnedDocumentMatches;
-use mach_6::structs::set::{SetDocumentMatches, SetSelectorsOrSharedStyles};
 use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
@@ -75,14 +73,12 @@ impl MatchBenchResult {
     fn new(
         stats: TimedResults<Statistics>,
         per_match_stats: TimedResults<SmallVec<[(Selector, SelectorStats); 16]>>,
-        sharing_accepts: usize,
     ) -> Self {
-        let mut counting_stats = stats
+        let counting_stats = stats
             .samples
             .first()
             .expect("expected at least one sample result")
             .counts;
-        counting_stats.sharing_accepts = sharing_accepts;
 
         let timing_stats = stats
             .samples
@@ -324,7 +320,7 @@ where
     );
     print!("Getting selector stats for {benchmark_name}...");
     let (document, matching_context) = setup();
-    let (matches, _, per_match_stats, _) = if breadth_first {
+    let (_, _, per_match_stats, _) = if breadth_first {
         mach_6::match_selectors_with_style_sharing_breadth_first(
             document,
             matching_context,
@@ -334,26 +330,11 @@ where
         mach_6::match_selectors_with_style_sharing(document, matching_context, true)
     };
     println!("done.");
-    let sharing_accepts = count_sharing_accepts(matches);
     let results = TimedResults {
         total_duration: tsc_timer::Duration::from_cycles(0), // whatever
         samples: Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]),
     };
-    MatchBenchResult::new(overall_stats, results, sharing_accepts)
-}
-
-fn count_sharing_accepts(matches: OwnedDocumentMatches) -> usize {
-    let matches = SetDocumentMatches::from(matches);
-    matches
-        .0
-        .values()
-        .filter_map(|element_matches| match &element_matches.selectors {
-            SetSelectorsOrSharedStyles::Selectors(_) => None,
-            SetSelectorsOrSharedStyles::SharedWithElement(_) => {
-                Some(matches.find_selectors(element_matches.element.id).len())
-            }
-        })
-        .sum()
+    MatchBenchResult::new(overall_stats, results)
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
