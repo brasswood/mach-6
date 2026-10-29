@@ -1243,6 +1243,32 @@ mod tests {
     }
 
     #[test]
+    fn counts_selector_element_pairs_accepted_via_style_sharing() -> Result<()> {
+        let document = scraper::Html::parse_document(
+            "<div class='shared'></div><div class='shared'></div>\
+             <div class='shared'></div><div class='shared'></div>",
+        );
+        let stylesheet_lock = style::shared_lock::SharedRwLock::new();
+        let stylesheet = crate::parse::parse_stylesheet(
+            ".shared {} div.shared {}",
+            UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+            &stylesheet_lock,
+        )?;
+        let website = crate::parse::ParsedWebsite::new(
+            "sharing accepts".to_owned(),
+            document,
+            vec![stylesheet],
+            stylesheet_lock,
+        );
+        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        assert_eq!(stats.counts.sharing_accepts, 6);
+        let (_, _, breadth_first_stats) =
+            do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
+        assert_eq!(breadth_first_stats.counts.sharing_accepts, 6);
+        Ok(())
+    }
+
+    #[test]
     // looks like bad grammar, but this tests that the conversion to "is()" selectors works
     fn is_conversion_works() -> Result<()> {
         let website = get_document_and_selectors(
