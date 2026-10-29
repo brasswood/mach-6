@@ -820,6 +820,7 @@ pub fn match_selectors_with_style_sharing(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
+    stats.counts.num_elements = document.tree.nodes().filter_map(ElementRef::wrap).count();
     let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
         get_selector_stats.then(SmallVec::new);
     let mut bless_list = SmallVec::new();
@@ -1086,6 +1087,7 @@ pub fn match_selectors_with_style_sharing_breadth_first(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
+    stats.counts.num_elements = document.tree.nodes().filter_map(ElementRef::wrap).count();
     let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
         get_selector_stats.then(SmallVec::new);
     let mut bless_list = SmallVec::new();
@@ -1241,6 +1243,33 @@ mod tests {
         let (_, _, breadth_first_stats) =
             do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
         assert_eq!(breadth_first_stats.counts.sharing_misses, 7);
+        Ok(())
+    }
+
+    #[test]
+    fn both_style_sharing_matchers_count_document_elements() -> Result<()> {
+        let document = scraper::Html::parse_document(
+            "<!doctype html><!--not an element--><html><head><title>title</title></head>\
+             <body><main><p>text <em>emphasis</em></p><img></main></body></html>",
+        );
+        let stylesheet_lock = style::shared_lock::SharedRwLock::new();
+        let stylesheet = crate::parse::parse_stylesheet(
+            ".unused {}",
+            UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+            &stylesheet_lock,
+        )?;
+        let website = crate::parse::ParsedWebsite::new(
+            "element count".to_owned(),
+            document,
+            vec![stylesheet],
+            stylesheet_lock,
+        );
+
+        let (_, _, depth_first_stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        assert_eq!(depth_first_stats.counts.num_elements, 8);
+        let (_, _, breadth_first_stats) =
+            do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
+        assert_eq!(breadth_first_stats.counts.num_elements, 8);
         Ok(())
     }
 
