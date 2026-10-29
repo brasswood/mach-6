@@ -75,14 +75,14 @@ impl MatchBenchResult {
     fn new(
         stats: TimedResults<Statistics>,
         per_match_stats: TimedResults<SmallVec<[(Selector, SelectorStats); 16]>>,
-        sharing_matches: usize,
+        sharing_accepts: usize,
     ) -> Self {
         let mut counting_stats = stats
             .samples
             .first()
             .expect("expected at least one sample result")
             .counts;
-        counting_stats.sharing_matches = sharing_matches;
+        counting_stats.sharing_accepts = sharing_accepts;
 
         let timing_stats = stats
             .samples
@@ -334,15 +334,15 @@ where
         mach_6::match_selectors_with_style_sharing(document, matching_context, true)
     };
     println!("done.");
-    let sharing_matches = count_sharing_matches(matches);
+    let sharing_accepts = count_sharing_accepts(matches);
     let results = TimedResults {
         total_duration: tsc_timer::Duration::from_cycles(0), // whatever
         samples: Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]),
     };
-    MatchBenchResult::new(overall_stats, results, sharing_matches)
+    MatchBenchResult::new(overall_stats, results, sharing_accepts)
 }
 
-fn count_sharing_matches(matches: OwnedDocumentMatches) -> usize {
+fn count_sharing_accepts(matches: OwnedDocumentMatches) -> usize {
     let matches = SetDocumentMatches::from(matches);
     matches
         .0

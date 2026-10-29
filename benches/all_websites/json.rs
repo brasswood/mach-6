@@ -156,7 +156,7 @@ mod overall_summary {
         #[serde(default)]
         pub(crate) sharing_misses: usize,
         #[serde(default)]
-        pub(crate) sharing_matches: usize,
+        pub(crate) sharing_accepts: usize,
         pub(crate) selector_map_hits: usize,
         #[serde(default)]
         pub(crate) bless_list_hits: usize,
@@ -170,7 +170,7 @@ mod overall_summary {
             Self {
                 sharing_instances: value.sharing_instances,
                 sharing_misses: value.sharing_misses,
-                sharing_matches: value.sharing_matches,
+                sharing_accepts: value.sharing_accepts,
                 selector_map_hits: value.selector_map_hits,
                 bless_list_hits: value.bless_list_hits,
                 fast_rejects: value.fast_rejects,
