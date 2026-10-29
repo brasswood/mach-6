@@ -74,10 +74,10 @@ interface BenchmarkRunSummaryJson {
 
 interface CountingStatsJson {
   num_elements?: number | undefined;
+  num_selectors?: number | undefined;
   sharing_instances: number;
   sharing_misses?: number | undefined;
   sharing_accepts?: number | undefined;
-  num_selectors?: number | undefined;
   selector_map_hits: number;
   bless_list_hits?: number | undefined;
   fast_rejects: number;
@@ -1004,10 +1004,10 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
     mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
     counts: {
       ...(hasCompleteElementCounts ? { num_elements: sumNumbers(numElements) } : {}),
+      num_selectors: sumNumbers(summaries.map((summary) => summary.counts.num_selectors ?? 0)),
       sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
       sharing_misses: sumNumbers(summaries.map((summary) => summary.counts.sharing_misses ?? 0)),
       sharing_accepts: sumNumbers(summaries.map((summary) => summary.counts.sharing_accepts ?? 0)),
-      num_selectors: sumNumbers(summaries.map((summary) => summary.counts.num_selectors ?? 0)),
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
       bless_list_hits: sumNumbers(summaries.map((summary) => summary.counts.bless_list_hits ?? 0)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
@@ -1225,10 +1225,10 @@ function renderVariantDetails(bar: BarView): string {
     renderExpandedBar(bar),
     '<table><tbody>',
     numElementsRow,
+    '<tr><th>Selectors</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.num_selectors ?? 0)) + '</td></tr>',
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
     '<tr><th>Sharing Misses</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_misses ?? 0)) + '</td></tr>',
     '<tr><th>Sharing Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_accepts ?? 0)) + '</td></tr>',
-    '<tr><th>Selectors</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.num_selectors ?? 0)) + '</td></tr>',
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
     '<tr><th>Bless List Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.bless_list_hits ?? 0)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',

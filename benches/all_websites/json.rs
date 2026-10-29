@@ -154,13 +154,13 @@ mod overall_summary {
     pub(crate) struct CountingStatsJson {
         #[serde(default)]
         pub(crate) num_elements: usize,
+        #[serde(default)]
+        pub(crate) num_selectors: usize,
         pub(crate) sharing_instances: usize,
         #[serde(default)]
         pub(crate) sharing_misses: usize,
         #[serde(default)]
         pub(crate) sharing_accepts: usize,
-        #[serde(default)]
-        pub(crate) num_selectors: usize,
         pub(crate) selector_map_hits: usize,
         #[serde(default)]
         pub(crate) bless_list_hits: usize,
@@ -173,10 +173,10 @@ mod overall_summary {
         fn from(value: CountingStats) -> Self {
             Self {
                 num_elements: value.num_elements,
+                num_selectors: value.num_selectors,
                 sharing_instances: value.sharing_instances,
                 sharing_misses: value.sharing_misses,
                 sharing_accepts: value.sharing_accepts,
-                num_selectors: value.num_selectors,
                 selector_map_hits: value.selector_map_hits,
                 bless_list_hits: value.bless_list_hits,
                 fast_rejects: value.fast_rejects,
