@@ -70,6 +70,7 @@ interface BenchmarkRunSummaryJson {
   mean_cycles: number;
   counts: CountingStatsJson;
   times: TimingStatsJson;
+  aggregateRejects?: { sharing: number | null; selectorMap: number | null };
 }
 
 interface CountingStatsJson {
@@ -136,6 +137,8 @@ interface BarView {
   totalLengthCycles: bigint;
   slowRejectCycles: bigint;
   counts: CountingStatsJson;
+  sharingRejects: number | null;
+  selectorMapRejects: number | null;
   selectorsSummary: SelectorStatsSource;
   showExpandedDetails: boolean;
 }
@@ -883,6 +886,10 @@ function buildBar(
   if (!slowRejectSegment) {
     throw new Error("Missing slow-reject segment for " + label);
   }
+  const rejectCounts = summary.aggregateRejects ?? {
+    sharing: calculateSharingRejects(summary.counts),
+    selectorMap: calculateSelectorMapRejects(summary.counts)
+  };
 
   return {
     label,
@@ -891,6 +898,8 @@ function buildBar(
     totalLengthCycles,
     slowRejectCycles: slowRejectSegment.meanCycles,
     counts: summary.counts,
+    sharingRejects: rejectCounts.sharing,
+    selectorMapRejects: rejectCounts.selectorMap,
     selectorsSummary,
     showExpandedDetails
   };
@@ -979,6 +988,25 @@ function sumNumbers(values: number[]): number {
   }, 0);
 }
 
+function calculateSharingRejects(counts: CountingStatsJson): number | null {
+  if (counts.num_selectors === undefined || counts.sharing_accepts === undefined) {
+    return null;
+  }
+  return counts.num_selectors * counts.sharing_instances - counts.sharing_accepts;
+}
+
+function calculateSelectorMapRejects(counts: CountingStatsJson): number | null {
+  if (counts.num_elements === undefined || counts.num_selectors === undefined) {
+    return null;
+  }
+  return (counts.num_elements - counts.sharing_instances) * counts.num_selectors - counts.selector_map_hits;
+}
+
+function sumNullableNumbers(values: (number | null)[]): number | null {
+  const knownValues = values.filter((value): value is number => value !== null);
+  return knownValues.length === values.length ? sumNumbers(knownValues) : null;
+}
+
 function combineStddevs(values: number[]): number {
   return Math.round(Math.sqrt(values.reduce((sum, value) => {
     return sum + (value * value);
@@ -1002,6 +1030,10 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
   const hasCompleteElementCounts = numElements.length === summaries.length;
   return {
     mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
+    aggregateRejects: {
+      sharing: sumNullableNumbers(summaries.map((summary) => calculateSharingRejects(summary.counts))),
+      selectorMap: sumNullableNumbers(summaries.map((summary) => calculateSelectorMapRejects(summary.counts)))
+    },
     counts: {
       ...(hasCompleteElementCounts ? { num_elements: sumNumbers(numElements) } : {}),
       num_selectors: sumNumbers(summaries.map((summary) => summary.counts.num_selectors ?? 0)),
@@ -1219,6 +1251,8 @@ function renderVariantDetails(bar: BarView): string {
   const numElementsRow = bar.counts.num_elements === undefined
     ? ""
     : '<tr><th>Elements</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.num_elements)) + '</td></tr>';
+  const sharingRejects = bar.sharingRejects === null ? "N/A" : NUMBER_FORMAT.format(bar.sharingRejects);
+  const selectorMapRejects = bar.selectorMapRejects === null ? "N/A" : NUMBER_FORMAT.format(bar.selectorMapRejects);
   return [
     '<section class="variant-details">',
     '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
@@ -1229,7 +1263,9 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
     '<tr><th>Sharing Misses</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_misses ?? 0)) + '</td></tr>',
     '<tr><th>Sharing Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_accepts ?? 0)) + '</td></tr>',
+    '<tr><th>Sharing Rejects</th><td>' + escapeHtml(sharingRejects) + '</td></tr>',
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
+    '<tr><th>Selector Map Rejects</th><td>' + escapeHtml(selectorMapRejects) + '</td></tr>',
     '<tr><th>Bless List Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.bless_list_hits ?? 0)) + '</td></tr>',
     '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
