@@ -1261,7 +1261,7 @@ function renderVariantDetails(bar: BarView): string {
     numElementsRow,
     '<tr><th>Selectors</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.num_selectors ?? 0)) + '</td></tr>',
     '<tr><th>Sharing Instances</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
-    '<tr><th>Sharing Misses</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_misses ?? 0)) + '</td></tr>',
+    '<tr><th>Sharing Misses <details class="metric-info"><summary aria-label="Show Sharing Misses description">i</summary><span class="metric-info-tooltip" role="tooltip">The number of style sharing candidates that were tested and failed.</span></details></th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_misses ?? 0)) + '</td></tr>',
     '<tr><th>Sharing Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_accepts ?? 0)) + '</td></tr>',
     '<tr><th>Sharing Rejects</th><td>' + escapeHtml(sharingRejects) + '</td></tr>',
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',

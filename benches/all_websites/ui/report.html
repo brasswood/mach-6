@@ -698,6 +698,30 @@
       color: var(--muted);
       font-weight: 600;
     }
+    .metric-info {
+      position: relative;
+      display: inline-block;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+    .metric-info > summary {
+      display: inline-flex;
+      width: 16px;
+      height: 16px;
+      align-items: center;
+      justify-content: center;
+      list-style: none;
+      border: 1px solid currentColor;
+      border-radius: 50%;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .metric-info > summary::-webkit-details-marker {
+      display: none;
+    }
     p {
       margin: 10px 0 0 0;
     }
