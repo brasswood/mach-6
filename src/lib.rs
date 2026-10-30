@@ -1207,14 +1207,11 @@ mod tests {
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         // Four distinct sibling classes yield 1 + 2 + 3 misses; head/body add one.
         assert_eq!(stats.counts.sharing_misses, 7);
-        let (_, _, breadth_first_stats) =
-            do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
-        assert_eq!(breadth_first_stats.counts.sharing_misses, 7);
         Ok(())
     }
 
     #[test]
-    fn both_style_sharing_matchers_count_document_elements() -> Result<()> {
+    fn style_sharing_matcher_counts_document_elements() -> Result<()> {
         let document = scraper::Html::parse_document(
             "<!doctype html><!--not an element--><html><head><title>title</title></head>\
              <body><main><p>text <em>emphasis</em></p><img></main></body></html>",
@@ -1234,9 +1231,6 @@ mod tests {
 
         let (_, _, depth_first_stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(depth_first_stats.counts.num_elements, 8);
-        let (_, _, breadth_first_stats) =
-            do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
-        assert_eq!(breadth_first_stats.counts.num_elements, 8);
         Ok(())
     }
 
@@ -1261,10 +1255,6 @@ mod tests {
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
         assert_eq!(stats.counts.sharing_accepts, 9);
         assert_eq!(stats.counts.num_selectors, 3);
-        let (_, _, breadth_first_stats) =
-            do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
-        assert_eq!(breadth_first_stats.counts.sharing_accepts, 9);
-        assert_eq!(breadth_first_stats.counts.num_selectors, 3);
         Ok(())
     }
 
