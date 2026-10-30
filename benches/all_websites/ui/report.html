@@ -712,11 +712,12 @@
         white-space: normal;
       }
       .row {
-        grid-template-columns: 12px 1fr;
+        grid-template-columns: 12px minmax(0, 1fr);
         gap: 6px;
       }
       .summary-variants {
         grid-column: 2 / 3;
+        min-width: 0;
       }
       .bar-legend {
         margin-left: 18px;
@@ -724,6 +725,9 @@
       .variant-summary {
         grid-template-columns: 1fr;
         gap: 6px;
+      }
+      .variant-context {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content;
       }
       .compare-controls-grid {
         grid-template-columns: 1fr;
