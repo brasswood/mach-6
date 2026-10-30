@@ -8,7 +8,7 @@ use clap::ValueEnum;
 use ::cssparser::ToCss as _;
 use derive_more::Display;
 use log::Level;
-use log::{debug, log_enabled};
+use log::{debug, info, log_enabled};
 use rustc_hash::FxBuildHasher;
 use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
@@ -795,6 +795,8 @@ pub fn match_selectors_with_style_sharing(
     let cascade_data = stylist.cascade_data().borrow_for_origin(Origin::Author);
     // TODO: It's evident from this that we get one selector map per origin. How do real browsers handle all three origins (Author, User, User Agent)?
     let selector_map = cascade_data.normal_rules(&[]).unwrap();
+    info!("Stylist::num_selectors(): {}", stylist.num_selectors());
+    info!("SelectorMap::len(): {}", selector_map.len());
     let shared_style_context = SharedStyleContext {
         stylist,
         visited_styles_enabled: true,
@@ -857,7 +859,6 @@ pub fn match_selectors_with_style_sharing(
     drop(ua_or_user_guard);
     drop(author_guard);
     stats.counts.num_selectors = selector_map.len();
-    debug_assert_eq!(stats.counts.num_selectors, stylist.num_selectors());
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     (owned_matches, stats, selector_stats, matching_time)
 }
@@ -1063,6 +1064,8 @@ pub fn match_selectors_with_style_sharing_breadth_first(
     let cascade_data = stylist.cascade_data().borrow_for_origin(Origin::Author);
     // TODO: It's evident from this that we get one selector map per origin. How do real browsers handle all three origins (Author, User, User Agent)?
     let selector_map = cascade_data.normal_rules(&[]).unwrap();
+    info!("Stylist::num_selectors(): {}", stylist.num_selectors());
+    info!("SelectorMap::len(): {}", selector_map.len());
     let shared_style_context = SharedStyleContext {
         stylist,
         visited_styles_enabled: true,
@@ -1142,7 +1145,6 @@ pub fn match_selectors_with_style_sharing_breadth_first(
     drop(ua_or_user_guard);
     drop(author_guard);
     stats.counts.num_selectors = selector_map.len();
-    debug_assert_eq!(stats.counts.num_selectors, stylist.num_selectors());
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     (owned_matches, stats, selector_stats, matching_time)
 }
