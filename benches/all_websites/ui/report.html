@@ -722,6 +722,32 @@
     .metric-info > summary::-webkit-details-marker {
       display: none;
     }
+    .metric-info-tooltip {
+      display: block;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 5;
+      width: 240px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--card);
+      box-shadow: 0 4px 14px rgba(29, 35, 43, 0.16);
+      color: var(--fg);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .metric-info:hover .metric-info-tooltip,
+    .metric-info:focus-within .metric-info-tooltip,
+    .metric-info[open] .metric-info-tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
     p {
       margin: 10px 0 0 0;
     }
