@@ -46,7 +46,7 @@ interface WebsiteJson {
 }
 
 interface SummaryJson {
-  before_preprocessing: BenchmarkRunSummaryJson;
+  baseline: BenchmarkRunSummaryJson;
   with_bless_list?: BenchmarkRunSummaryJson;
   preprocessing: PreprocessingSummaryJson;
   after_preprocessing: BenchmarkRunSummaryJson;
@@ -101,7 +101,7 @@ interface TimingsJsonBody {
 }
 
 interface SelectorsSummaryJson {
-  before_preprocessing: SelectorStatsJson;
+  baseline: SelectorStatsJson;
   with_bless_list?: SelectorStatsJson;
   after_preprocessing: SelectorStatsJson;
 }
@@ -914,7 +914,7 @@ function buildWebsiteBars(
     return () => getAggregateSelectors()[key] ?? emptySelectorStats();
   };
   const bars = [
-    buildBar("Before Preprocessing", website.summary.before_preprocessing, getSelectors("before_preprocessing"), null)
+    buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), null)
   ];
   const withBlessList = website.summary.with_bless_list;
   const withBlessListSelectors = website.selector_slow_rejects_summary.with_bless_list;
@@ -1083,7 +1083,7 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
 
 function buildAggregateSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
   const summary: SelectorsSummaryJson = {
-    before_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.before_preprocessing)),
+    baseline: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.baseline)),
     after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
   };
   if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
@@ -1104,7 +1104,7 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
     return getPreprocessingBreakdown(website.summary.preprocessing);
   });
   const summary: SummaryJson = {
-    before_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.before_preprocessing)),
+    baseline: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.baseline)),
     preprocessing: {
       mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
         return sum + breakdown.indexingCycles;
@@ -1119,7 +1119,7 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
     after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
   };
   const selectorSummary: SelectorsSummaryJson = {
-    before_preprocessing: emptySelectorStats(),
+    baseline: emptySelectorStats(),
     after_preprocessing: emptySelectorStats()
   };
   if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
@@ -1672,7 +1672,7 @@ function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
   if (record === null) {
     return false;
   }
-  return isSelectorStatsJson(record.before_preprocessing)
+  return isSelectorStatsJson(record.baseline)
     && (record.with_bless_list === undefined || isSelectorStatsJson(record.with_bless_list))
     && isSelectorStatsJson(record.after_preprocessing);
 }
@@ -1682,7 +1682,7 @@ function isSummaryJson(value: unknown): value is SummaryJson {
   if (record === null) {
     return false;
   }
-  return isBenchmarkRunSummaryJson(record.before_preprocessing)
+  return isBenchmarkRunSummaryJson(record.baseline)
     && (record.with_bless_list === undefined || isBenchmarkRunSummaryJson(record.with_bless_list))
     && isPreprocessingSummaryJson(record.preprocessing)
     && isBenchmarkRunSummaryJson(record.after_preprocessing);
@@ -1690,20 +1690,15 @@ function isSummaryJson(value: unknown): value is SummaryJson {
 
 function isWebsiteJson(value: unknown): value is WebsiteJson {
   const record = getRecord(value);
-  if (record === null) {
-    return false;
-  }
-  return typeof record.website === "string"
+  return record !== null
+    && typeof record.website === "string"
     && isSummaryJson(record.summary)
     && isSelectorsSummaryJson(record.selector_slow_rejects_summary);
 }
 
 function isReportJson(value: unknown): value is ReportJson {
   const record = getRecord(value);
-  if (record === null) {
-    return false;
-  }
-  if (!Array.isArray(record.websites)) {
+  if (record === null || !Array.isArray(record.websites)) {
     return false;
   }
   return isReportMetadataJson(record.metadata)

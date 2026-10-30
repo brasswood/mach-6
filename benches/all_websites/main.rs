@@ -53,7 +53,7 @@ struct SelectorSlowRejectSamples {
 /// Aggregated data for one matching variant in the website report.
 ///
 /// A "variant" here means one of the two selector-matching configurations we
-/// compare for a website, such as before preprocessing vs. after preprocessing.
+/// compare for a website, such as baseline vs. after preprocessing.
 /// This is the per-variant payload consumed by both the HTML report and the
 /// per-website JSON output.
 #[derive(Clone, Debug)]
@@ -164,7 +164,7 @@ impl PreprocessingResult {
 /// variants, the preprocessing step, and the post-preprocessing variant.
 struct WebsiteResult {
     website: String,
-    before_preprocessing: MatchBenchResult,
+    baseline: MatchBenchResult,
     with_bless_list: MatchBenchResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
@@ -188,8 +188,8 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let before_preprocessing = bench_website(
-            &format!("{} before preprocessing", w.name),
+        let baseline = bench_website(
+            &format!("{} baseline", w.name),
             || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
         );
         let with_bless_list = bench_website(
@@ -248,7 +248,7 @@ fn main() {
         );
         let result = WebsiteResult {
             website: w.name,
-            before_preprocessing,
+            baseline,
             with_bless_list,
             preprocessing: PreprocessingResult::new(
                 indexing_results,
