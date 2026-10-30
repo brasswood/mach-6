@@ -612,18 +612,20 @@ async function fetchReportJson(reportUrl: string): Promise<ReportJson> {
   }
 
   const raw: unknown = await response.json();
-  if (!isReportJson(raw)) {
+  const report = parseReportJson(raw);
+  if (report === null) {
     throw new Error(joinReportPath(reportUrl, "report.json") + " had an unexpected shape");
   }
-  return raw;
+  return report;
 }
 
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
-  if (!isReportJson(raw)) {
+  const report = parseReportJson(raw);
+  if (report === null) {
     throw new Error(file.name + " had an unexpected shape");
   }
-  return raw;
+  return report;
 }
 
 async function resolveFileSelection(
@@ -1667,42 +1669,55 @@ function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
     && Object.values(stddevs).every(isFiniteNumber);
 }
 
-function isSelectorsSummaryJson(value: unknown): value is SelectorsSummaryJson {
+function isSelectorsSummaryJson(value: unknown): boolean {
   const record = getRecord(value);
   if (record === null) {
     return false;
   }
-  return isSelectorStatsJson(record.baseline)
+  return isSelectorStatsJson(record.baseline ?? record.before_preprocessing)
     && (record.with_bless_list === undefined || isSelectorStatsJson(record.with_bless_list))
     && isSelectorStatsJson(record.after_preprocessing);
 }
 
-function isSummaryJson(value: unknown): value is SummaryJson {
+function isSummaryJson(value: unknown): boolean {
   const record = getRecord(value);
   if (record === null) {
     return false;
   }
-  return isBenchmarkRunSummaryJson(record.baseline)
+  return isBenchmarkRunSummaryJson(record.baseline ?? record.before_preprocessing)
     && (record.with_bless_list === undefined || isBenchmarkRunSummaryJson(record.with_bless_list))
     && isPreprocessingSummaryJson(record.preprocessing)
     && isBenchmarkRunSummaryJson(record.after_preprocessing);
 }
 
-function isWebsiteJson(value: unknown): value is WebsiteJson {
+function normalizeWebsiteJson(value: unknown): WebsiteJson | null {
   const record = getRecord(value);
-  return record !== null
-    && typeof record.website === "string"
-    && isSummaryJson(record.summary)
-    && isSelectorsSummaryJson(record.selector_slow_rejects_summary);
+  const summary = getRecord(record?.summary);
+  const selectorSummary = getRecord(record?.selector_slow_rejects_summary);
+  if (record === null || typeof record.website !== "string" || summary === null || selectorSummary === null
+    || !isSummaryJson(summary) || !isSelectorsSummaryJson(selectorSummary)) {
+    return null;
+  }
+  return {
+    website: record.website,
+    summary: { ...summary, baseline: summary.baseline ?? summary.before_preprocessing } as unknown as SummaryJson,
+    selector_slow_rejects_summary: {
+      ...selectorSummary,
+      baseline: selectorSummary.baseline ?? selectorSummary.before_preprocessing
+    } as unknown as SelectorsSummaryJson
+  };
 }
 
-function isReportJson(value: unknown): value is ReportJson {
+function parseReportJson(value: unknown): ReportJson | null {
   const record = getRecord(value);
-  if (record === null || !Array.isArray(record.websites)) {
-    return false;
+  const metadata = record?.metadata;
+  if (record === null || !isReportMetadataJson(metadata) || !Array.isArray(record.websites)) {
+    return null;
   }
-  return isReportMetadataJson(record.metadata)
-    && record.websites.every((website) => isWebsiteJson(website));
+
+  const websites = record.websites.map(normalizeWebsiteJson);
+  if (!websites.every((website): website is WebsiteJson => website !== null)) return null;
+  return { metadata, websites };
 }
 
 async function main(): Promise<void> {
@@ -1775,12 +1790,13 @@ async function main(): Promise<void> {
     }
 
     const raw: unknown = await response.json();
-    if (!isReportJson(raw)) {
+    const report = parseReportJson(raw);
+    if (report === null) {
       throw new Error("report.json had an unexpected shape");
     }
 
-    renderMetadata(raw.metadata, commitLine);
-    renderDefaultReportList(list, byTotal, bySlow, raw);
+    renderMetadata(report.metadata, commitLine);
+    renderDefaultReportList(list, byTotal, bySlow, report);
     list.hidden = false;
     hideCompareResults(compareResults);
     document.body.classList.remove("compare-active");
@@ -1796,16 +1812,16 @@ async function main(): Promise<void> {
       compareLeftFile,
       compareRightFile,
       compareStatus,
-      raw.metadata
+      report.metadata
     );
     installCompareSelectDropdown(compareLeftDropdown, compareLeftSearch, compareLeft, compareLeftNoMatches);
     installCompareSelectDropdown(compareRightDropdown, compareRightSearch, compareRight, compareRightNoMatches);
     installCompareHandler(
-      raw,
+      report,
       compareRun,
       compareLeftOnly,
       compareRightOnly,
-      getReportSource(raw.metadata),
+      getReportSource(report.metadata),
       compareLeft,
       compareRight,
       compareLeftFile,
