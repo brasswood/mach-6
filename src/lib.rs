@@ -73,11 +73,8 @@ use crate::structs::{
 pub enum Algorithm {
     Naive,
     WithStyleSharing,
-    WithStyleSharingBreadthFirst,
     WithBlessList,
-    WithBlessListBreadthFirst,
     WithUniversalBucketBlessList,
-    WithUniversalBucketBlessListBreadthFirst,
     WithIsConversion,
     WithDistribution,
     Mach7,
@@ -334,17 +331,6 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 );
             (matches, stats)
         },
-        Algorithm::WithStyleSharingBreadthFirst => {
-            let matching_context = website.get_matcher(Optimizations::from_none());
-            let document = website.fresh_document();
-            let (matches, stats, _, _) =
-                match_selectors_with_style_sharing_breadth_first(
-                    document,
-                    matching_context,
-                    false,
-                );
-            (matches, stats)
-        },
         Algorithm::WithBlessList => {
             let optimizations = Optimizations {
                 universal_tail_bless_lists: true,
@@ -360,21 +346,6 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 );
             (matches, stats)
         },
-        Algorithm::WithBlessListBreadthFirst => {
-            let optimizations = Optimizations {
-                universal_tail_bless_lists: true,
-                ..Optimizations::from_none()
-            };
-            let matching_context = website.get_matcher(optimizations);
-            let document = website.fresh_document();
-            let (matches, stats, _, _) =
-                match_selectors_with_style_sharing_breadth_first(
-                    document,
-                    matching_context,
-                    false,
-                );
-            (matches, stats)
-        },
         Algorithm::WithUniversalBucketBlessList => {
             let optimizations = Optimizations {
                 universal_bucket_bless_lists: true,
@@ -384,21 +355,6 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             let document = website.fresh_document();
             let (matches, stats, _, _) =
                 match_selectors_with_style_sharing(
-                    document,
-                    matching_context,
-                    false,
-                );
-            (matches, stats)
-        },
-        Algorithm::WithUniversalBucketBlessListBreadthFirst => {
-            let optimizations = Optimizations {
-                universal_bucket_bless_lists: true,
-                ..Optimizations::from_none()
-            };
-            let matching_context = website.get_matcher(optimizations);
-            let document = website.fresh_document();
-            let (matches, stats, _, _) =
-                match_selectors_with_style_sharing_breadth_first(
                     document,
                     matching_context,
                     false,
