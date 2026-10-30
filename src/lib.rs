@@ -66,7 +66,7 @@ use crate::structs::{
         SelectorsOrSharedStyles,
     },
     owned::OwnedDocumentMatches,
-    set::{SetDocumentMatches, SetSelectorsOrSharedStyles},
+    set::SetDocumentMatches,
 };
 
 #[derive(Debug, Display, Clone, Copy, ValueEnum)]
@@ -568,15 +568,21 @@ fn collect_selectors_from_map(
 }
 
 fn count_sharing_accepts(matches: &OwnedDocumentMatches) -> usize {
-    let set_matches = SetDocumentMatches::from(matches.clone());
-    set_matches
+    // Sharing candidates enter the cache only after their selector results are recorded.
+    let mut selector_counts_by_id = HashMap::with_capacity(matches.0.len());
+    matches
         .0
-        .values()
-        .filter_map(|element_matches| match &element_matches.selectors {
-            SetSelectorsOrSharedStyles::Selectors(_) => None,
-            SetSelectorsOrSharedStyles::SharedWithElement(_) => {
-                Some(set_matches.find_selectors(element_matches.element.id).len())
-            }
+        .iter()
+        .map(|element_matches| {
+            let (selector_count, sharing_accepts) = match &element_matches.selectors {
+                OwnedSelectorsOrSharedStyles::Selectors(selectors) => (selectors.len(), 0),
+                OwnedSelectorsOrSharedStyles::SharedWithElement(source_id) => {
+                    let selector_count = selector_counts_by_id[source_id];
+                    (selector_count, selector_count)
+                }
+            };
+            selector_counts_by_id.insert(element_matches.element.id, selector_count);
+            sharing_accepts
         })
         .sum()
 }
@@ -1278,14 +1284,14 @@ mod tests {
     }
 
     #[test]
-    fn counts_selector_element_pairs_accepted_via_style_sharing() -> Result<()> {
+    fn counts_selector_rule_matches_accepted_via_style_sharing() -> Result<()> {
         let document = scraper::Html::parse_document(
             "<div class='shared'></div><div class='shared'></div>\
              <div class='shared'></div><div class='shared'></div>",
         );
         let stylesheet_lock = style::shared_lock::SharedRwLock::new();
         let stylesheet = crate::parse::parse_stylesheet(
-            ".shared {} div.shared {}",
+            ".shared {} .shared {} div.shared {}",
             UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
             &stylesheet_lock,
         )?;
@@ -1296,12 +1302,12 @@ mod tests {
             stylesheet_lock,
         );
         let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
-        assert_eq!(stats.counts.sharing_accepts, 6);
-        assert_eq!(stats.counts.num_selectors, 2);
+        assert_eq!(stats.counts.sharing_accepts, 9);
+        assert_eq!(stats.counts.num_selectors, 3);
         let (_, _, breadth_first_stats) =
             do_website(&website, Algorithm::WithStyleSharingBreadthFirst, None);
-        assert_eq!(breadth_first_stats.counts.sharing_accepts, 6);
-        assert_eq!(breadth_first_stats.counts.num_selectors, 2);
+        assert_eq!(breadth_first_stats.counts.sharing_accepts, 9);
+        assert_eq!(breadth_first_stats.counts.num_selectors, 3);
         Ok(())
     }
 
