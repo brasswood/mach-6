@@ -581,7 +581,8 @@ fn count_sharing_accepts(matches: &OwnedDocumentMatches) -> usize {
                     (selector_count, selector_count)
                 }
             };
-            selector_counts_by_id.insert(element_matches.element.id, selector_count);
+            let res = selector_counts_by_id.insert(element_matches.element.id, selector_count);
+            debug_assert!(res.is_none()); // not encountering an element twice/overriding selector count
             sharing_accepts
         })
         .sum()
