@@ -1267,7 +1267,7 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>Selector Map Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
     '<tr><th>Selector Map Rejects</th><td>' + escapeHtml(selectorMapRejects) + '</td></tr>',
     '<tr><th>Bless List Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.bless_list_hits ?? 0)) + '</td></tr>',
-    '<tr><th>Fast Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
+    '<tr><th>Bloom Filter Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
     '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
     '</tbody></table>',
