@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project Summary
-This is a project for trying to improve selector matching times.
+This is a project for trying to improve CSS selector matching times.
 
 The primary entry points are `./src/lib.rs:match_selectors*`. These functions take an `Html` tree and a list of `Selector`s, and produce a data structure that records, for each element, which selectors match it. (Currently, the list of `Selector`s is passed to `match_selectors_with_style_sharing*` inside of a `MatchingContext`.)
 
