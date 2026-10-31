@@ -9,6 +9,8 @@ Tests are in `tests/`. `tests/websites_suite.rs` compares the matching results o
 
 `benches/all_websites/` contains the benchmarking code for this project. `main.rs` measures the algorithms on the website corpus in `websites/`. `json.rs` defines the schema for the JSON report it produces. `ui/` contains the code for the webpage that visualizes the JSON report. Data in the UI should be backed by the JSON.
 
+`scratch/` is the place for temporary artifacts. One-off reports, Samply profiles, and things like that go in there.
+
 ## Priorities
 Correctness is top priority. `cargo test` in the `mach-6` superproject should pass.
 
