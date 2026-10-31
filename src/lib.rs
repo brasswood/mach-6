@@ -72,7 +72,7 @@ use crate::structs::{
 #[derive(Debug, Display, Clone, Copy, ValueEnum)]
 pub enum Algorithm {
     Naive,
-    WithStyleSharing,
+    WithBloomFilter,
     WithBlessList,
     WithUniversalBucketBlessList,
     WithIsConversion,
@@ -321,7 +321,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
                 Statistics::default(),
             )
         },
-        Algorithm::WithStyleSharing => {
+        Algorithm::WithBloomFilter => {
             let matching_context = website.get_matcher(Optimizations::from_none());
             let document = website.fresh_document();
             let (matches, stats, _, _) =
@@ -892,7 +892,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
         assert_eq!(stats.counts.sharing_instances, 9);
         Ok(())
     }
@@ -903,7 +903,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
         assert_eq!(stats.counts.sharing_instances, 5);
         Ok(())
     }
@@ -926,7 +926,7 @@ mod tests {
             vec![stylesheet],
             stylesheet_lock,
         );
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
         // Four distinct sibling classes yield 1 + 2 + 3 misses; head/body add one.
         assert_eq!(stats.counts.sharing_misses, 7);
         Ok(())
@@ -951,7 +951,7 @@ mod tests {
             stylesheet_lock,
         );
 
-        let (_, _, depth_first_stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        let (_, _, depth_first_stats) = do_website(&website, Algorithm::WithBloomFilter, None);
         assert_eq!(depth_first_stats.counts.num_elements, 8);
         Ok(())
     }
@@ -974,7 +974,7 @@ mod tests {
             vec![stylesheet],
             stylesheet_lock,
         );
-        let (_, _, stats) = do_website(&website, Algorithm::WithStyleSharing, None);
+        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
         assert_eq!(stats.counts.sharing_accepts, 9);
         assert_eq!(stats.counts.num_selectors, 3);
         Ok(())
