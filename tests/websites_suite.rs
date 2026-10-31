@@ -15,7 +15,7 @@ use style::Atom;
 use test_log::test;
 
 const ALGORITHMS: [Algorithm; 6] = [
-    Algorithm::WithStyleSharing,
+    Algorithm::WithBloomFilter,
     Algorithm::WithBlessList,
     Algorithm::WithUniversalBucketBlessList,
     Algorithm::WithIsConversion,
