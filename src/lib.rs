@@ -82,6 +82,7 @@ pub enum Algorithm {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Optimizations {
+    pub style_sharing: bool,
     pub is_conversion: bool,
     pub distribution: bool,
     pub universal_tail_bless_lists: bool,
@@ -619,12 +620,17 @@ pub fn match_selectors_with_style_sharing(
                 &mut activation_context,
             );
         }
-        // 1.3: Check if we can share styles
-        let mut target = StyleSharingTarget::new(element);
-        let start = Start::now();
-        let style_sharing_result = target.share_style_if_possible(context);
-        stats.times.checking_style_sharing += start.elapsed();
-        stats.counts.sharing_misses += target.sharing_misses();
+        // 1.3: Check if we can share styles (if enabled)
+        let style_sharing_result = if optimizations.style_sharing {
+            let mut target = StyleSharingTarget::new(element);
+            let start = Start::now();
+            let res = target.share_style_if_possible(context);
+            stats.times.checking_style_sharing += start.elapsed();
+            stats.counts.sharing_misses += target.sharing_misses();
+            res
+        } else {
+            None
+        };
         match style_sharing_result {
             Some((other_element, shared_styles)) => {
                 // If we can share styles, do that.
@@ -720,16 +726,18 @@ pub fn match_selectors_with_style_sharing(
                     selector_stats.extend(sel_stats.unwrap().into_iter())
                 }
                 // 1.3.4: insert the element into the style sharing cache
-                let start = Start::now();
-                context.thread_local.sharing_cache.insert_if_possible(
-                    &element ,
-                    &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
-                    // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
-                    None,
-                    element_depth,
-                    &context.shared,
-                );
-                stats.times.inserting_into_sharing_cache += start.elapsed();
+                if optimizations.style_sharing {
+                    let start = Start::now();
+                    context.thread_local.sharing_cache.insert_if_possible(
+                        &element ,
+                        &stylo_interface::default_style(), // We can just insert the default style here because all this is used for is to compute some bool called `considered_nontrivial_scoped_style`, and I commented all usage of that out anyway.
+                        // The actual style we end up getting from the cache (if hit) comes from the element that we put in, so pointers will be shared :).
+                        None,
+                        element_depth,
+                        &context.shared,
+                    );
+                    stats.times.inserting_into_sharing_cache += start.elapsed();
+                }
             }
         }
         // 2. traverse children
@@ -764,7 +772,7 @@ pub fn match_selectors_with_style_sharing(
         stylist,
         visited_styles_enabled: true,
         options: StyleSystemOptions {
-            disable_style_sharing_cache: false,
+            disable_style_sharing_cache: false, // optimizations.style_sharing enables/disables by simply using or not using the machinery
             dump_style_statistics: false, // TODO: maybe change this later
             style_statistics_threshold: 0, // TODO: maybe change this later
         },
