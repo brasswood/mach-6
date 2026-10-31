@@ -53,7 +53,7 @@ struct SelectorSlowRejectSamples {
 /// Aggregated data for one matching variant in the website report.
 ///
 /// A "variant" here means one of the two selector-matching configurations we
-/// compare for a website, such as baseline vs. after preprocessing.
+/// compare for a website, such as With Bloom Filter vs. after preprocessing.
 /// This is the per-variant payload consumed by both the HTML report and the
 /// per-website JSON output.
 #[derive(Clone, Debug)]
@@ -160,11 +160,11 @@ impl PreprocessingResult {
     }
 }
 
-/// All report data for one website: the baseline and bless-list matching
+/// All report data for one website: the bloom-filter and bless-list matching
 /// variants, the preprocessing step, and the post-preprocessing variant.
 struct WebsiteResult {
     website: String,
-    baseline: MatchBenchResult,
+    with_bloom_filter: MatchBenchResult,
     with_bless_list: MatchBenchResult,
     preprocessing: PreprocessingResult,
     after_preprocessing: MatchBenchResult,
@@ -188,8 +188,8 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let baseline = bench_website(
-            &format!("{} baseline", w.name),
+        let with_bloom_filter = bench_website(
+            &format!("{} with bloom filter", w.name),
             || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
         );
         let with_bless_list = bench_website(
@@ -248,7 +248,7 @@ fn main() {
         );
         let result = WebsiteResult {
             website: w.name,
-            baseline,
+            with_bloom_filter,
             with_bless_list,
             preprocessing: PreprocessingResult::new(
                 indexing_results,
