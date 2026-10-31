@@ -887,12 +887,37 @@ mod tests {
     use style::stylesheets::UrlExtraData;
     use test_log::test;
 
+    fn style_sharing_stats(website: &crate::parse::ParsedWebsite) -> super::Statistics {
+        let matching_context = website.get_matcher(Optimizations {
+            style_sharing: true,
+            ..Optimizations::from_none()
+        });
+        let (_, stats, _, _) = super::match_selectors_with_style_sharing(
+            website.fresh_document(),
+            matching_context,
+            false,
+        );
+        stats
+    }
+
+    #[test]
+    fn bloom_filter_algorithm_disables_style_sharing() -> Result<()> {
+        let website = get_document_and_selectors(
+            &websites_path().join("ten_divs_style_sharing")
+        )?.unwrap();
+        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
+        assert_eq!(stats.counts.sharing_instances, 0);
+        assert_eq!(stats.counts.sharing_misses, 0);
+        assert_eq!(stats.counts.sharing_accepts, 0);
+        Ok(())
+    }
+
     #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
+        let stats = style_sharing_stats(&website);
         assert_eq!(stats.counts.sharing_instances, 9);
         Ok(())
     }
@@ -903,7 +928,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
-        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
+        let stats = style_sharing_stats(&website);
         assert_eq!(stats.counts.sharing_instances, 5);
         Ok(())
     }
@@ -926,7 +951,7 @@ mod tests {
             vec![stylesheet],
             stylesheet_lock,
         );
-        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
+        let stats = style_sharing_stats(&website);
         // Four distinct sibling classes yield 1 + 2 + 3 misses; head/body add one.
         assert_eq!(stats.counts.sharing_misses, 7);
         Ok(())
@@ -951,7 +976,7 @@ mod tests {
             stylesheet_lock,
         );
 
-        let (_, _, depth_first_stats) = do_website(&website, Algorithm::WithBloomFilter, None);
+        let depth_first_stats = style_sharing_stats(&website);
         assert_eq!(depth_first_stats.counts.num_elements, 8);
         Ok(())
     }
@@ -974,7 +999,7 @@ mod tests {
             vec![stylesheet],
             stylesheet_lock,
         );
-        let (_, _, stats) = do_website(&website, Algorithm::WithBloomFilter, None);
+        let stats = style_sharing_stats(&website);
         assert_eq!(stats.counts.sharing_accepts, 9);
         assert_eq!(stats.counts.num_selectors, 3);
         Ok(())
