@@ -97,7 +97,7 @@ mod overall_summary {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
-        pub(crate) with_bloom_filter: BenchmarkRunSummaryJson,
+        pub(crate) baseline: BenchmarkRunSummaryJson,
         pub(crate) with_bless_list: BenchmarkRunSummaryJson,
         pub(crate) preprocessing: PreprocessingSummaryJson,
         pub(crate) after_preprocessing: BenchmarkRunSummaryJson,
@@ -106,7 +106,7 @@ mod overall_summary {
     impl From<&WebsiteResult> for SummaryJson {
         fn from(value: &WebsiteResult) -> Self {
             Self {
-                with_bloom_filter: BenchmarkRunSummaryJson::from(&value.with_bloom_filter),
+                baseline: BenchmarkRunSummaryJson::from(&value.baseline),
                 with_bless_list: BenchmarkRunSummaryJson::from(&value.with_bless_list),
                 preprocessing: PreprocessingSummaryJson::from(&value.preprocessing),
                 after_preprocessing: BenchmarkRunSummaryJson::from(&value.after_preprocessing),
@@ -236,7 +236,7 @@ mod selector_summary {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
-        pub(crate) with_bloom_filter: SelectorStatsJson,
+        pub(crate) baseline: SelectorStatsJson,
         pub(crate) with_bless_list: SelectorStatsJson,
         pub(crate) after_preprocessing: SelectorStatsJson,
     }
@@ -244,7 +244,7 @@ mod selector_summary {
     impl From<&WebsiteResult> for SelectorsSummaryJson {
         fn from(value: &WebsiteResult) -> Self {
             Self {
-                with_bloom_filter: SelectorStatsJson::from(value.with_bloom_filter.selector_slow_reject_times.as_slice()),
+                baseline: SelectorStatsJson::from(value.baseline.selector_slow_reject_times.as_slice()),
                 with_bless_list: SelectorStatsJson::from(value.with_bless_list.selector_slow_reject_times.as_slice()),
                 after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.selector_slow_reject_times.as_slice())
             }
@@ -284,7 +284,7 @@ mod samples {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SamplesJson {
-        pub(crate) with_bloom_filter: TimingsSamplesJson,
+        pub(crate) baseline: TimingsSamplesJson,
         pub(crate) with_bless_list: TimingsSamplesJson,
         pub(crate) after_preprocessing: TimingsSamplesJson,
     }
@@ -292,7 +292,7 @@ mod samples {
     impl From<&WebsiteResult> for SamplesJson {
         fn from(value: &WebsiteResult) -> Self {
             Self {
-                with_bloom_filter: TimingsSamplesJson::from(&value.with_bloom_filter),
+                baseline: TimingsSamplesJson::from(&value.baseline),
                 with_bless_list: TimingsSamplesJson::from(&value.with_bless_list),
                 after_preprocessing: TimingsSamplesJson::from(&value.after_preprocessing),
             }
