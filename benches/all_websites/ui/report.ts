@@ -46,7 +46,7 @@ interface WebsiteJson {
 }
 
 interface SummaryJson {
-  with_bloom_filter: BenchmarkRunSummaryJson;
+  baseline: BenchmarkRunSummaryJson;
   with_bless_list?: BenchmarkRunSummaryJson;
   preprocessing: PreprocessingSummaryJson;
   after_preprocessing: BenchmarkRunSummaryJson;
@@ -101,7 +101,7 @@ interface TimingsJsonBody {
 }
 
 interface SelectorsSummaryJson {
-  with_bloom_filter: SelectorStatsJson;
+  baseline: SelectorStatsJson;
   with_bless_list?: SelectorStatsJson;
   after_preprocessing: SelectorStatsJson;
 }
@@ -916,7 +916,7 @@ function buildWebsiteBars(
     return () => getAggregateSelectors()[key] ?? emptySelectorStats();
   };
   const bars = [
-    buildBar("With Bloom Filter", website.summary.with_bloom_filter, getSelectors("with_bloom_filter"), null)
+    buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), null)
   ];
   const withBlessList = website.summary.with_bless_list;
   const withBlessListSelectors = website.selector_slow_rejects_summary.with_bless_list;
@@ -1085,7 +1085,7 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
 
 function buildAggregateSelectorSummary(websites: WebsiteJson[]): SelectorsSummaryJson {
   const summary: SelectorsSummaryJson = {
-    with_bloom_filter: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.with_bloom_filter)),
+    baseline: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.baseline)),
     after_preprocessing: aggregateSelectorStats(websites.map((website) => website.selector_slow_rejects_summary.after_preprocessing))
   };
   if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
@@ -1106,7 +1106,7 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
     return getPreprocessingBreakdown(website.summary.preprocessing);
   });
   const summary: SummaryJson = {
-    with_bloom_filter: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.with_bloom_filter)),
+    baseline: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.baseline)),
     preprocessing: {
       mean_indexing_cycles: Number(preprocessingBreakdowns.reduce((sum, breakdown) => {
         return sum + breakdown.indexingCycles;
@@ -1121,7 +1121,7 @@ function buildAggregateWebsiteJson(websites: WebsiteJson[]): WebsiteJson {
     after_preprocessing: aggregateBenchmarkRunSummary(websites.map((website) => website.summary.after_preprocessing))
   };
   const selectorSummary: SelectorsSummaryJson = {
-    with_bloom_filter: emptySelectorStats(),
+    baseline: emptySelectorStats(),
     after_preprocessing: emptySelectorStats()
   };
   if (websites.every((website) => website.summary.with_bless_list !== undefined && website.selector_slow_rejects_summary.with_bless_list !== undefined)) {
@@ -1674,7 +1674,7 @@ function isSelectorsSummaryJson(value: unknown): boolean {
   if (record === null) {
     return false;
   }
-  return isSelectorStatsJson(record.with_bloom_filter ?? record.baseline ?? record.before_preprocessing)
+  return isSelectorStatsJson(record.baseline ?? record.before_preprocessing)
     && (record.with_bless_list === undefined || isSelectorStatsJson(record.with_bless_list))
     && isSelectorStatsJson(record.after_preprocessing);
 }
@@ -1684,7 +1684,7 @@ function isSummaryJson(value: unknown): boolean {
   if (record === null) {
     return false;
   }
-  return isBenchmarkRunSummaryJson(record.with_bloom_filter ?? record.baseline ?? record.before_preprocessing)
+  return isBenchmarkRunSummaryJson(record.baseline ?? record.before_preprocessing)
     && (record.with_bless_list === undefined || isBenchmarkRunSummaryJson(record.with_bless_list))
     && isPreprocessingSummaryJson(record.preprocessing)
     && isBenchmarkRunSummaryJson(record.after_preprocessing);
@@ -1700,13 +1700,10 @@ function normalizeWebsiteJson(value: unknown): WebsiteJson | null {
   }
   return {
     website: record.website,
-    summary: {
-      ...summary,
-      with_bloom_filter: summary.with_bloom_filter ?? summary.baseline ?? summary.before_preprocessing
-    } as unknown as SummaryJson,
+    summary: { ...summary, baseline: summary.baseline ?? summary.before_preprocessing } as unknown as SummaryJson,
     selector_slow_rejects_summary: {
       ...selectorSummary,
-      with_bloom_filter: selectorSummary.with_bloom_filter ?? selectorSummary.baseline ?? selectorSummary.before_preprocessing
+      baseline: selectorSummary.baseline ?? selectorSummary.before_preprocessing
     } as unknown as SelectorsSummaryJson
   };
 }
