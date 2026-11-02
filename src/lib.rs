@@ -772,7 +772,7 @@ pub fn match_selectors_with_style_sharing(
         stylist,
         visited_styles_enabled: true,
         options: StyleSystemOptions {
-            disable_style_sharing_cache: false, // optimizations.style_sharing enables/disables by simply using or not using the machinery
+            disable_style_sharing_cache: false, // optimizations.style_sharing enables/disables by simply using or not using the machinery, so we can hardcode disable_style_sharing_cache to false.
             dump_style_statistics: false, // TODO: maybe change this later
             style_statistics_threshold: 0, // TODO: maybe change this later
         },
