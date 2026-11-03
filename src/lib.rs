@@ -73,6 +73,7 @@ use crate::structs::{
 pub enum Algorithm {
     Naive,
     WithBloomFilter,
+    WithPreorderStyleSharing,
     WithBlessList,
     WithUniversalBucketBlessList,
     WithIsConversion,
@@ -323,6 +324,21 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         },
         Algorithm::WithBloomFilter => {
             let matching_context = website.get_matcher(Optimizations::from_none());
+            let document = website.fresh_document();
+            let (matches, stats, _, _) =
+                match_selectors_with_style_sharing(
+                    document,
+                    matching_context,
+                    false,
+                );
+            (matches, stats)
+        },
+        Algorithm::WithPreorderStyleSharing => {
+            let optimizations = Optimizations {
+                style_sharing: true,
+                ..Optimizations::from_none()
+            };
+            let matching_context = website.get_matcher(optimizations);
             let document = website.fresh_document();
             let (matches, stats, _, _) =
                 match_selectors_with_style_sharing(
@@ -887,19 +903,6 @@ mod tests {
     use style::stylesheets::UrlExtraData;
     use test_log::test;
 
-    fn style_sharing_stats(website: &crate::parse::ParsedWebsite) -> super::Statistics {
-        let matching_context = website.get_matcher(Optimizations {
-            style_sharing: true,
-            ..Optimizations::from_none()
-        });
-        let (_, stats, _, _) = super::match_selectors_with_style_sharing(
-            website.fresh_document(),
-            matching_context,
-            false,
-        );
-        stats
-    }
-
     #[test]
     fn bloom_filter_algorithm_disables_style_sharing() -> Result<()> {
         let website = get_document_and_selectors(
@@ -917,7 +920,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
         )?.unwrap();
-        let stats = style_sharing_stats(&website);
+        let (_, _, stats) = do_website(&website, Algorithm::WithPreorderStyleSharing, None);
         assert_eq!(stats.counts.sharing_instances, 9);
         Ok(())
     }
@@ -928,7 +931,7 @@ mod tests {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing_2")
         )?.unwrap();
-        let stats = style_sharing_stats(&website);
+        let (_, _, stats) = do_website(&website, Algorithm::WithPreorderStyleSharing, None);
         assert_eq!(stats.counts.sharing_instances, 5);
         Ok(())
     }
@@ -951,7 +954,7 @@ mod tests {
             vec![stylesheet],
             stylesheet_lock,
         );
-        let stats = style_sharing_stats(&website);
+        let (_, _, stats) = do_website(&website, Algorithm::WithPreorderStyleSharing, None);
         // Four distinct sibling classes yield 1 + 2 + 3 misses; head/body add one.
         assert_eq!(stats.counts.sharing_misses, 7);
         Ok(())
@@ -976,7 +979,8 @@ mod tests {
             stylesheet_lock,
         );
 
-        let depth_first_stats = style_sharing_stats(&website);
+        let (_, _, depth_first_stats) =
+            do_website(&website, Algorithm::WithPreorderStyleSharing, None);
         assert_eq!(depth_first_stats.counts.num_elements, 8);
         Ok(())
     }
@@ -999,7 +1003,7 @@ mod tests {
             vec![stylesheet],
             stylesheet_lock,
         );
-        let stats = style_sharing_stats(&website);
+        let (_, _, stats) = do_website(&website, Algorithm::WithPreorderStyleSharing, None);
         assert_eq!(stats.counts.sharing_accepts, 9);
         assert_eq!(stats.counts.num_selectors, 3);
         Ok(())
