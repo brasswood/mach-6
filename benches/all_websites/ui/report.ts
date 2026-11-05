@@ -79,6 +79,7 @@ interface CountingStatsJson {
   sharing_misses?: number | undefined;
   sharing_accepts?: number | undefined;
   selector_map_hits: number;
+  tail_selector_map_hits?: number | undefined;
   bless_list_hits?: number | undefined;
   fast_rejects: number;
   slow_rejects: number;
@@ -994,7 +995,9 @@ function calculateSelectorMapRejects(counts: CountingStatsJson): number | null {
   if (counts.num_elements === undefined || counts.num_selectors === undefined) {
     return null;
   }
-  return (counts.num_elements - counts.sharing_instances) * counts.num_selectors - counts.selector_map_hits;
+  return (counts.num_elements - counts.sharing_instances) * counts.num_selectors
+    - counts.selector_map_hits
+    - (counts.tail_selector_map_hits ?? 0);
 }
 
 function sumNullableNumbers(values: (number | null)[]): number | null {
@@ -1036,6 +1039,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
       sharing_misses: sumNumbers(summaries.map((summary) => summary.counts.sharing_misses ?? 0)),
       sharing_accepts: sumNumbers(summaries.map((summary) => summary.counts.sharing_accepts ?? 0)),
       selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
+      tail_selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.tail_selector_map_hits ?? 0)),
       bless_list_hits: sumNumbers(summaries.map((summary) => summary.counts.bless_list_hits ?? 0)),
       fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
       slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
@@ -1260,7 +1264,8 @@ function renderVariantDetails(bar: BarView): string {
     '<tr><th>' + renderMetricLabel("Sharing Accepts", "The effective number of (selector, element) pairs accepted by style sharing.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_accepts ?? 0)) + '</td></tr>',
     '<tr><th>' + renderMetricLabel("Sharing Rejects", "The effective number of (selector, element) pairs rejected by style sharing. Derived by taking (selectors * sharing instances) - sharing accepts.") + '</th><td>' + escapeHtml(sharingRejects) + '</td></tr>',
     '<tr><th>' + renderMetricLabel("Selector Map Hits", "The number of (selector, element) candidate matches presented by the Selector Map.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
-    '<tr><th>' + renderMetricLabel("Selector Map Rejects", "The number of (selector, element) pairs effectively rejected by the Selector Map. Derived by taking ((elements - sharing instances) * selectors) - selector map hits.") + '</th><td>' + escapeHtml(selectorMapRejects) + '</td></tr>',
+    '<tr><th>' + renderMetricLabel("Tail Selector Map Hits", "The number of (selector, element) candidate matches presented by the universal-tail or universal-bucket Selector Map for bless lists.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.tail_selector_map_hits ?? 0)) + '</td></tr>',
+    '<tr><th>' + renderMetricLabel("Selector Map Rejects", "The number of (selector, element) pairs effectively rejected by the Selector Map. Derived by taking ((elements - sharing instances) * selectors) - selector map hits - tail selector map hits.") + '</th><td>' + escapeHtml(selectorMapRejects) + '</td></tr>',
     '<tr><th>Bless List Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.bless_list_hits ?? 0)) + '</td></tr>',
     '<tr><th>Bloom Filter Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
     '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
@@ -1617,6 +1622,7 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     && (record.sharing_accepts === undefined || isFiniteNumber(record.sharing_accepts))
     && (record.num_selectors === undefined || isFiniteNumber(record.num_selectors))
     && isFiniteNumber(record.selector_map_hits)
+    && (record.tail_selector_map_hits === undefined || isFiniteNumber(record.tail_selector_map_hits))
     && (record.bless_list_hits === undefined || isFiniteNumber(record.bless_list_hits))
     && isFiniteNumber(record.fast_rejects)
     && isFiniteNumber(record.slow_rejects)

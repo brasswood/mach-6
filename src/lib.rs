@@ -1102,6 +1102,8 @@ mod tests {
             blessed_stats.counts.selector_map_hits,
             ordinary_stats.counts.selector_map_hits,
         );
+        assert_eq!(ordinary_stats.counts.tail_selector_map_hits, 0);
+        assert!(blessed_stats.counts.tail_selector_map_hits > 0);
     }
 
     #[test]

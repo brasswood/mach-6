@@ -161,6 +161,8 @@ mod overall_summary {
         pub(crate) sharing_accepts: usize,
         pub(crate) selector_map_hits: usize,
         #[serde(default)]
+        pub(crate) tail_selector_map_hits: usize,
+        #[serde(default)]
         pub(crate) bless_list_hits: usize,
         pub(crate) fast_rejects: usize,
         pub(crate) slow_rejects: usize,
@@ -176,6 +178,7 @@ mod overall_summary {
                 sharing_misses: value.sharing_misses,
                 sharing_accepts: value.sharing_accepts,
                 selector_map_hits: value.selector_map_hits,
+                tail_selector_map_hits: value.tail_selector_map_hits,
                 bless_list_hits: value.bless_list_hits,
                 fast_rejects: value.fast_rejects,
                 slow_rejects: value.slow_rejects,

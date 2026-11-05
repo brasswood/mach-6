@@ -51,7 +51,8 @@ fn universal_tail_uses_the_parent_activator() {
     assert_eq!(before_stats.counts.slow_rejects, 1);
     assert_eq!(before_stats.counts.selector_map_hits, 4);
     assert_eq!(after_stats.counts.slow_rejects, 0);
-    assert_eq!(after_stats.counts.selector_map_hits, 1);
+    assert_eq!(after_stats.counts.selector_map_hits, 0);
+    assert_eq!(after_stats.counts.tail_selector_map_hits, 1);
     assert_eq!(after_stats.counts.bless_list_hits, 0);
 }
 
@@ -75,7 +76,8 @@ fn other_universal_bucket_selectors_use_the_parent_activator() {
     assert_eq!(before, after);
     assert_eq!(before_stats.counts.selector_map_hits, 48);
     assert_eq!(before_stats.counts.slow_rejects, 30);
-    assert_eq!(after_stats.counts.selector_map_hits, 6);
+    assert_eq!(after_stats.counts.selector_map_hits, 0);
+    assert_eq!(after_stats.counts.tail_selector_map_hits, 6);
     assert_eq!(after_stats.counts.slow_rejects, 0);
     assert_eq!(after_stats.counts.bless_list_hits, 0);
 }
@@ -93,11 +95,13 @@ fn universal_bless_lists_persist_through_descendants() {
     let (after, after_stats) = run(html, &selectors, true);
     assert_eq!(before, after);
     assert_eq!(before_stats.counts.selector_map_hits, 28);
+    assert_eq!(before_stats.counts.tail_selector_map_hits, 0);
     assert_eq!(
         before_stats.counts.slow_rejects + before_stats.counts.fast_rejects,
         20
     );
-    assert_eq!(after_stats.counts.selector_map_hits, 4);
+    assert_eq!(after_stats.counts.selector_map_hits, 0);
+    assert_eq!(after_stats.counts.tail_selector_map_hits, 4);
     assert_eq!(after_stats.counts.bless_list_hits, 11);
     assert_eq!(
         after_stats.counts.slow_rejects + after_stats.counts.fast_rejects,
@@ -114,7 +118,8 @@ fn child_activations_do_not_persist_beyond_immediate_children() {
     assert_eq!(before, after);
     assert_eq!(before_stats.counts.selector_map_hits, 5);
     assert_eq!(before_stats.counts.slow_accepts, 3);
-    assert_eq!(after_stats.counts.selector_map_hits, 2);
+    assert_eq!(after_stats.counts.selector_map_hits, 0);
+    assert_eq!(after_stats.counts.tail_selector_map_hits, 2);
     assert_eq!(after_stats.counts.bless_list_hits, 3);
     assert_eq!(after_stats.counts.slow_accepts, 3);
 }
@@ -127,7 +132,8 @@ fn universal_bless_lists_do_not_duplicate_matching_selectors() {
     assert_eq!(before, after);
     assert_eq!(before_stats.counts.selector_map_hits, 6);
     assert_eq!(before_stats.counts.slow_accepts, 4);
-    assert_eq!(after_stats.counts.selector_map_hits, 1);
+    assert_eq!(after_stats.counts.selector_map_hits, 0);
+    assert_eq!(after_stats.counts.tail_selector_map_hits, 1);
     assert_eq!(after_stats.counts.bless_list_hits, 4);
     assert_eq!(after_stats.counts.slow_accepts, 4);
 }
@@ -152,7 +158,8 @@ fn universal_bless_lists_scale_to_many_selectors() {
             assert_eq!(before_stats.counts.selector_map_hits, 1_001_000);
             assert_eq!(before_stats.counts.slow_accepts, 499_500);
             let after_stats = run(&html, &selector_refs, true).1;
-            assert_eq!(after_stats.counts.selector_map_hits, 1000);
+            assert_eq!(after_stats.counts.selector_map_hits, 0);
+            assert_eq!(after_stats.counts.tail_selector_map_hits, 1000);
             assert_eq!(after_stats.counts.bless_list_hits, 499_500);
             assert_eq!(after_stats.counts.slow_accepts, 499_500);
         })
@@ -170,12 +177,14 @@ fn universal_bucket_bless_lists_follow_selector_map_bucket_classification() {
     assert_eq!(before, after);
     assert_eq!(before_stats.counts.selector_map_hits, 2);
     assert_eq!(after_stats.counts.selector_map_hits, 2);
+    assert_eq!(after_stats.counts.tail_selector_map_hits, 0);
     assert_eq!(after_stats.counts.bless_list_hits, 0);
 
     let (before, before_stats) = run(html, &[".a :is(*, .b)"], false);
     let (after, after_stats) = run(html, &[".a :is(*, .b)"], true);
     assert_eq!(before, after);
     assert_eq!(before_stats.counts.selector_map_hits, 5);
-    assert_eq!(after_stats.counts.selector_map_hits, 1);
+    assert_eq!(after_stats.counts.selector_map_hits, 0);
+    assert_eq!(after_stats.counts.tail_selector_map_hits, 1);
     assert_eq!(after_stats.counts.bless_list_hits, 3);
 }
