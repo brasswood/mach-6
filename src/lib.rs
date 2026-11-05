@@ -243,6 +243,7 @@ pub struct MatchingContext {
     stylesheet_lock: SharedRwLock,
     stylist: Stylist,
     optimizations: Optimizations,
+    stylist_build_duration: tsc_timer::Duration,
 }
 
 impl MatchingContext {
@@ -251,6 +252,7 @@ impl MatchingContext {
         stylesheet_lock: SharedRwLock,
         optimizations: Optimizations,
     ) -> Self {
+        let start = Start::now();
         let mut stylist = Stylist::new(
             stylo_interface::mock_device(),
             selectors::matching::QuirksMode::NoQuirks,
@@ -265,11 +267,18 @@ impl MatchingContext {
             author: &stylesheet_lock.read(),
             ua_or_user: &ua_or_user_guard,
         });
-        Self {
+        let mut matching_context = Self {
             stylesheet_lock,
             stylist,
             optimizations,
-        }
+            stylist_build_duration: tsc_timer::Duration::from_cycles(0),
+        };
+        matching_context.stylist_build_duration = start.elapsed();
+        matching_context
+    }
+
+    pub fn stylist_build_duration(&self) -> tsc_timer::Duration {
+        self.stylist_build_duration
     }
 
     pub fn stylesheet_lock(&self) -> &SharedRwLock {
