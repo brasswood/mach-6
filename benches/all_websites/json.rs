@@ -94,6 +94,7 @@ mod overall_summary {
     use crate::WebsiteResult;
 
     use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
+    use tsc_timer::Duration;
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
@@ -143,7 +144,10 @@ mod overall_summary {
             Self {
                 mean_cycles: value.mean_duration().cycles(),
                 counts: CountingStatsJson::from(value.counting_stats),
-                times: TimingStatsJson::from(&value.timing_stats),
+                times: TimingStatsJson::from((
+                    &value.timing_stats,
+                    &value.building_stylist_durations,
+                )),
             }
         }
     }
@@ -193,17 +197,18 @@ mod overall_summary {
         pub(crate) stddevs: TimingsJsonBody,
     }
 
-    impl From<&Samples<TimingStats>> for TimingStatsJson {
-        fn from(value: &Samples<TimingStats>) -> Self {
+    impl From<(&Samples<TimingStats>, &Samples<Duration>)> for TimingStatsJson {
+        fn from(value: (&Samples<TimingStats>, &Samples<Duration>)) -> Self {
             Self {
-                means: TimingsJsonBody::from(value.mean()),
-                stddevs: TimingsJsonBody::from(value.stddev()),
+                means: TimingsJsonBody::from((value.0.mean(), value.1.mean())),
+                stddevs: TimingsJsonBody::from((value.0.stddev(), value.1.stddev())),
             }
         }
     }
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsJsonBody {
+        pub(crate) building_stylist_cycles: u64,
         pub(crate) updating_bloom_filter_cycles: u64,
         pub(crate) slow_rejecting_cycles: u64,
         pub(crate) slow_accepting_cycles: u64,
@@ -213,16 +218,18 @@ mod overall_summary {
         pub(crate) querying_selector_map_cycles: u64,
     }
 
-    impl From<TimingStats> for TimingsJsonBody {
-        fn from(value: TimingStats) -> Self {
+    impl From<(TimingStats, Duration)> for TimingsJsonBody {
+        fn from(value: (TimingStats, Duration)) -> Self {
+            let (timing_stats, building_stylist) = value;
             Self {
-                updating_bloom_filter_cycles: value.updating_bloom_filter.cycles(),
-                slow_rejecting_cycles: value.slow_rejecting.cycles(),
-                slow_accepting_cycles: value.slow_accepting.cycles(),
-                fast_rejecting_cycles: value.fast_rejecting.cycles(),
-                checking_style_sharing_cycles: value.checking_style_sharing.cycles(),
-                inserting_into_sharing_cache_cycles: value.inserting_into_sharing_cache.cycles(),
-                querying_selector_map_cycles: value.querying_selector_map.cycles(),
+                building_stylist_cycles: building_stylist.cycles(),
+                updating_bloom_filter_cycles: timing_stats.updating_bloom_filter.cycles(),
+                slow_rejecting_cycles: timing_stats.slow_rejecting.cycles(),
+                slow_accepting_cycles: timing_stats.slow_accepting.cycles(),
+                fast_rejecting_cycles: timing_stats.fast_rejecting.cycles(),
+                checking_style_sharing_cycles: timing_stats.checking_style_sharing.cycles(),
+                inserting_into_sharing_cache_cycles: timing_stats.inserting_into_sharing_cache.cycles(),
+                querying_selector_map_cycles: timing_stats.querying_selector_map.cycles(),
             }
         }
     }
@@ -304,6 +311,7 @@ mod samples {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
+        pub(crate) building_stylist_cycles: Vec<u64>,
         pub(crate) updating_bloom_filter_cycles: Vec<u64>,
         pub(crate) slow_rejecting_cycles: Vec<u64>,
         pub(crate) slow_accepting_cycles: Vec<u64>,
@@ -325,6 +333,11 @@ mod samples {
                     .collect()
             };
             Self {
+                building_stylist_cycles: value
+                    .building_stylist_durations
+                    .iter()
+                    .map(|duration| duration.cycles())
+                    .collect(),
                 updating_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.updating_bloom_filter),
                 slow_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
                 slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
