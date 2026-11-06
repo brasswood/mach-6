@@ -32,4 +32,4 @@ The nightly server is designed to run a fixed routine per branch. There is proba
 
 Sometimes, you may want to measure something finer-grained than what the middle-level report provides. For example, you may want to know how time is being spent within one stage.
 
-One option is to run `samply` locally. Another could be to isolate one function/code block and create a binary which times it (i.e. the typical microbenchmarking workflow). You can try other methods that you think are reasonable.
+One option is to run Samply locally; load the `sample-based-profiling` skill before doing this. Another could be to isolate one function/code block and create a binary which times it (i.e. the typical microbenchmarking workflow). You can try other methods that you think are reasonable.
