@@ -2,6 +2,7 @@ type SegmentKind =
   | "indexing"
   | "otherPreprocessing"
   | "distribution"
+  | "buildingStylist"
   | "updatingBloomFilter"
   | "checkingStyleSharing"
   | "queryingSelectorMap"
@@ -92,6 +93,7 @@ interface TimingStatsJson {
 }
 
 interface TimingsJsonBody {
+  building_stylist_cycles?: number;
   updating_bloom_filter_cycles: number;
   slow_rejecting_cycles: number;
   slow_accepting_cycles: number;
@@ -178,6 +180,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "indexing",
   "otherPreprocessing",
   "distribution",
+  "buildingStylist",
   "updatingBloomFilter",
   "checkingStyleSharing",
   "queryingSelectorMap",
@@ -191,6 +194,7 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   indexing: { label: "Indexing", cssClass: "seg-index" },
   otherPreprocessing: { label: "Other :is() Conversion", cssClass: "seg-preprocess-other" },
   distribution: { label: "Distribution", cssClass: "seg-distribution" },
+  buildingStylist: { label: "Building Stylist", cssClass: "seg-stylist" },
   updatingBloomFilter: { label: "Updating Bloom Filter", cssClass: "seg-bloom" },
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
@@ -846,6 +850,11 @@ function buildBar(
 ): BarView {
   const means = summary.times.means;
   const stddevs = summary.times.stddevs;
+  const buildingStylist: SegmentView = {
+    kind: "buildingStylist",
+    meanCycles: toBigInt(means.building_stylist_cycles ?? 0),
+    stddevCycles: toBigInt(stddevs.building_stylist_cycles ?? 0)
+  };
   const measuredMatchDurations: SegmentView[] = [
     { kind: "updatingBloomFilter", meanCycles: toBigInt(means.updating_bloom_filter_cycles), stddevCycles: toBigInt(stddevs.updating_bloom_filter_cycles) },
     { kind: "checkingStyleSharing", meanCycles: toBigInt(means.checking_style_sharing_cycles), stddevCycles: toBigInt(stddevs.checking_style_sharing_cycles) },
@@ -875,7 +884,7 @@ function buildBar(
     segments.push({ kind: "otherPreprocessing", meanCycles: otherPreprocessingCycles, stddevCycles: null });
     segments.push({ kind: "distribution", meanCycles: distributionCycles, stddevCycles: null });
   }
-  segments.push(...measuredMatchDurations);
+  segments.push(buildingStylist, ...measuredMatchDurations);
 
   const totalCycles = segments.reduce((sum, segment) => {
     return sum + segment.meanCycles;
@@ -1047,6 +1056,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
     },
     times: {
       means: {
+        building_stylist_cycles: sumNumbers(summaries.map((summary) => summary.times.means.building_stylist_cycles ?? 0)),
         updating_bloom_filter_cycles: sumNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
         slow_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
         slow_accepting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
@@ -1056,6 +1066,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
         querying_selector_map_cycles: sumNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles))
       },
       stddevs: {
+        building_stylist_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.building_stylist_cycles ?? 0)),
         updating_bloom_filter_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
         slow_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
         slow_accepting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
@@ -1635,6 +1646,7 @@ function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
     return false;
   }
   return isFiniteNumber(record.updating_bloom_filter_cycles)
+    && (record.building_stylist_cycles === undefined || isFiniteNumber(record.building_stylist_cycles))
     && isFiniteNumber(record.slow_rejecting_cycles)
     && isFiniteNumber(record.slow_accepting_cycles)
     && isFiniteNumber(record.fast_rejecting_cycles)
