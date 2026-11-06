@@ -24,9 +24,7 @@ Simple, understandable code is the third priority, but do not sacrifice major pe
 
 The binary used in `cargo bench`/the nightly server (introduced next) is designed to provide a "middle-level" report of where time is spent in the program. It times the main stages of selector matching and our optimizations (e.g. querying bloom filter, selector indexing) and generates a report. This is the primary report we use to evaluate our techniques.
 
-The nightly server is the preferred server to run the middle-level suite. To use it, make sure to push the branch you're benchmarking (and submodules!) to Github first, then read the `nightlies` skill to learn how to interface with it, or use `uvx nightlies` if the skill is not available. If the nightly server is down or not working, fall back to running `cargo bench` locally.
-
-The nightly server is designed to run a fixed routine per branch. There is probably no clean way to pass parameters to the routine; you would probably have to create a different routine on a different branch.
+The nightly server is the preferred server to run the middle-level suite. Load the `mach-6-nightly` skill before running the suite on it or retrieving or analyzing reports from it.
 
 ### Low-level Benchmarking
 
