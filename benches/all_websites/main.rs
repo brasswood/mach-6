@@ -64,6 +64,8 @@ struct MatchBenchResult {
     counting_stats: CountingStats,
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
+    /// Per-sample time spent building the stylist
+    building_stylist_durations: Samples<tsc_timer::Duration>,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
@@ -71,20 +73,25 @@ struct MatchBenchResult {
 
 impl MatchBenchResult {
     fn new(
-        stats: TimedResults<Statistics>,
+        stats: TimedResults<(Statistics, tsc_timer::Duration)>,
         per_match_stats: TimedResults<SmallVec<[(Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
             .samples
             .first()
             .expect("expected at least one sample result")
+            .0
             .counts;
 
         let timing_stats = stats
             .samples
-            .as_slice()
             .iter()
-            .map(|stats| stats.times)
+            .map(|(stats, _)| stats.times)
+            .collect();
+        let building_stylist_durations = stats
+            .samples
+            .iter()
+            .map(|(_, duration)| *duration)
             .collect();
 
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
@@ -119,6 +126,7 @@ impl MatchBenchResult {
             total_duration: stats.total_duration,
             counting_stats,
             timing_stats: Samples::from_vec(timing_stats),
+            building_stylist_durations: Samples::from_vec(building_stylist_durations),
             selector_slow_reject_times: sorted,
         }
     }
@@ -190,18 +198,29 @@ fn main() {
     let results = websites.map(|w| {
         let baseline = bench_website(
             &format!("{} baseline", w.name),
-            || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
+            || {
+                let (building_stylist_duration, matching_context) =
+                    tsc_timer::Duration::span(|| MatchingContext::new(
+                        w.stylesheets().iter(),
+                        w.stylesheet_lock().clone(),
+                        Optimizations::from_none(),
+                    ));
+                (w.fresh_document(), matching_context, building_stylist_duration)
+            },
         );
         let with_bless_list = bench_website(
             &format!("{} with bless list", w.name),
             || {
-                (
-                    w.fresh_document(),
-                    w.get_matcher(Optimizations {
-                        universal_bucket_bless_lists: true,
-                        ..Optimizations::from_none()
-                    }),
-                )
+                let (building_stylist_duration, matching_context) =
+                    tsc_timer::Duration::span(|| MatchingContext::new(
+                        w.stylesheets().iter(),
+                        w.stylesheet_lock().clone(),
+                        Optimizations {
+                            universal_bucket_bless_lists: true,
+                            ..Optimizations::from_none()
+                        },
+                    ));
+                (w.fresh_document(), matching_context, building_stylist_duration)
             },
         );
         let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
@@ -236,14 +255,13 @@ fn main() {
         let after_preprocessing = bench_website(
             &format!("{} after preprocessing", w.name),
             || {
-                (
-                    w.fresh_document(),
-                    MatchingContext::new(
+                let (building_stylist_duration, matching_context) =
+                    tsc_timer::Duration::span(|| MatchingContext::new(
                         std::iter::once(&preprocessed_stylesheet),
                         preprocessed_lock.clone(),
                         Optimizations::from_none(),
-                    ),
-                )
+                    ));
+                (w.fresh_document(), matching_context, building_stylist_duration)
             },
         );
         let result = WebsiteResult {
@@ -289,20 +307,20 @@ fn main() {
 
 fn bench_website<F>(benchmark_name: &str, setup: F) -> MatchBenchResult
 where
-    F: Fn() -> (Html, MatchingContext),
+    F: Fn() -> (Html, MatchingContext, tsc_timer::Duration),
 {
     let overall_stats = bench_function_with_setup(
         benchmark_name,
         &setup,
-        |(document, matching_context)| {
+        |(document, matching_context, building_stylist_duration)| {
             let (_, overall_stats, _, matching_time) =
                 mach_6::match_selectors_with_style_sharing(document, matching_context, false);
-            (matching_time, overall_stats)
+            (matching_time, (overall_stats, building_stylist_duration))
         },
         NUM_SAMPLES,
     );
     print!("Getting selector stats for {benchmark_name}...");
-    let (document, matching_context) = setup();
+    let (document, matching_context, _) = setup();
     let (_, _, per_match_stats, _) =
         mach_6::match_selectors_with_style_sharing(document, matching_context, true);
     println!("done.");
