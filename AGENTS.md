@@ -22,9 +22,11 @@ Simple, understandable code is the third priority, but do not sacrifice major pe
 
 ### Middle-level Benchmarking
 
-The binary used in `cargo bench`/the nightly server (introduced next) is designed to provide a "middle-level" report of where time is spent in the program. It times the main stages of selector matching and our optimizations (e.g. querying bloom filter, selector indexing) and generates a report. This is the primary report we use to evaluate our techniques.
+The binary used in `cargo bench` is designed to provide a "middle-level" report of where time is spent in the program. It times the main stages of selector matching and our optimizations (e.g. querying bloom filter, selector indexing) and generates a report. This is the primary report we use to evaluate our techniques.
 
-The nightly server is the preferred server to run the middle-level suite. Load the `mach-6-nightly` skill before running the suite on it or retrieving or analyzing reports from it.
+The nightly server is the preferred server to run the middle-level suite. To use it, read the `nightlies` skill. Starting a nightly for this project runs the benchmark suite. If the nightly server is down or not working, fall back to running `cargo bench` locally.
+
+Use the `nightlies` skill when you need to retrieve reports from the nightly server.
 
 ### Low-level Benchmarking
 
