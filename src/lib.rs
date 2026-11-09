@@ -33,7 +33,7 @@ use std::path::Path;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
-use selectors::matching::{self, Statistics};
+use selectors::matching::{self, Statistics, TimingStats};
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMap;
@@ -243,7 +243,7 @@ pub struct MatchingContext {
     stylesheet_lock: SharedRwLock,
     stylist: Stylist,
     optimizations: Optimizations,
-    stylist_build_duration: tsc_timer::Duration,
+    timing_stats: TimingStats,
 }
 
 impl MatchingContext {
@@ -267,18 +267,15 @@ impl MatchingContext {
             author: &stylesheet_lock.read(),
             ua_or_user: &ua_or_user_guard,
         });
-        let mut matching_context = Self {
+        Self {
             stylesheet_lock,
             stylist,
             optimizations,
-            stylist_build_duration: tsc_timer::Duration::from_cycles(0),
-        };
-        matching_context.stylist_build_duration = start.elapsed();
-        matching_context
-    }
-
-    pub fn stylist_build_duration(&self) -> tsc_timer::Duration {
-        self.stylist_build_duration
+            timing_stats: TimingStats {
+                building_stylist: start.elapsed(),
+                ..TimingStats::default()
+            },
+        }
     }
 
     pub fn stylesheet_lock(&self) -> &SharedRwLock {
@@ -856,6 +853,7 @@ pub fn match_selectors_with_style_sharing(
     drop(author_guard);
     stats.counts.num_selectors = selector_map.len();
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
+    stats.times += matching_context.timing_stats;
     (owned_matches, stats, selector_stats, matching_time)
 }
 
