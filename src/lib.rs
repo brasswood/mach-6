@@ -243,7 +243,7 @@ pub struct MatchingContext {
     stylesheet_lock: SharedRwLock,
     stylist: Stylist,
     optimizations: Optimizations,
-    timing_stats: TimingStats,
+    time_building_stylist: tsc_timer::Duration,
 }
 
 impl MatchingContext {
@@ -271,10 +271,7 @@ impl MatchingContext {
             stylesheet_lock,
             stylist,
             optimizations,
-            timing_stats: TimingStats {
-                building_stylist: start.elapsed(),
-                ..TimingStats::default()
-            },
+            time_building_stylist: start.elapsed(),
         }
     }
 
@@ -853,7 +850,7 @@ pub fn match_selectors_with_style_sharing(
     drop(author_guard);
     stats.counts.num_selectors = selector_map.len();
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
-    stats.times += matching_context.timing_stats;
+    stats.times.building_stylist = matching_context.time_building_stylist;
     (owned_matches, stats, selector_stats, matching_time)
 }
 
