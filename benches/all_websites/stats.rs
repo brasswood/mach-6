@@ -162,6 +162,7 @@ impl StdDev for TimingStats {
         };
 
         TimingStats {
+            building_stylist: stddev(|sample| sample.building_stylist),
             updating_bloom_filter: stddev(|sample| sample.updating_bloom_filter),
             checking_style_sharing: stddev(|sample| sample.checking_style_sharing),
             querying_selector_map: stddev(|sample| sample.querying_selector_map),
@@ -173,4 +174,3 @@ impl StdDev for TimingStats {
         }
     }
 }
-

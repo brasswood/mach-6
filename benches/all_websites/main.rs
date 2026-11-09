@@ -64,8 +64,6 @@ struct MatchBenchResult {
     counting_stats: CountingStats,
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
-    /// Per-sample time spent building the stylist
-    building_stylist_durations: Samples<tsc_timer::Duration>,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
@@ -73,25 +71,19 @@ struct MatchBenchResult {
 
 impl MatchBenchResult {
     fn new(
-        stats: TimedResults<(Statistics, tsc_timer::Duration)>,
+        stats: TimedResults<Statistics>,
         per_match_stats: TimedResults<SmallVec<[(Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
             .samples
             .first()
             .expect("expected at least one sample result")
-            .0
             .counts;
 
         let timing_stats = stats
             .samples
             .iter()
-            .map(|(stats, _)| stats.times)
-            .collect();
-        let building_stylist_durations = stats
-            .samples
-            .iter()
-            .map(|(_, duration)| *duration)
+            .map(|stats| stats.times)
             .collect();
 
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
@@ -126,7 +118,6 @@ impl MatchBenchResult {
             total_duration: stats.total_duration,
             counting_stats,
             timing_stats: Samples::from_vec(timing_stats),
-            building_stylist_durations: Samples::from_vec(building_stylist_durations),
             selector_slow_reject_times: sorted,
         }
     }
@@ -303,10 +294,9 @@ where
         benchmark_name,
         &setup,
         |(document, matching_context)| {
-            let building_stylist_duration = matching_context.stylist_build_duration();
             let (_, overall_stats, _, matching_time) =
                 mach_6::match_selectors_with_style_sharing(document, matching_context, false);
-            (matching_time, (overall_stats, building_stylist_duration))
+            (matching_time, overall_stats)
         },
         NUM_SAMPLES,
     );

@@ -94,7 +94,6 @@ mod overall_summary {
     use crate::WebsiteResult;
 
     use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
-    use tsc_timer::Duration;
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
@@ -144,10 +143,7 @@ mod overall_summary {
             Self {
                 mean_cycles: value.mean_duration().cycles(),
                 counts: CountingStatsJson::from(value.counting_stats),
-                times: TimingStatsJson::from((
-                    &value.timing_stats,
-                    &value.building_stylist_durations,
-                )),
+                times: TimingStatsJson::from(&value.timing_stats),
             }
         }
     }
@@ -197,11 +193,11 @@ mod overall_summary {
         pub(crate) stddevs: TimingsJsonBody,
     }
 
-    impl From<(&Samples<TimingStats>, &Samples<Duration>)> for TimingStatsJson {
-        fn from(value: (&Samples<TimingStats>, &Samples<Duration>)) -> Self {
+    impl From<&Samples<TimingStats>> for TimingStatsJson {
+        fn from(value: &Samples<TimingStats>) -> Self {
             Self {
-                means: TimingsJsonBody::from((value.0.mean(), value.1.mean())),
-                stddevs: TimingsJsonBody::from((value.0.stddev(), value.1.stddev())),
+                means: TimingsJsonBody::from(value.mean()),
+                stddevs: TimingsJsonBody::from(value.stddev()),
             }
         }
     }
@@ -218,11 +214,10 @@ mod overall_summary {
         pub(crate) querying_selector_map_cycles: u64,
     }
 
-    impl From<(TimingStats, Duration)> for TimingsJsonBody {
-        fn from(value: (TimingStats, Duration)) -> Self {
-            let (timing_stats, building_stylist) = value;
+    impl From<TimingStats> for TimingsJsonBody {
+        fn from(timing_stats: TimingStats) -> Self {
             Self {
-                building_stylist_cycles: building_stylist.cycles(),
+                building_stylist_cycles: timing_stats.building_stylist.cycles(),
                 updating_bloom_filter_cycles: timing_stats.updating_bloom_filter.cycles(),
                 slow_rejecting_cycles: timing_stats.slow_rejecting.cycles(),
                 slow_accepting_cycles: timing_stats.slow_accepting.cycles(),
@@ -333,11 +328,7 @@ mod samples {
                     .collect()
             };
             Self {
-                building_stylist_cycles: value
-                    .building_stylist_durations
-                    .iter()
-                    .map(|duration| duration.cycles())
-                    .collect(),
+                building_stylist_cycles: get_cycles_samples(|timing_stats| timing_stats.building_stylist),
                 updating_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.updating_bloom_filter),
                 slow_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
                 slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
