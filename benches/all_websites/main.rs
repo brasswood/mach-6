@@ -292,8 +292,8 @@ where
 {
     let overall_stats = bench_self_timing_function(
         benchmark_name,
-        &setup,
-        |(document, matching_context)| {
+        || {
+            let (document, matching_context) = setup();
             let (_, overall_stats, _) =
                 mach_6::match_selectors_with_style_sharing(document, matching_context, false);
             (overall_stats.times.total_matching, overall_stats)
@@ -374,27 +374,24 @@ where
     }
 }
 
-fn bench_self_timing_function<S, I, F, R>(
+fn bench_self_timing_function<F, R>(
     name: &str,
-    setup: S,
     func: F,
     num_samples: u64,
 ) -> TimedResults<R>
 where
-    S: Fn() -> I,
-    F: Fn(I) -> (tsc_timer::Duration, R),
+    F: Fn() -> (tsc_timer::Duration, R),
 {
     const WARM_UP_TIME: std::time::Duration = std::time::Duration::from_millis(500);
     let mut samples_vec = Vec::with_capacity(num_samples as usize);
     eprint!("Benchmarking {name}...warming up for {} seconds...", WARM_UP_TIME.as_secs_f32());
     warm_up_time(&WARM_UP_TIME, || {
-        func(setup());
+        func();
     });
     eprint!("measuring {num_samples} samples...");
     let mut total_duration = tsc_timer::Duration::from_cycles(0);
     for _ in 0..num_samples {
-        let input = setup();
-        let (matching_time, result) = func(input);
+        let (matching_time, result) = func();
         samples_vec.push(result);
         total_duration += matching_time;
     }
