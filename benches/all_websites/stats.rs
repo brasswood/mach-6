@@ -170,6 +170,7 @@ impl StdDev for TimingStats {
             slow_rejecting: stddev(|sample| sample.slow_rejecting),
             slow_accepting: stddev(|sample| sample.slow_accepting),
             inserting_into_sharing_cache: stddev(|sample| sample.inserting_into_sharing_cache),
+            total_matching: stddev(|sample| sample.total_matching),
             _time_inside_buckets: stddev(|sample| sample._time_inside_buckets),
         }
     }
