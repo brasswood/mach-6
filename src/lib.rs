@@ -851,6 +851,7 @@ pub fn match_selectors_with_style_sharing(
     stats.counts.num_selectors = selector_map.len();
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     stats.times.building_stylist = matching_context.time_building_stylist;
+    stats.times.total_matching = matching_time;
     (owned_matches, stats, selector_stats, matching_time)
 }
 
