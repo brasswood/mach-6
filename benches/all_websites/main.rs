@@ -301,11 +301,8 @@ where
     let (_, _, per_match_stats) =
         mach_6::match_selectors_with_style_sharing(document, matching_context, true);
     println!("done.");
-    let results = TimedResults {
-        total_duration: tsc_timer::Duration::from_cycles(0), // whatever
-        samples: Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]),
-    };
-    MatchBenchResult::new(overall_stats.samples, results.samples)
+    let per_match_stats = Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]);
+    MatchBenchResult::new(overall_stats.samples, per_match_stats)
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
