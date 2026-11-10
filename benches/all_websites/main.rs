@@ -290,7 +290,7 @@ fn bench_website<F>(benchmark_name: &str, setup: F) -> MatchBenchResult
 where
     F: Fn() -> (Html, MatchingContext),
 {
-    let overall_stats = bench_function_with_setup(
+    let overall_stats = bench_self_timing_function(
         benchmark_name,
         &setup,
         |(document, matching_context)| {
@@ -374,7 +374,7 @@ where
     }
 }
 
-fn bench_function_with_setup<S, I, F, R>(
+fn bench_self_timing_function<S, I, F, R>(
     name: &str,
     setup: S,
     func: F,
