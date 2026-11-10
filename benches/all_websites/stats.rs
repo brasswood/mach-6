@@ -43,6 +43,13 @@ impl<T> Samples<T> {
         self.0.first()
     }
 
+    pub fn map<F, R>(&self, f: F) -> Samples<R>
+    where
+        F: Fn(&T) -> R,
+    {
+        Samples(self.0.iter().map(f).collect())
+    }
+
 }
 
 impl<T> From<Vec<T>> for Samples<T> {
