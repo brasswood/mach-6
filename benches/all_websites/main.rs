@@ -71,21 +71,19 @@ struct MatchBenchResult {
 
 impl MatchBenchResult {
     fn new(
-        stats: TimedResults<Statistics>,
-        per_match_stats: TimedResults<SmallVec<[(Selector, SelectorStats); 16]>>,
+        stats: Samples<Statistics>,
+        per_match_stats: Samples<SmallVec<[(Selector, SelectorStats); 16]>>,
     ) -> Self {
         let counting_stats = stats
-            .samples
             .first()
             .expect("expected at least one sample result")
             .counts;
 
         let timing_stats = stats
-            .samples
             .map(|stats| stats.times);
 
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
-        for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
+        for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
                 let slow_reject_duration = match selector_stats {
                     SelectorStats::Bloom(bq) =>
@@ -307,7 +305,7 @@ where
         total_duration: tsc_timer::Duration::from_cycles(0), // whatever
         samples: Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]),
     };
-    MatchBenchResult::new(overall_stats, results)
+    MatchBenchResult::new(overall_stats.samples, results.samples)
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
