@@ -82,9 +82,7 @@ impl MatchBenchResult {
 
         let timing_stats = stats
             .samples
-            .iter()
-            .map(|stats| stats.times)
-            .collect();
+            .map(|stats| stats.times);
 
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.samples.into_iter().enumerate() {
@@ -117,7 +115,7 @@ impl MatchBenchResult {
         MatchBenchResult {
             total_duration: stats.total_duration,
             counting_stats,
-            timing_stats: Samples::from_vec(timing_stats),
+            timing_stats,
             selector_slow_reject_times: sorted,
         }
     }
