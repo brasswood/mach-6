@@ -113,7 +113,7 @@ impl MatchBenchResult {
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
         MatchBenchResult {
-            total_duration: stats.total_duration,
+            total_duration: timing_stats.iter().map(|s| s.total_matching).sum(),
             counting_stats,
             timing_stats,
             selector_slow_reject_times: sorted,
