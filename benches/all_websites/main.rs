@@ -294,15 +294,15 @@ where
         benchmark_name,
         &setup,
         |(document, matching_context)| {
-            let (_, overall_stats, _, matching_time) =
+            let (_, overall_stats, _) =
                 mach_6::match_selectors_with_style_sharing(document, matching_context, false);
-            (matching_time, overall_stats)
+            (overall_stats.times.total_matching, overall_stats)
         },
         NUM_SAMPLES,
     );
     print!("Getting selector stats for {benchmark_name}...");
     let (document, matching_context) = setup();
-    let (_, _, per_match_stats, _) =
+    let (_, _, per_match_stats) =
         mach_6::match_selectors_with_style_sharing(document, matching_context, true);
     println!("done.");
     let results = TimedResults {

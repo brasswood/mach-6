@@ -227,7 +227,7 @@ fn do_website_with_configured_optimizations(
         stylesheet_lock,
         optimizations,
     );
-    let (matches, stats, _, _) = match_selectors_with_style_sharing(
+    let (matches, stats, _) = match_selectors_with_style_sharing(
         document,
         matching_context,
         false,
@@ -328,7 +328,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
         Algorithm::WithBloomFilter => {
             let matching_context = website.get_matcher(Optimizations::from_none());
             let document = website.fresh_document();
-            let (matches, stats, _, _) =
+            let (matches, stats, _) =
                 match_selectors_with_style_sharing(
                     document,
                     matching_context,
@@ -343,7 +343,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             };
             let matching_context = website.get_matcher(optimizations);
             let document = website.fresh_document();
-            let (matches, stats, _, _) =
+            let (matches, stats, _) =
                 match_selectors_with_style_sharing(
                     document,
                     matching_context,
@@ -358,7 +358,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             };
             let matching_context = website.get_matcher(optimizations);
             let document = website.fresh_document();
-            let (matches, stats, _, _) =
+            let (matches, stats, _) =
                 match_selectors_with_style_sharing(
                     document,
                     matching_context,
@@ -373,7 +373,7 @@ pub fn do_website(website: &ParsedWebsite, algorithm: Algorithm, mach7_oracle: O
             };
             let matching_context = website.get_matcher(optimizations);
             let document = website.fresh_document();
-            let (matches, stats, _, _) =
+            let (matches, stats, _) =
                 match_selectors_with_style_sharing(
                     document,
                     matching_context,
@@ -572,7 +572,6 @@ pub fn match_selectors_with_style_sharing(
     OwnedDocumentMatches,
     Statistics,
     Option<SmallVec<[(Selector, SelectorStats); 16]>>,
-    tsc_timer::Duration,
 ) {
     let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
@@ -852,7 +851,7 @@ pub fn match_selectors_with_style_sharing(
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     stats.times.building_stylist = matching_context.time_building_stylist;
     stats.times.total_matching = matching_time;
-    (owned_matches, stats, selector_stats, matching_time)
+    (owned_matches, stats, selector_stats)
 }
 
 pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
@@ -1082,7 +1081,7 @@ mod tests {
             lock,
             optimizations,
         );
-        let (matches, stats, _, _) = super::match_selectors_with_style_sharing(
+        let (matches, stats, _) = super::match_selectors_with_style_sharing(
             document,
             context,
             false,
