@@ -302,7 +302,7 @@ where
         mach_6::match_selectors_with_style_sharing(document, matching_context, true);
     println!("done.");
     let per_match_stats = Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]);
-    MatchBenchResult::new(overall_stats.samples, per_match_stats)
+    MatchBenchResult::new(overall_stats, per_match_stats)
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
@@ -371,7 +371,7 @@ fn bench_self_timing_function<F, R>(
     name: &str,
     func: F,
     num_samples: u64,
-) -> TimedResults<R>
+) -> Samples<R>
 where
     F: Fn() -> (tsc_timer::Duration, R),
 {
@@ -389,10 +389,7 @@ where
         total_duration += matching_time;
     }
     eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
-    TimedResults {
-        total_duration,
-        samples: Samples::from_vec(samples_vec),
-    }
+    Samples::from_vec(samples_vec)
 }
 
 fn warm_up_iterations<F, R>(warm_up_iterations: usize, func: F)
