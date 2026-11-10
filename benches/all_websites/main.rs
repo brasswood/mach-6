@@ -367,6 +367,7 @@ where
     }
 }
 
+/// F should return `(info_time, R)` where `info_time` is the time that should be reported to the stdout during benchmarking, and R is the full result to collect as a sample.
 fn bench_self_timing_function<F, R>(
     name: &str,
     func: F,
@@ -384,9 +385,9 @@ where
     eprint!("measuring {num_samples} samples...");
     let mut total_duration = tsc_timer::Duration::from_cycles(0);
     for _ in 0..num_samples {
-        let (matching_time, result) = func();
+        let (info_time, result) = func();
         samples_vec.push(result);
-        total_duration += matching_time;
+        total_duration += info_time;
     }
     eprintln!("done. ({}, {} total)", format_duration(total_duration / num_samples), format_duration(total_duration));
     Samples::from_vec(samples_vec)
