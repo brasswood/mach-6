@@ -263,6 +263,14 @@ impl ops::Div<u64> for Duration {
     }
 }
 
+impl std::iter::Sum for Duration {
+    fn sum<I>(iter: I) -> Self
+        where I: Iterator<Item = Self>,
+    {
+        iter.fold(Duration::from_cycles(0), |acc, d| acc + d)
+    }
+}
+
 /* NIGHTLY
 #[cfg(test)]
 mod tests {
