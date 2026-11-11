@@ -1717,14 +1717,17 @@ function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
   if (record === null) {
     return false;
   }
-  return isFiniteNumber(record.updating_bloom_filter_cycles)
-    && (record.building_stylist_cycles === undefined || isFiniteNumber(record.building_stylist_cycles))
-    && isFiniteNumber(record.slow_rejecting_cycles)
-    && isFiniteNumber(record.slow_accepting_cycles)
-    && isFiniteNumber(record.fast_rejecting_cycles)
-    && isFiniteNumber(record.checking_style_sharing_cycles)
-    && isFiniteNumber(record.inserting_into_sharing_cache_cycles)
-    && isFiniteNumber(record.querying_selector_map_cycles);
+  return (record.building_stylist_cycles === undefined || isFiniteNumber(record.building_stylist_cycles))
+    && [
+    record.total_matching_cycles,
+    record.updating_bloom_filter_cycles,
+    record.slow_rejecting_cycles,
+    record.slow_accepting_cycles,
+    record.fast_rejecting_cycles,
+    record.checking_style_sharing_cycles,
+    record.inserting_into_sharing_cache_cycles,
+    record.querying_selector_map_cycles
+    ].every((cycleCount) => cycleCount === undefined || isFiniteNumber(cycleCount));
 }
 
 function isTimingStatsJson(value: unknown): value is TimingStatsJson {
@@ -1741,7 +1744,7 @@ function isBenchmarkRunSummaryJson(value: unknown): value is BenchmarkRunSummary
     return false;
   }
   return isFiniteNumber(record.mean_cycles)
-    && isCountingStatsJson(record.counts)
+    && (record.counts === undefined || isCountingStatsJson(record.counts))
     && isTimingStatsJson(record.times);
 }
 
