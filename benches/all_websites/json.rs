@@ -93,7 +93,9 @@ mod overall_summary {
 
     use crate::WebsiteResult;
 
-    use super::{CountingStats, MatchBenchResult, PreprocessingResult, Samples, TimingStats};
+    use super::{MatchBenchResult, PreprocessingResult, Samples, TimingStats};
+    #[cfg(feature = "detailed_statistics")]
+    use super::CountingStats;
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SummaryJson {
@@ -134,6 +136,7 @@ mod overall_summary {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct BenchmarkRunSummaryJson {
         pub(crate) mean_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) counts: CountingStatsJson,
         pub(crate) times: TimingStatsJson,
     }
@@ -142,12 +145,14 @@ mod overall_summary {
         fn from(value: &MatchBenchResult) -> Self {
             Self {
                 mean_cycles: value.mean_duration().cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 counts: CountingStatsJson::from(value.counting_stats),
                 times: TimingStatsJson::from(&value.timing_stats),
             }
         }
     }
 
+    #[cfg(feature = "detailed_statistics")]
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub(crate) struct CountingStatsJson {
         #[serde(default)]
@@ -169,6 +174,7 @@ mod overall_summary {
         pub(crate) slow_accepts: usize,
     }
 
+    #[cfg(feature = "detailed_statistics")]
     impl From<CountingStats> for CountingStatsJson {
         fn from(value: CountingStats) -> Self {
             Self {
@@ -205,12 +211,20 @@ mod overall_summary {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsJsonBody {
         pub(crate) building_stylist_cycles: u64,
+        pub(crate) total_matching_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) updating_bloom_filter_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_rejecting_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_accepting_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) fast_rejecting_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) checking_style_sharing_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) inserting_into_sharing_cache_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) querying_selector_map_cycles: u64,
     }
 
@@ -218,12 +232,20 @@ mod overall_summary {
         fn from(timing_stats: TimingStats) -> Self {
             Self {
                 building_stylist_cycles: timing_stats.building_stylist.cycles(),
+                total_matching_cycles: timing_stats.total_matching.cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 updating_bloom_filter_cycles: timing_stats.updating_bloom_filter.cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 slow_rejecting_cycles: timing_stats.slow_rejecting.cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: timing_stats.slow_accepting.cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 fast_rejecting_cycles: timing_stats.fast_rejecting.cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: timing_stats.checking_style_sharing.cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 inserting_into_sharing_cache_cycles: timing_stats.inserting_into_sharing_cache.cycles(),
+                #[cfg(feature = "detailed_statistics")]
                 querying_selector_map_cycles: timing_stats.querying_selector_map.cycles(),
             }
         }
