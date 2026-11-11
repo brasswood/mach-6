@@ -1079,49 +1079,55 @@ function sumRecordValues(records: Record<string, number>[]): Record<string, numb
 }
 
 function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): BenchmarkRunSummaryJson {
-  const numElements = summaries
-    .map((summary) => summary.counts.num_elements)
-    .filter((value): value is number => value !== undefined);
+  const counts = summaries.every((summary) => summary.counts !== undefined)
+    ? summaries.map((summary) => summary.counts!)
+    : undefined;
+  const numElements = counts
+    ?.map((summary) => summary.num_elements)
+    .filter((value): value is number => value !== undefined) ?? [];
   const hasCompleteElementCounts = numElements.length === summaries.length;
+  const aggregateCounts = counts === undefined ? undefined : {
+    ...(hasCompleteElementCounts ? { num_elements: sumNumbers(numElements) } : {}),
+    num_selectors: sumNumbers(counts.map((summary) => summary.num_selectors ?? 0)),
+    sharing_instances: sumNumbers(counts.map((summary) => summary.sharing_instances)),
+    sharing_misses: sumNumbers(counts.map((summary) => summary.sharing_misses ?? 0)),
+    sharing_accepts: sumNumbers(counts.map((summary) => summary.sharing_accepts ?? 0)),
+    selector_map_hits: sumNumbers(counts.map((summary) => summary.selector_map_hits)),
+    tail_selector_map_hits: sumNumbers(counts.map((summary) => summary.tail_selector_map_hits ?? 0)),
+    bless_list_hits: sumNumbers(counts.map((summary) => summary.bless_list_hits ?? 0)),
+    fast_rejects: sumNumbers(counts.map((summary) => summary.fast_rejects)),
+    slow_rejects: sumNumbers(counts.map((summary) => summary.slow_rejects)),
+    slow_accepts: sumNumbers(counts.map((summary) => summary.slow_accepts))
+  };
   return {
     mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
     aggregateRejects: {
       sharing: sumNullableNumbers(summaries.map((summary) => calculateSharingRejects(summary.counts))),
       selectorMap: sumNullableNumbers(summaries.map((summary) => calculateSelectorMapRejects(summary.counts)))
     },
-    counts: {
-      ...(hasCompleteElementCounts ? { num_elements: sumNumbers(numElements) } : {}),
-      num_selectors: sumNumbers(summaries.map((summary) => summary.counts.num_selectors ?? 0)),
-      sharing_instances: sumNumbers(summaries.map((summary) => summary.counts.sharing_instances)),
-      sharing_misses: sumNumbers(summaries.map((summary) => summary.counts.sharing_misses ?? 0)),
-      sharing_accepts: sumNumbers(summaries.map((summary) => summary.counts.sharing_accepts ?? 0)),
-      selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.selector_map_hits)),
-      tail_selector_map_hits: sumNumbers(summaries.map((summary) => summary.counts.tail_selector_map_hits ?? 0)),
-      bless_list_hits: sumNumbers(summaries.map((summary) => summary.counts.bless_list_hits ?? 0)),
-      fast_rejects: sumNumbers(summaries.map((summary) => summary.counts.fast_rejects)),
-      slow_rejects: sumNumbers(summaries.map((summary) => summary.counts.slow_rejects)),
-      slow_accepts: sumNumbers(summaries.map((summary) => summary.counts.slow_accepts))
-    },
+    ...(aggregateCounts === undefined ? {} : { counts: aggregateCounts }),
     times: {
       means: {
-        building_stylist_cycles: sumNumbers(summaries.map((summary) => summary.times.means.building_stylist_cycles ?? 0)),
-        updating_bloom_filter_cycles: sumNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
-        slow_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
-        slow_accepting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
-        fast_rejecting_cycles: sumNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_cycles)),
-        checking_style_sharing_cycles: sumNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_cycles)),
-        inserting_into_sharing_cache_cycles: sumNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_cycles)),
-        querying_selector_map_cycles: sumNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles))
+        building_stylist_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.building_stylist_cycles)),
+        total_matching_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.total_matching_cycles)),
+        updating_bloom_filter_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
+        slow_rejecting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
+        slow_accepting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
+        fast_rejecting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_cycles)),
+        checking_style_sharing_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_cycles)),
+        inserting_into_sharing_cache_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_cycles)),
+        querying_selector_map_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles))
       },
       stddevs: {
-        building_stylist_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.building_stylist_cycles ?? 0)),
-        updating_bloom_filter_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
-        slow_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
-        slow_accepting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
-        fast_rejecting_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_cycles)),
-        checking_style_sharing_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_cycles)),
-        inserting_into_sharing_cache_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_cycles)),
-        querying_selector_map_cycles: combineStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_cycles))
+        building_stylist_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.building_stylist_cycles)),
+        total_matching_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.total_matching_cycles)),
+        updating_bloom_filter_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
+        slow_rejecting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
+        slow_accepting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
+        fast_rejecting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_cycles)),
+        checking_style_sharing_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_cycles)),
+        inserting_into_sharing_cache_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_cycles)),
+        querying_selector_map_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_cycles))
       }
     }
   };
