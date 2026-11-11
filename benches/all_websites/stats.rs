@@ -170,14 +170,22 @@ impl StdDev for TimingStats {
 
         TimingStats {
             building_stylist: stddev(|sample| sample.building_stylist),
+            #[cfg(feature = "detailed_statistics")]
             updating_bloom_filter: stddev(|sample| sample.updating_bloom_filter),
+            #[cfg(feature = "detailed_statistics")]
             checking_style_sharing: stddev(|sample| sample.checking_style_sharing),
+            #[cfg(feature = "detailed_statistics")]
             querying_selector_map: stddev(|sample| sample.querying_selector_map),
+            #[cfg(feature = "detailed_statistics")]
             fast_rejecting: stddev(|sample| sample.fast_rejecting),
+            #[cfg(feature = "detailed_statistics")]
             slow_rejecting: stddev(|sample| sample.slow_rejecting),
+            #[cfg(feature = "detailed_statistics")]
             slow_accepting: stddev(|sample| sample.slow_accepting),
+            #[cfg(feature = "detailed_statistics")]
             inserting_into_sharing_cache: stddev(|sample| sample.inserting_into_sharing_cache),
             total_matching: stddev(|sample| sample.total_matching),
+            #[cfg(feature = "detailed_statistics")]
             _time_inside_buckets: stddev(|sample| sample._time_inside_buckets),
         }
     }

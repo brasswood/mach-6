@@ -1,3 +1,5 @@
+#![cfg(feature = "detailed_statistics")]
+
 use mach_6::structs::{owned::OwnedDocumentMatches, set::SetDocumentMatches};
 use mach_6::{match_selectors_with_style_sharing, MatchingContext, Optimizations};
 use scraper::Html;
