@@ -3,6 +3,7 @@ type SegmentKind =
   | "otherPreprocessing"
   | "distribution"
   | "buildingStylist"
+  | "totalMatching"
   | "updatingBloomFilter"
   | "checkingStyleSharing"
   | "queryingSelectorMap"
@@ -68,7 +69,7 @@ type PreprocessingSummaryJson = LegacyPreprocessingSummaryJson | CurrentPreproce
 
 interface BenchmarkRunSummaryJson {
   mean_cycles: number;
-  counts: CountingStatsJson;
+  counts?: CountingStatsJson;
   times: TimingStatsJson;
   aggregateRejects?: { sharing: number | null; selectorMap: number | null };
 }
@@ -93,14 +94,15 @@ interface TimingStatsJson {
 }
 
 interface TimingsJsonBody {
-  building_stylist_cycles?: number;
-  updating_bloom_filter_cycles: number;
-  slow_rejecting_cycles: number;
-  slow_accepting_cycles: number;
-  fast_rejecting_cycles: number;
-  checking_style_sharing_cycles: number;
-  inserting_into_sharing_cache_cycles: number;
-  querying_selector_map_cycles: number;
+  building_stylist_cycles?: number | undefined;
+  total_matching_cycles?: number | undefined;
+  updating_bloom_filter_cycles?: number | undefined;
+  slow_rejecting_cycles?: number | undefined;
+  slow_accepting_cycles?: number | undefined;
+  fast_rejecting_cycles?: number | undefined;
+  checking_style_sharing_cycles?: number | undefined;
+  inserting_into_sharing_cache_cycles?: number | undefined;
+  querying_selector_map_cycles?: number | undefined;
 }
 
 interface SelectorsSummaryJson {
@@ -134,10 +136,11 @@ interface SegmentView {
 interface BarView {
   label: string;
   segments: SegmentView[];
+  totalMatching: SegmentView;
   totalCycles: bigint;
   totalLengthCycles: bigint;
   slowRejectCycles: bigint;
-  counts: CountingStatsJson;
+  counts?: CountingStatsJson | undefined;
   sharingRejects: number | null;
   selectorMapRejects: number | null;
   selectorsSummary: SelectorStatsSource;
@@ -181,6 +184,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "otherPreprocessing",
   "distribution",
   "buildingStylist",
+  "totalMatching",
   "updatingBloomFilter",
   "checkingStyleSharing",
   "queryingSelectorMap",
