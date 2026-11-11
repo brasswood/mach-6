@@ -1245,13 +1245,22 @@ function renderExpandedBar(bar: BarView): string {
   const segmentsHtml = bar.segments.map((segment) => {
     return '<div class="expanded-bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
+  const hasTotalMatchingSegment = bar.segments.some((segment) => segment.kind === "totalMatching");
   const legendHtml = bar.segments.map((segment) => {
     const warningClass = segment.meanCycles < 0n ? "legend-warning" : "";
     const value = segment.stddevCycles === null
       ? formatSignedCycles(segment.meanCycles)
       : formatSignedCycles(segment.meanCycles) + " \u00B1 " + formatCycles(segment.stddevCycles);
     return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + escapeHtml(value) + '</span>';
-  }).join("") + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles)) + '</span>';
+  }).join("")
+    + (hasTotalMatchingSegment
+      ? ""
+      : '<span>Total Matching: ' + escapeHtml(formatCycles(bar.totalMatching.meanCycles))
+        + (bar.totalMatching.stddevCycles === null
+          ? ""
+          : ' \u00B1 ' + escapeHtml(formatCycles(bar.totalMatching.stddevCycles)))
+        + '</span>')
+    + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles)) + '</span>';
 
   return [
     '<section class="expanded-chart">',
