@@ -544,6 +544,7 @@ fn collect_selectors_from_map(
     }
 }
 
+#[cfg(feature = "detailed_statistics")]
 fn count_sharing_accepts(matches: &OwnedDocumentMatches) -> usize {
     // Sharing candidates enter the cache only after their selector results are recorded.
     let mut selector_counts_by_id = HashMap::with_capacity(matches.0.len());
@@ -606,9 +607,13 @@ pub fn match_selectors_with_style_sharing(
         // 1.1: Set thread state to layout (needed to avoid debug_assert panic)
         thread_state::initialize(ThreadState::LAYOUT);
         // 1.2: update the bloom filter with the current element
+        #[cfg(feature = "detailed_statistics")]
         let start = tsc_timer::Start::now();
         context.thread_local.bloom_filter.insert_parents_recovering(element, element_depth);
-        stats.times.updating_bloom_filter += start.elapsed();
+        #[cfg(feature = "detailed_statistics")]
+        {
+            stats.times.updating_bloom_filter += start.elapsed();
+        }
         if optimizations.universal_bucket_bless_lists {
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
@@ -618,12 +623,16 @@ pub fn match_selectors_with_style_sharing(
                 matching::NeedsSelectorFlags::No,
                 matching::MatchingForInvalidation::No,
             );
-            *stats += cascade_data.universal_bucket_rules().get_matching_universal_bucket_rules(
+            let _activation_stats = cascade_data.universal_bucket_rules().get_matching_universal_bucket_rules(
                 element,
                 element_depth,
                 universal_bless_list,
                 &mut activation_context,
             );
+            #[cfg(feature = "detailed_statistics")]
+            {
+                *stats += _activation_stats;
+            }
         } else if optimizations.universal_tail_bless_lists {
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
@@ -633,19 +642,27 @@ pub fn match_selectors_with_style_sharing(
                 matching::NeedsSelectorFlags::No,
                 matching::MatchingForInvalidation::No,
             );
-            *stats += cascade_data.universal_tail_rules().get_matching_universal_tails(
+            let _activation_stats = cascade_data.universal_tail_rules().get_matching_universal_tails(
                 element,
                 bless_list,
                 &mut activation_context,
             );
+            #[cfg(feature = "detailed_statistics")]
+            {
+                *stats += _activation_stats;
+            }
         }
         // 1.3: Check if we can share styles (if enabled)
         let style_sharing_result = if optimizations.style_sharing {
             let mut target = StyleSharingTarget::new(element);
+            #[cfg(feature = "detailed_statistics")]
             let start = Start::now();
             let res = target.share_style_if_possible(context);
-            stats.times.checking_style_sharing += start.elapsed();
-            stats.counts.sharing_misses += target.sharing_misses();
+            #[cfg(feature = "detailed_statistics")]
+            {
+                stats.times.checking_style_sharing += start.elapsed();
+                stats.counts.sharing_misses += target.sharing_misses();
+            }
             res
         } else {
             None
