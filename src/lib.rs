@@ -698,7 +698,10 @@ pub fn match_selectors_with_style_sharing(
                 element.mutate_data().unwrap().set_styles(shared_styles);
                 let other_element = Element::from(other_element);
                 matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::SharedWithElement(other_element.id) });
-                stats.counts.sharing_instances += 1;
+                #[cfg(feature = "detailed_statistics")]
+                {
+                    stats.counts.sharing_instances += 1;
+                }
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
@@ -722,7 +725,10 @@ pub fn match_selectors_with_style_sharing(
                     if *last_depth < element_depth {
                         continue;
                     }
-                    stats.counts.bless_list_hits += 1;
+                    #[cfg(feature = "detailed_statistics")]
+                    {
+                        stats.counts.bless_list_hits += 1;
+                    }
                     let (matched, rule_stats) = matching::matches_rightmost_compound(
                         rule.selector(),
                         &element,
@@ -731,12 +737,15 @@ pub fn match_selectors_with_style_sharing(
                     if let Some(selector_stats) = sel_stats.as_mut() {
                         selector_stats.push((rule.selector(), SelectorStats::Bloom(rule_stats)));
                     }
-                    *stats += rule_stats;
+                    #[cfg(feature = "detailed_statistics")]
+                    {
+                        *stats += rule_stats;
+                    }
                     if matched {
                         matched_selectors.push(rule.selector());
                     }
                 }
-                *stats += selector_map.get_all_matching_rules_with_universal_tails(
+                let _selector_map_stats = selector_map.get_all_matching_rules_with_universal_tails(
                     element,
                     element, // TODO: ????
                     &mut SmallVec::new(),
@@ -751,6 +760,10 @@ pub fn match_selectors_with_style_sharing(
                     optimizations.universal_bucket_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
+                #[cfg(feature = "detailed_statistics")]
+                {
+                    *stats += _selector_map_stats;
+                }
                 // 1.3.3: add the matched selectors to the list
                 matches.push(
                     ElementMatches{
@@ -763,6 +776,7 @@ pub fn match_selectors_with_style_sharing(
                 }
                 // 1.3.4: insert the element into the style sharing cache
                 if optimizations.style_sharing {
+                    #[cfg(feature = "detailed_statistics")]
                     let start = Start::now();
                     context.thread_local.sharing_cache.insert_if_possible(
                         &element ,
@@ -772,7 +786,10 @@ pub fn match_selectors_with_style_sharing(
                         element_depth,
                         &context.shared,
                     );
-                    stats.times.inserting_into_sharing_cache += start.elapsed();
+                    #[cfg(feature = "detailed_statistics")]
+                    {
+                        stats.times.inserting_into_sharing_cache += start.elapsed();
+                    }
                 }
             }
         }
