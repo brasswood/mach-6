@@ -2,16 +2,23 @@ use log::{error, warn};
 use mach_6::{self, MatchingContext, Optimizations, get_all_documents_and_selectors, stylesheet_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
+#[cfg(feature = "detailed_statistics")]
 use mach_6::structs::Selector;
 use scraper::Html;
-use selectors::matching::{CountingStats, SelectorStats, Statistics, TimingStats};
+use selectors::matching::{Statistics, TimingStats};
+#[cfg(feature = "detailed_statistics")]
+use selectors::matching::{CountingStats, SelectorStats};
+#[cfg(feature = "detailed_statistics")]
 use smallvec::SmallVec;
+#[cfg(feature = "detailed_statistics")]
 use std::collections::HashMap;
+#[cfg(feature = "detailed_statistics")]
 use std::cmp::Reverse;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
+#[cfg(feature = "detailed_statistics")]
 use cssparser::ToCss as _;
 use time::OffsetDateTime;
 
@@ -36,6 +43,7 @@ impl<R> TimedResults<R> {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 struct SelectorString(String);
+#[cfg(feature = "detailed_statistics")]
 impl From<&Selector> for SelectorString {
     fn from(value: &Selector) -> Self {
         Self(value.to_css_string())
@@ -44,6 +52,7 @@ impl From<&Selector> for SelectorString {
 
 /// A selector and its aggregate (i.e. for every element) slow-reject time in
 /// each sample
+#[cfg(feature = "detailed_statistics")]
 #[derive(Clone, Debug)]
 struct SelectorSlowRejectSamples {
     selector: SelectorString,
@@ -61,19 +70,23 @@ struct MatchBenchResult {
     /// The total duration of the benched website
     total_duration: tsc_timer::Duration,
     /// Counting stats of one sample (should be the same accross all samples)
+    #[cfg(feature = "detailed_statistics")]
     counting_stats: CountingStats,
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
+    #[cfg(feature = "detailed_statistics")]
     selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
 }
 
 impl MatchBenchResult {
     fn new(
         stats: Samples<Statistics>,
+        #[cfg(feature = "detailed_statistics")]
         per_match_stats: Samples<SmallVec<[(Selector, SelectorStats); 16]>>,
     ) -> Self {
+        #[cfg(feature = "detailed_statistics")]
         let counting_stats = stats
             .first()
             .expect("expected at least one sample result")
@@ -82,6 +95,8 @@ impl MatchBenchResult {
         let timing_stats = stats
             .map(|stats| stats.times);
 
+        #[cfg(feature = "detailed_statistics")]
+        let selector_slow_reject_times = {
         let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
@@ -110,11 +125,15 @@ impl MatchBenchResult {
             SelectorSlowRejectSamples { selector, aggregate_durations: Samples::from_vec(durations) }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
+        sorted
+        };
         MatchBenchResult {
             total_duration: timing_stats.iter().map(|s| s.total_matching).sum(),
+            #[cfg(feature = "detailed_statistics")]
             counting_stats,
             timing_stats,
-            selector_slow_reject_times: sorted,
+            #[cfg(feature = "detailed_statistics")]
+            selector_slow_reject_times,
         }
     }
 
@@ -296,13 +315,18 @@ where
         },
         NUM_SAMPLES,
     );
-    print!("Getting selector stats for {benchmark_name}...");
-    let (document, matching_context) = setup();
-    let (_, _, per_match_stats) =
-        mach_6::match_selectors_with_style_sharing(document, matching_context, true);
-    println!("done.");
-    let per_match_stats = Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]);
-    MatchBenchResult::new(overall_stats, per_match_stats)
+    #[cfg(feature = "detailed_statistics")]
+    {
+        print!("Getting selector stats for {benchmark_name}...");
+        let (document, matching_context) = setup();
+        let (_, _, per_match_stats) =
+            mach_6::match_selectors_with_style_sharing(document, matching_context, true);
+        println!("done.");
+        let per_match_stats = Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]);
+        MatchBenchResult::new(overall_stats, per_match_stats)
+    }
+    #[cfg(not(feature = "detailed_statistics"))]
+    MatchBenchResult::new(overall_stats)
 }
 
 fn get_documents<'a>(website_filter: impl Iterator<Item = &'a str> + 'a) -> Box<dyn Iterator<Item = ParsedWebsite> + 'a> {
