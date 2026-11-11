@@ -587,18 +587,18 @@ pub fn match_selectors_with_style_sharing(
         bless_list: &mut SmallVec<[&'a Selector; 16]>,
         universal_bless_list: &mut SmallVec<[(&'a UniversalBucketRule, usize); 16]>,
         optimizations: Optimizations,
+        #[cfg(feature = "detailed_statistics")]
         stats: &mut Statistics,
     ) {
-        stats.counts.num_elements += 1;
+        #[cfg(feature = "detailed_statistics")]
+        {
+            stats.counts.num_elements += 1;
+        }
         if log_enabled!(target: "traversal", Level::Debug) { // this guard is needed to avoid evaluating expensive `element_to_string` argument
             debug!("preorder_traversal({})", element_to_string(element));
         }
         let inherited_bless_list_len = bless_list.len();
         let inherited_universal_bless_list_len = universal_bless_list.len();
-        let active_universal_bless_list_len = universal_bless_list[..inherited_universal_bless_list_len]
-            .iter()
-            .filter(|(_, last_depth)| *last_depth >= element_depth)
-            .count();
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
@@ -806,6 +806,7 @@ pub fn match_selectors_with_style_sharing(
                 bless_list,
                 universal_bless_list,
                 optimizations,
+                #[cfg(feature = "detailed_statistics")]
                 stats
             );
         }
@@ -865,6 +866,7 @@ pub fn match_selectors_with_style_sharing(
             &mut bless_list,
             &mut universal_bless_list,
             optimizations,
+            #[cfg(feature = "detailed_statistics")]
             &mut stats
         );
         start.elapsed()
@@ -1139,20 +1141,23 @@ mod tests {
 
     #[test]
     fn universal_tail_bless_lists_match_descendants() {
-        let (matches, blessed_stats) = universal_tail_matches(true);
+        let (matches, _blessed_stats) = universal_tail_matches(true);
         assert_eq!(selectors_for_element(&matches, "id=\"deep\""), BTreeSet::from([".a *".to_string()]));
         assert_eq!(selectors_for_element(&matches, "id=\"sibling\""), BTreeSet::from([".a *".to_string(), ".a > *".to_string()]));
         assert!(selectors_for_element(&matches, "id=\"outside\"").is_empty());
-        let (ordinary_matches, ordinary_stats) = universal_tail_matches(false);
+        let (ordinary_matches, _ordinary_stats) = universal_tail_matches(false);
         assert_eq!(ordinary_matches, matches);
+        #[cfg(feature = "detailed_statistics")]
+        {
         assert!(
-            blessed_stats.counts.selector_map_hits < ordinary_stats.counts.selector_map_hits,
+            _blessed_stats.counts.selector_map_hits < _ordinary_stats.counts.selector_map_hits,
             "bless lists should reduce selector-map hits: {} >= {}",
-            blessed_stats.counts.selector_map_hits,
-            ordinary_stats.counts.selector_map_hits,
+            _blessed_stats.counts.selector_map_hits,
+            _ordinary_stats.counts.selector_map_hits,
         );
-        assert_eq!(ordinary_stats.counts.tail_selector_map_hits, 0);
-        assert!(blessed_stats.counts.tail_selector_map_hits > 0);
+        assert_eq!(_ordinary_stats.counts.tail_selector_map_hits, 0);
+        assert!(_blessed_stats.counts.tail_selector_map_hits > 0);
+        }
     }
 
     #[test]
