@@ -259,7 +259,9 @@ mod selector_summary {
 
     use crate::WebsiteResult;
 
-    use super::{SelectorSlowRejectSamples, SelectorString};
+    use super::SelectorString;
+    #[cfg(feature = "detailed_statistics")]
+    use super::SelectorSlowRejectSamples;
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
@@ -269,21 +271,31 @@ mod selector_summary {
     }
 
     impl From<&WebsiteResult> for SelectorsSummaryJson {
-        fn from(value: &WebsiteResult) -> Self {
+        fn from(_value: &WebsiteResult) -> Self {
             Self {
-                baseline: SelectorStatsJson::from(value.baseline.selector_slow_reject_times.as_slice()),
-                with_bless_list: SelectorStatsJson::from(value.with_bless_list.selector_slow_reject_times.as_slice()),
-                after_preprocessing: SelectorStatsJson::from(value.after_preprocessing.selector_slow_reject_times.as_slice())
+                #[cfg(feature = "detailed_statistics")]
+                baseline: SelectorStatsJson::from(_value.baseline.selector_slow_reject_times.as_slice()),
+                #[cfg(not(feature = "detailed_statistics"))]
+                baseline: SelectorStatsJson::default(),
+                #[cfg(feature = "detailed_statistics")]
+                with_bless_list: SelectorStatsJson::from(_value.with_bless_list.selector_slow_reject_times.as_slice()),
+                #[cfg(not(feature = "detailed_statistics"))]
+                with_bless_list: SelectorStatsJson::default(),
+                #[cfg(feature = "detailed_statistics")]
+                after_preprocessing: SelectorStatsJson::from(_value.after_preprocessing.selector_slow_reject_times.as_slice()),
+                #[cfg(not(feature = "detailed_statistics"))]
+                after_preprocessing: SelectorStatsJson::default(),
             }
         }
     }
 
-    #[derive(Clone, Serialize, Deserialize)]
+    #[derive(Clone, Default, Serialize, Deserialize)]
     pub(crate) struct SelectorStatsJson {
         pub(crate) means_cycles: HashMap<SelectorString, u64>,
         pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
     }
 
+    #[cfg(feature = "detailed_statistics")]
     impl From<&[SelectorSlowRejectSamples]> for SelectorStatsJson {
         fn from(value: &[SelectorSlowRejectSamples]) -> Self {
             Self {
@@ -329,12 +341,20 @@ mod samples {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct TimingsSamplesJson {
         pub(crate) building_stylist_cycles: Vec<u64>,
+        pub(crate) total_matching_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) updating_bloom_filter_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_rejecting_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_accepting_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) fast_rejecting_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) checking_style_sharing_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) inserting_into_sharing_cache_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) querying_selector_map_cycles: Vec<u64>,
         pub(crate) selector_slow_rejects_cycles: Option<HashMap<SelectorString, Vec<u64>>>,
     }
@@ -351,12 +371,20 @@ mod samples {
             };
             Self {
                 building_stylist_cycles: get_cycles_samples(|timing_stats| timing_stats.building_stylist),
+                total_matching_cycles: get_cycles_samples(|timing_stats| timing_stats.total_matching),
+                #[cfg(feature = "detailed_statistics")]
                 updating_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.updating_bloom_filter),
+                #[cfg(feature = "detailed_statistics")]
                 slow_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
+                #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
+                #[cfg(feature = "detailed_statistics")]
                 fast_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
+                #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
+                #[cfg(feature = "detailed_statistics")]
                 inserting_into_sharing_cache_cycles: get_cycles_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
+                #[cfg(feature = "detailed_statistics")]
                 querying_selector_map_cycles: get_cycles_samples(|timing_stats| timing_stats.querying_selector_map),
                 #[cfg(not(feature = "serialize_selector_samples"))]
                 selector_slow_rejects_cycles: None,
