@@ -1023,14 +1023,27 @@ function sumNumbers(values: number[]): number {
   }, 0);
 }
 
-function calculateSharingRejects(counts: CountingStatsJson): number | null {
+function sumOptionalNumbers(values: (number | undefined)[]): number | undefined {
+  if (values.some((value) => value === undefined)) {
+    return undefined;
+  }
+  return sumNumbers(values as number[]);
+}
+
+function calculateSharingRejects(counts: CountingStatsJson | undefined): number | null {
+  if (counts === undefined) {
+    return null;
+  }
   if (counts.num_selectors === undefined || counts.sharing_accepts === undefined) {
     return null;
   }
   return counts.num_selectors * counts.sharing_instances - counts.sharing_accepts;
 }
 
-function calculateSelectorMapRejects(counts: CountingStatsJson): number | null {
+function calculateSelectorMapRejects(counts: CountingStatsJson | undefined): number | null {
+  if (counts === undefined) {
+    return null;
+  }
   if (counts.num_elements === undefined || counts.num_selectors === undefined) {
     return null;
   }
@@ -1048,6 +1061,13 @@ function combineStddevs(values: number[]): number {
   return Math.round(Math.sqrt(values.reduce((sum, value) => {
     return sum + (value * value);
   }, 0)));
+}
+
+function combineOptionalStddevs(values: (number | undefined)[]): number | undefined {
+  if (values.some((value) => value === undefined)) {
+    return undefined;
+  }
+  return combineStddevs(values as number[]);
 }
 
 function sumRecordValues(records: Record<string, number>[]): Record<string, number> {
