@@ -33,7 +33,7 @@ use std::path::Path;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
-use selectors::matching::{self, Statistics, TimingStats};
+use selectors::matching::{self, Statistics};
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMap;
@@ -446,8 +446,9 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 // Debug element if applicable
                 #[cfg(feature = "debug_element")]
                 debug_element_selector(element, &element_to_string(element), s);
-                let (res, stats) = matching::matches_selector(s, 0, None, &element, &mut context);
-                debug_assert_eq!(stats.time_fast_rejecting, None);
+                let (res, _stats) = matching::matches_selector(s, 0, None, &element, &mut context);
+                #[cfg(feature = "detailed_statistics")]
+                debug_assert_eq!(_stats.time_fast_rejecting, None);
                 res
             })
             .collect();
@@ -847,8 +848,11 @@ pub fn match_selectors_with_style_sharing(
     drop(shared_style_context);
     drop(ua_or_user_guard);
     drop(author_guard);
-    stats.counts.num_selectors = selector_map.len();
-    stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
+    #[cfg(feature = "detailed_statistics")]
+    {
+        stats.counts.num_selectors = selector_map.len();
+        stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
+    }
     stats.times.building_stylist = matching_context.time_building_stylist;
     stats.times.total_matching = matching_time;
     (owned_matches, stats, selector_stats)
@@ -873,7 +877,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
         let matched_selectors = selectors
             .into_iter()
             .filter(|s| {
-                let (res, stats) = matching::matches_selector(
+                let (res, _stats) = matching::matches_selector(
                     s,
                     0,
                     None,
@@ -881,7 +885,8 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
                     &mut context
                 );
                 debug_assert!(res);
-                debug_assert_eq!(stats.time_fast_rejecting, None);
+                #[cfg(feature = "detailed_statistics")]
+                debug_assert_eq!(_stats.time_fast_rejecting, None);
                 res
             })
             .cloned()
@@ -907,6 +912,7 @@ mod tests {
     use style::stylesheets::UrlExtraData;
     use test_log::test;
 
+    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn bloom_filter_algorithm_disables_style_sharing() -> Result<()> {
         let website = get_document_and_selectors(
@@ -919,6 +925,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
@@ -929,6 +936,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "detailed_statistics")]
     #[test]
     // TODO: This test doesn't actually test what I want
     fn nonshareable_styles_are_not_shared() -> Result<()> {
@@ -940,6 +948,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn counts_each_style_sharing_candidate_miss() -> Result<()> {
         let document = scraper::Html::parse_document(
@@ -964,6 +973,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn style_sharing_matcher_counts_document_elements() -> Result<()> {
         let document = scraper::Html::parse_document(
@@ -989,6 +999,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn counts_selector_rule_matches_accepted_via_style_sharing() -> Result<()> {
         let document = scraper::Html::parse_document(
