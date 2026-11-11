@@ -199,6 +199,7 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   otherPreprocessing: { label: "Other :is() Conversion", cssClass: "seg-preprocess-other" },
   distribution: { label: "Distribution", cssClass: "seg-distribution" },
   buildingStylist: { label: "Building Stylist", cssClass: "seg-stylist" },
+  totalMatching: { label: "Total Matching", cssClass: "seg-total-matching" },
   updatingBloomFilter: { label: "Updating Bloom Filter", cssClass: "seg-bloom" },
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
@@ -859,23 +860,48 @@ function buildBar(
     meanCycles: toBigInt(means.building_stylist_cycles ?? 0),
     stddevCycles: toBigInt(stddevs.building_stylist_cycles ?? 0)
   };
-  const measuredMatchDurations: SegmentView[] = [
-    { kind: "updatingBloomFilter", meanCycles: toBigInt(means.updating_bloom_filter_cycles), stddevCycles: toBigInt(stddevs.updating_bloom_filter_cycles) },
-    { kind: "checkingStyleSharing", meanCycles: toBigInt(means.checking_style_sharing_cycles), stddevCycles: toBigInt(stddevs.checking_style_sharing_cycles) },
-    { kind: "queryingSelectorMap", meanCycles: toBigInt(means.querying_selector_map_cycles), stddevCycles: toBigInt(stddevs.querying_selector_map_cycles) },
-    { kind: "fastRejecting", meanCycles: toBigInt(means.fast_rejecting_cycles), stddevCycles: toBigInt(stddevs.fast_rejecting_cycles) },
-    { kind: "slowRejecting", meanCycles: toBigInt(means.slow_rejecting_cycles), stddevCycles: toBigInt(stddevs.slow_rejecting_cycles) },
-    { kind: "slowAccepting", meanCycles: toBigInt(means.slow_accepting_cycles), stddevCycles: toBigInt(stddevs.slow_accepting_cycles) },
-    { kind: "insertingIntoSharingCache", meanCycles: toBigInt(means.inserting_into_sharing_cache_cycles), stddevCycles: toBigInt(stddevs.inserting_into_sharing_cache_cycles) }
+  const timedStages: readonly (readonly [SegmentKind, keyof TimingsJsonBody])[] = [
+    ["updatingBloomFilter", "updating_bloom_filter_cycles"],
+    ["checkingStyleSharing", "checking_style_sharing_cycles"],
+    ["queryingSelectorMap", "querying_selector_map_cycles"],
+    ["fastRejecting", "fast_rejecting_cycles"],
+    ["slowRejecting", "slow_rejecting_cycles"],
+    ["slowAccepting", "slow_accepting_cycles"],
+    ["insertingIntoSharingCache", "inserting_into_sharing_cache_cycles"]
   ];
+  const measuredMatchDurations: SegmentView[] = [];
+  for (const [kind, field] of timedStages) {
+    const meanCycles = means[field];
+    if (meanCycles === undefined) {
+      continue;
+    }
+    const stddevCycles = stddevs[field];
+    measuredMatchDurations.push({
+      kind,
+      meanCycles: toBigInt(meanCycles),
+      stddevCycles: stddevCycles === undefined ? null : toBigInt(stddevCycles)
+    });
+  }
+  const totalMatchingCycles = toBigInt(means.total_matching_cycles ?? summary.mean_cycles);
+  const totalMatching: SegmentView = {
+    kind: "totalMatching",
+    meanCycles: totalMatchingCycles,
+    stddevCycles: stddevs.total_matching_cycles === undefined
+      ? null
+      : toBigInt(stddevs.total_matching_cycles)
+  };
   const measuredMatchSum = measuredMatchDurations.reduce((sum, segment) => {
     return sum + segment.meanCycles;
   }, 0n);
-  measuredMatchDurations.push({
-    kind: "other",
-    meanCycles: toBigInt(summary.mean_cycles) - measuredMatchSum,
-    stddevCycles: null
-  });
+  if (measuredMatchDurations.length === 0) {
+    measuredMatchDurations.push(totalMatching);
+  } else {
+    measuredMatchDurations.push({
+      kind: "other",
+      meanCycles: totalMatchingCycles - measuredMatchSum,
+      stddevCycles: null
+    });
+  }
 
   const segments: SegmentView[] = [];
   if (includePreprocessing) {
