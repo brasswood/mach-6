@@ -923,9 +923,6 @@ function buildBar(
     return sum + (segment.meanCycles > 0n ? segment.meanCycles : 0n);
   }, 0n);
   const slowRejectSegment = segments.find((segment) => segment.kind === "slowRejecting");
-  if (!slowRejectSegment) {
-    throw new Error("Missing slow-reject segment for " + label);
-  }
   const rejectCounts = summary.aggregateRejects ?? {
     sharing: calculateSharingRejects(summary.counts),
     selectorMap: calculateSelectorMapRejects(summary.counts)
@@ -934,10 +931,11 @@ function buildBar(
   return {
     label,
     segments,
+    totalMatching,
     totalCycles,
     totalLengthCycles,
-    slowRejectCycles: slowRejectSegment.meanCycles,
-    counts: summary.counts,
+    slowRejectCycles: slowRejectSegment?.meanCycles ?? 0n,
+    ...(summary.counts === undefined ? {} : { counts: summary.counts }),
     sharingRejects: rejectCounts.sharing,
     selectorMapRejects: rejectCounts.selectorMap,
     selectorsSummary,
