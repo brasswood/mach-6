@@ -34,4 +34,4 @@ Sometimes, you may want to measure something finer-grained than what the middle-
 
 One option is to run Samply locally; load the `sample-based-profiling` skill before doing this. Another could be to isolate one function/code block and create a binary which times it (i.e. the typical microbenchmarking workflow). You can try other methods that you think are reasonable.
 
-Save Samply profiles with the filename `samply-NAME-COMMIT.json.gz` where `NAME` is a concise descriptive name you choose and `COMMIT` is the short hash of the mach-6 superproject commit used to get the profile.
+Save Samply profiles with the filename `samply-NAME-COMMIT.json.gz` where `NAME` is a concise, descriptive name you choose and `COMMIT` is the short hash of the mach-6 superproject commit used to get the profile.
