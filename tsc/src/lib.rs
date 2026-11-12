@@ -155,6 +155,7 @@ pub struct Start(u64);
 
 impl Start {
     /// Start measurement
+    #[inline]
     pub fn now() -> Self {
         unsafe {
             // let _ = arch::__cpuid(0); // too slow
@@ -163,6 +164,7 @@ impl Start {
     }
 
     /// Convenience method to get cycles since a `Start`.
+    #[inline]
     pub fn elapsed(&self) -> Duration {
         Stop::now() - *self
     }
@@ -174,6 +176,7 @@ pub struct Stop(u64);
 
 impl Stop {
     /// Stop measurement
+    #[inline]
     pub fn now() -> Self {
         unsafe {
             let mut core: u32 = 0;
