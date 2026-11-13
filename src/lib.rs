@@ -924,7 +924,6 @@ mod tests {
     use style::stylesheets::UrlExtraData;
     use test_log::test;
 
-    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn bloom_filter_algorithm_disables_style_sharing() -> Result<()> {
         let website = get_document_and_selectors(
@@ -937,7 +936,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
@@ -948,7 +946,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "detailed_statistics")]
     #[test]
     // TODO: This test doesn't actually test what I want
     fn nonshareable_styles_are_not_shared() -> Result<()> {
@@ -960,7 +957,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn counts_each_style_sharing_candidate_miss() -> Result<()> {
         let document = scraper::Html::parse_document(
@@ -985,7 +981,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn style_sharing_matcher_counts_document_elements() -> Result<()> {
         let document = scraper::Html::parse_document(
@@ -1011,7 +1006,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "detailed_statistics")]
     #[test]
     fn counts_selector_rule_matches_accepted_via_style_sharing() -> Result<()> {
         let document = scraper::Html::parse_document(
@@ -1123,8 +1117,6 @@ mod tests {
         assert!(selectors_for_element(&matches, "id=\"outside\"").is_empty());
         let (ordinary_matches, _ordinary_stats) = universal_tail_matches(false);
         assert_eq!(ordinary_matches, matches);
-        #[cfg(feature = "detailed_statistics")]
-        {
         assert!(
             _blessed_stats.counts.selector_map_hits < _ordinary_stats.counts.selector_map_hits,
             "bless lists should reduce selector-map hits: {} >= {}",
@@ -1133,7 +1125,6 @@ mod tests {
         );
         assert_eq!(_ordinary_stats.counts.tail_selector_map_hits, 0);
         assert!(_blessed_stats.counts.tail_selector_map_hits > 0);
-        }
     }
 
     #[test]
