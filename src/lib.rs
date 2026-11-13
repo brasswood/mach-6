@@ -599,6 +599,10 @@ pub fn match_selectors_with_style_sharing(
         }
         let inherited_bless_list_len = bless_list.len();
         let inherited_universal_bless_list_len = universal_bless_list.len();
+        let active_universal_bless_list_len = universal_bless_list[..inherited_universal_bless_list_len]
+            .iter()
+            .filter(|(_, last_depth)| *last_depth >= element_depth)
+            .count();
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
