@@ -155,7 +155,7 @@ pub struct Start(u64);
 
 impl Start {
     /// Start measurement
-    #[inline]
+    #[inline(always)]
     pub fn now() -> Self {
         unsafe {
             // let _ = arch::__cpuid(0); // too slow
@@ -164,7 +164,7 @@ impl Start {
     }
 
     /// Convenience method to get cycles since a `Start`.
-    #[inline]
+    #[inline(always)]
     pub fn elapsed(&self) -> Duration {
         Stop::now() - *self
     }
@@ -176,7 +176,7 @@ pub struct Stop(u64);
 
 impl Stop {
     /// Stop measurement
-    #[inline]
+    #[inline(always)]
     pub fn now() -> Self {
         unsafe {
             let mut core: u32 = 0;
@@ -193,6 +193,7 @@ pub struct Duration(u64);
 
 impl Duration {
     /// Number of clock cycles
+    #[inline(always)]
     pub fn cycles(self) -> u64 {
         self.0
     }
@@ -218,6 +219,7 @@ impl Duration {
         Some(std::time::Duration::from_nanos(nanos))
     }
 
+    #[inline(always)]
     pub const fn from_cycles(cycles: u64) -> Self {
         Self(cycles)
     }
@@ -225,6 +227,7 @@ impl Duration {
 
 impl ops::Sub<Start> for Stop {
     type Output = Duration;
+    #[inline(always)]
     fn sub(self, start: Start) -> Duration {
         debug_assert!(
             self.0 > start.0,
@@ -236,6 +239,7 @@ impl ops::Sub<Start> for Stop {
 
 impl ops::Sub<Duration> for Duration {
     type Output = Self;
+    #[inline(always)]
     fn sub(self, other: Self) -> Self {
         debug_assert!(self.0 > other.0, "subtracting durations overflows");
         Duration(self.0 - other.0)
@@ -244,6 +248,7 @@ impl ops::Sub<Duration> for Duration {
 
 impl ops::Add for Duration {
     type Output = Self;
+    #[inline(always)]
     fn add(self, other: Self) -> Self {
         if cfg!(debug_assertions) {
             Duration(self.0.checked_add(other.0).expect("adding durations overflows"))
@@ -254,6 +259,7 @@ impl ops::Add for Duration {
 }
 
 impl ops::AddAssign for Duration {
+    #[inline(always)]
     fn add_assign(&mut self, other: Self) {
         *self = *self + other;
     }
@@ -261,12 +267,14 @@ impl ops::AddAssign for Duration {
 
 impl ops::Div<u64> for Duration {
     type Output = Self;
+    #[inline(always)]
     fn div(self, other: u64) -> Self {
         Self(self.0 / other)
     }
 }
 
 impl std::iter::Sum for Duration {
+    #[inline(always)]
     fn sum<I>(iter: I) -> Self
         where I: Iterator<Item = Self>,
     {
