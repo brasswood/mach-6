@@ -50,7 +50,7 @@ members = ["scraper", "tsc"]
 exclude = ["stylo"]
 
 [features]
-default = []
+default = ["detailed_statistics"]
 detailed_statistics = ["selectors/detailed_statistics", "style/detailed_statistics"]
 debug_element = ["style/debug_element", "selectors/debug_element"]
 serialize_selector_samples = ["detailed_statistics"]
