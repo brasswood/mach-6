@@ -6,8 +6,9 @@ use mach_6::preprocessing::{self, concretize, distribute};
 use mach_6::structs::Selector;
 use scraper::Html;
 use selectors::matching::{Statistics, TimingStats};
+use selectors::matching::CountingStats;
 #[cfg(feature = "detailed_statistics")]
-use selectors::matching::{CountingStats, SelectorStats};
+use selectors::matching::SelectorStats;
 #[cfg(feature = "detailed_statistics")]
 use smallvec::SmallVec;
 #[cfg(feature = "detailed_statistics")]
@@ -70,7 +71,6 @@ struct MatchBenchResult {
     /// The total duration of the benched website
     total_duration: tsc_timer::Duration,
     /// Counting stats of one sample (should be the same accross all samples)
-    #[cfg(feature = "detailed_statistics")]
     counting_stats: CountingStats,
     /// Per-sample timing stats
     timing_stats: Samples<TimingStats>,
@@ -86,7 +86,6 @@ impl MatchBenchResult {
         #[cfg(feature = "detailed_statistics")]
         per_match_stats: Samples<SmallVec<[(Selector, SelectorStats); 16]>>,
     ) -> Self {
-        #[cfg(feature = "detailed_statistics")]
         let counting_stats = stats
             .first()
             .expect("expected at least one sample result")
@@ -129,7 +128,6 @@ impl MatchBenchResult {
         };
         MatchBenchResult {
             total_duration: timing_stats.iter().map(|s| s.total_matching).sum(),
-            #[cfg(feature = "detailed_statistics")]
             counting_stats,
             timing_stats,
             #[cfg(feature = "detailed_statistics")]

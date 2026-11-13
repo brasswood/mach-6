@@ -94,7 +94,6 @@ mod overall_summary {
     use crate::WebsiteResult;
 
     use super::{MatchBenchResult, PreprocessingResult, Samples, TimingStats};
-    #[cfg(feature = "detailed_statistics")]
     use super::CountingStats;
 
     #[derive(Clone, Serialize, Deserialize)]
@@ -136,7 +135,6 @@ mod overall_summary {
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct BenchmarkRunSummaryJson {
         pub(crate) mean_cycles: u64,
-        #[cfg(feature = "detailed_statistics")]
         pub(crate) counts: CountingStatsJson,
         pub(crate) times: TimingStatsJson,
     }
@@ -145,14 +143,12 @@ mod overall_summary {
         fn from(value: &MatchBenchResult) -> Self {
             Self {
                 mean_cycles: value.mean_duration().cycles(),
-                #[cfg(feature = "detailed_statistics")]
                 counts: CountingStatsJson::from(value.counting_stats),
                 times: TimingStatsJson::from(&value.timing_stats),
             }
         }
     }
 
-    #[cfg(feature = "detailed_statistics")]
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub(crate) struct CountingStatsJson {
         #[serde(default)]
@@ -174,7 +170,6 @@ mod overall_summary {
         pub(crate) slow_accepts: usize,
     }
 
-    #[cfg(feature = "detailed_statistics")]
     impl From<CountingStats> for CountingStatsJson {
         fn from(value: CountingStats) -> Self {
             Self {
