@@ -544,7 +544,6 @@ fn collect_selectors_from_map(
     }
 }
 
-#[cfg(feature = "detailed_statistics")]
 fn count_sharing_accepts(matches: &OwnedDocumentMatches) -> usize {
     // Sharing candidates enter the cache only after their selector results are recorded.
     let mut selector_counts_by_id = HashMap::with_capacity(matches.0.len());
@@ -587,13 +586,9 @@ pub fn match_selectors_with_style_sharing(
         bless_list: &mut SmallVec<[&'a Selector; 16]>,
         universal_bless_list: &mut SmallVec<[(&'a UniversalBucketRule, usize); 16]>,
         optimizations: Optimizations,
-        #[cfg(feature = "detailed_statistics")]
         stats: &mut Statistics,
     ) {
-        #[cfg(feature = "detailed_statistics")]
-        {
-            stats.counts.num_elements += 1;
-        }
+        stats.counts.num_elements += 1;
         if log_enabled!(target: "traversal", Level::Debug) { // this guard is needed to avoid evaluating expensive `element_to_string` argument
             debug!("preorder_traversal({})", element_to_string(element));
         }
@@ -633,10 +628,7 @@ pub fn match_selectors_with_style_sharing(
                 universal_bless_list,
                 &mut activation_context,
             );
-            #[cfg(feature = "detailed_statistics")]
-            {
-                *stats += _activation_stats;
-            }
+            *stats += _activation_stats;
         } else if optimizations.universal_tail_bless_lists {
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
@@ -651,10 +643,7 @@ pub fn match_selectors_with_style_sharing(
                 bless_list,
                 &mut activation_context,
             );
-            #[cfg(feature = "detailed_statistics")]
-            {
-                *stats += _activation_stats;
-            }
+            *stats += _activation_stats;
         }
         // 1.3: Check if we can share styles (if enabled)
         let style_sharing_result = if optimizations.style_sharing {
@@ -665,8 +654,8 @@ pub fn match_selectors_with_style_sharing(
             #[cfg(feature = "detailed_statistics")]
             {
                 stats.times.checking_style_sharing += start.elapsed();
-                stats.counts.sharing_misses += target.sharing_misses();
             }
+            stats.counts.sharing_misses += target.sharing_misses();
             res
         } else {
             None
@@ -702,10 +691,7 @@ pub fn match_selectors_with_style_sharing(
                 element.mutate_data().unwrap().set_styles(shared_styles);
                 let other_element = Element::from(other_element);
                 matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::SharedWithElement(other_element.id) });
-                #[cfg(feature = "detailed_statistics")]
-                {
-                    stats.counts.sharing_instances += 1;
-                }
+                stats.counts.sharing_instances += 1;
             },
             None => {
                 // If we can't share styles, go through the selector map and bloom filter.
@@ -729,10 +715,7 @@ pub fn match_selectors_with_style_sharing(
                     if *last_depth < element_depth {
                         continue;
                     }
-                    #[cfg(feature = "detailed_statistics")]
-                    {
-                        stats.counts.bless_list_hits += 1;
-                    }
+                    stats.counts.bless_list_hits += 1;
                     let (matched, rule_stats) = matching::matches_rightmost_compound(
                         rule.selector(),
                         &element,
@@ -741,10 +724,7 @@ pub fn match_selectors_with_style_sharing(
                     if let Some(selector_stats) = sel_stats.as_mut() {
                         selector_stats.push((rule.selector(), SelectorStats::Bloom(rule_stats)));
                     }
-                    #[cfg(feature = "detailed_statistics")]
-                    {
-                        *stats += rule_stats;
-                    }
+                    *stats += rule_stats;
                     if matched {
                         matched_selectors.push(rule.selector());
                     }
@@ -764,10 +744,7 @@ pub fn match_selectors_with_style_sharing(
                     optimizations.universal_bucket_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
-                #[cfg(feature = "detailed_statistics")]
-                {
-                    *stats += _selector_map_stats;
-                }
+                *stats += _selector_map_stats;
                 // 1.3.3: add the matched selectors to the list
                 matches.push(
                     ElementMatches{
@@ -810,7 +787,6 @@ pub fn match_selectors_with_style_sharing(
                 bless_list,
                 universal_bless_list,
                 optimizations,
-                #[cfg(feature = "detailed_statistics")]
                 stats
             );
         }
@@ -870,7 +846,6 @@ pub fn match_selectors_with_style_sharing(
             &mut bless_list,
             &mut universal_bless_list,
             optimizations,
-            #[cfg(feature = "detailed_statistics")]
             &mut stats
         );
         start.elapsed()
@@ -888,11 +863,8 @@ pub fn match_selectors_with_style_sharing(
     drop(shared_style_context);
     drop(ua_or_user_guard);
     drop(author_guard);
-    #[cfg(feature = "detailed_statistics")]
-    {
-        stats.counts.num_selectors = selector_map.len();
-        stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
-    }
+    stats.counts.num_selectors = selector_map.len();
+    stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     stats.times.building_stylist = matching_context.time_building_stylist;
     stats.times.total_matching = matching_time;
     (owned_matches, stats, selector_stats)
