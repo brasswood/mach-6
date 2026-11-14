@@ -622,13 +622,13 @@ pub fn match_selectors_with_style_sharing(
                 matching::NeedsSelectorFlags::No,
                 matching::MatchingForInvalidation::No,
             );
-            let _activation_stats = cascade_data.universal_bucket_rules().get_matching_universal_bucket_rules(
+            let activation_stats = cascade_data.universal_bucket_rules().get_matching_universal_bucket_rules(
                 element,
                 element_depth,
                 universal_bless_list,
                 &mut activation_context,
             );
-            *stats += _activation_stats;
+            *stats += activation_stats;
         } else if optimizations.universal_tail_bless_lists {
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
@@ -638,12 +638,12 @@ pub fn match_selectors_with_style_sharing(
                 matching::NeedsSelectorFlags::No,
                 matching::MatchingForInvalidation::No,
             );
-            let _activation_stats = cascade_data.universal_tail_rules().get_matching_universal_tails(
+            let activation_stats = cascade_data.universal_tail_rules().get_matching_universal_tails(
                 element,
                 bless_list,
                 &mut activation_context,
             );
-            *stats += _activation_stats;
+            *stats += activation_stats;
         }
         // 1.3: Check if we can share styles (if enabled)
         let style_sharing_result = if optimizations.style_sharing {
@@ -729,7 +729,7 @@ pub fn match_selectors_with_style_sharing(
                         matched_selectors.push(rule.selector());
                     }
                 }
-                let _selector_map_stats = selector_map.get_all_matching_rules_with_universal_tails(
+                let selector_map_stats = selector_map.get_all_matching_rules_with_universal_tails(
                     element,
                     element, // TODO: ????
                     &mut SmallVec::new(),
@@ -744,7 +744,7 @@ pub fn match_selectors_with_style_sharing(
                     optimizations.universal_bucket_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
                 );
-                *stats += _selector_map_stats;
+                *stats += selector_map_stats;
                 // 1.3.3: add the matched selectors to the list
                 matches.push(
                     ElementMatches{
@@ -1111,20 +1111,20 @@ mod tests {
 
     #[test]
     fn universal_tail_bless_lists_match_descendants() {
-        let (matches, _blessed_stats) = universal_tail_matches(true);
+        let (matches, blessed_stats) = universal_tail_matches(true);
         assert_eq!(selectors_for_element(&matches, "id=\"deep\""), BTreeSet::from([".a *".to_string()]));
         assert_eq!(selectors_for_element(&matches, "id=\"sibling\""), BTreeSet::from([".a *".to_string(), ".a > *".to_string()]));
         assert!(selectors_for_element(&matches, "id=\"outside\"").is_empty());
-        let (ordinary_matches, _ordinary_stats) = universal_tail_matches(false);
+        let (ordinary_matches, ordinary_stats) = universal_tail_matches(false);
         assert_eq!(ordinary_matches, matches);
         assert!(
-            _blessed_stats.counts.selector_map_hits < _ordinary_stats.counts.selector_map_hits,
+            blessed_stats.counts.selector_map_hits < ordinary_stats.counts.selector_map_hits,
             "bless lists should reduce selector-map hits: {} >= {}",
-            _blessed_stats.counts.selector_map_hits,
-            _ordinary_stats.counts.selector_map_hits,
+            blessed_stats.counts.selector_map_hits,
+            ordinary_stats.counts.selector_map_hits,
         );
-        assert_eq!(_ordinary_stats.counts.tail_selector_map_hits, 0);
-        assert!(_blessed_stats.counts.tail_selector_map_hits > 0);
+        assert_eq!(ordinary_stats.counts.tail_selector_map_hits, 0);
+        assert!(blessed_stats.counts.tail_selector_map_hits > 0);
     }
 
     #[test]
