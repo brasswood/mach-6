@@ -2011,25 +2011,25 @@ function renderContextBar(bar: ContextBarView, website: string, comparisonBar?: 
   ].join("");
 }
 
-function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint, comparisonBar?: BarView): string {
+function renderSummaryBar(bar: BarView, website: string, summaryMaxBarLengthCycles: bigint, comparisonBar?: BarView): string {
   const segmentsHtml = bar.segments.map((segment) => {
     return '<div class="bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
   const warningClass = bar.totalLengthCycles !== bar.totalCycles ? " warning" : "";
   const displayNote = bar.totalLengthCycles !== bar.totalCycles
-    ? '<div class="time-display-note">Displayed: ' + escapeHtml(formatCycles(bar.totalLengthCycles))
+    ? '<div class="time-display-note">Displayed: ' + renderVariationValue(escapeHtml(formatCycles(bar.totalLengthCycles)), { website, variant: bar.label, kind: "displayed" })
       + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalLengthCycles, comparisonBar.totalLengthCycles)) + '</div>'
     : "";
   const speedup = bar.baselineTotalCycles === undefined
     ? ""
     : '<span class="speedup ' + (bar.baselineTotalCycles > bar.totalCycles ? "metric-better" : bar.baselineTotalCycles < bar.totalCycles ? "metric-worse" : "")
-      + '">' + escapeHtml(formatSpeedup(bar.baselineTotalCycles, bar.totalCycles)) + '</span>';
+      + '">' + renderVariationValue(escapeHtml(formatSpeedup(bar.baselineTotalCycles, bar.totalCycles)), { website, variant: bar.label, kind: "speedup" }) + '</span>';
 
   return [
     '<div class="variant-summary">',
     '<div class="variant-label">' + escapeHtml(bar.label) + '</div>',
     '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, summaryMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
-    '<div class="time"><div class="time-primary"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles))
+    '<div class="time"><div class="time-primary"><div class="time-value' + warningClass + '">' + renderVariationValue(escapeHtml(formatCycles(bar.totalCycles)), { website, variant: bar.label, kind: "overall" })
       + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalCycles, comparisonBar.totalCycles)) + '</div>' + speedup + '</div>' + displayNote + '</div>',
     '</div>'
   ].join("");
@@ -2320,7 +2320,7 @@ function renderWebsite(
     '<div class="summary-variants">' + website.contextBars.map((bar) => {
       return renderContextBar(bar, website.name, comparisonContextBars.get(bar.label));
     }).join("") + website.bars.map((bar) => {
-      return renderSummaryBar(bar, website.summaryMaxBarLengthCycles, comparisonBars.get(bar.label));
+      return renderSummaryBar(bar, website.name, website.summaryMaxBarLengthCycles, comparisonBars.get(bar.label));
     }).join("") + '</div>',
     '</div>',
     '<div class="bar-legend">' + website.legendKinds.map((kind) => {
