@@ -1566,15 +1566,19 @@ function renderVariantDetails(
     comparisonCounts === undefined ? undefined : baseline ?? 0
   );
   const topSlowRejectSelectors = buildSelectorRows(selectorsSummary);
-  const comparisonColumnHtml = algorithmComparisonLabel === undefined ? "" : [
-    '<col class="col-time"><col class="col-count">',
-    SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count">').join("")
-  ].join("");
   const comparisonHeaderHtml = algorithmComparisonLabel === undefined ? "" : [
     '<th class="col-time">' + algorithmComparisonLabel + ' Total Slow Reject Cycles</th>',
     '<th class="col-count">' + algorithmComparisonLabel + ' Slow Reject Count</th>',
     renderSelectorResultCountHeaders(algorithmComparisonLabel)
   ].join("");
+  const mainCountChangeClass = algorithmComparisonLabel === "Baseline" ? " col-count-change" : "";
+  const mainResultCountChangeClass = algorithmComparisonLabel === "Baseline" ? " col-result-count-change" : "";
+  const comparisonCountChangeClass = algorithmComparisonLabel === "Bless List" ? " col-count-change" : "";
+  const comparisonResultCountChangeClass = algorithmComparisonLabel === "Bless List" ? " col-result-count-change" : "";
+  const mainCountColumns = '<col class="col-count' + mainCountChangeClass + '">'
+    + SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count' + mainResultCountChangeClass + '">').join("");
+  const comparisonCountColumns = '<col class="col-count' + comparisonCountChangeClass + '">'
+    + SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count' + comparisonResultCountChangeClass + '">').join("");
   const countsHtml = bar.counts === undefined
     ? '<p class="stats-disabled-note">Detailed matcher statistics were disabled for this report.</p>'
     : [
@@ -1602,8 +1606,9 @@ function renderVariantDetails(
       '<details class="selector-breakdown">',
       '<summary>Slow-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
       '<div class="selector-breakdown-inner">',
-      '<table class="selector-breakdown-table"><colgroup><col class="col-selector"><col class="col-time"><col class="col-count">'
-        + SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count">').join("") + comparisonColumnHtml + '</colgroup>',
+      '<table class="selector-breakdown-table"><colgroup><col class="col-selector"><col class="col-time">'
+        + mainCountColumns + (algorithmComparisonLabel === undefined ? "" : '<col class="col-time">' + comparisonCountColumns)
+        + '</colgroup>',
       '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th>'
         + renderSelectorResultCountHeaders() + comparisonHeaderHtml + '</tr></thead>',
       '<tbody>' + renderSelectorRows(
