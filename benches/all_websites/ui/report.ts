@@ -309,10 +309,6 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function meanWithStddev(meanCycles: bigint, stddevCycles: bigint): string {
-  return formatCycles(meanCycles) + " \u00B1 " + formatCycles(stddevCycles);
-}
-
 function buildPageTitle(metadata: ReportMetadataJson): string {
   const parts: string[] = [];
   if (metadata.branch) {
@@ -1308,6 +1304,19 @@ function renderReportDiff(value: bigint, baseline: bigint): string {
   return '<span class="report-diff">Δ' + text + '</span>';
 }
 
+function renderTimingValue(
+  meanCycles: bigint,
+  stddevCycles: bigint | null,
+  comparisonMean?: bigint,
+  comparisonStddev?: bigint | null,
+  signed = false
+): string {
+  const mean = signed ? formatSignedCycles(meanCycles) : formatCycles(meanCycles);
+  return escapeHtml(mean) + (comparisonMean === undefined ? "" : renderReportDiff(meanCycles, comparisonMean))
+    + (stddevCycles === null ? "" : ' \u00B1 ' + escapeHtml(formatCycles(stddevCycles))
+      + (comparisonStddev == null ? "" : renderReportDiff(stddevCycles, comparisonStddev)));
+}
+
 function renderReportRatioDiff(value: number, baseline: number): string {
   if (baseline === 0) {
     return '<span class="report-diff">Δ' + (value === 0 ? "+0.000%" : "+∞%") + '</span>';
@@ -1364,25 +1373,29 @@ function renderExpandedBar(bar: BarView, comparisonBar?: BarView): string {
   const hasTotalMatchingSegment = bar.segments.some((segment) => segment.kind === "totalMatching");
   const legendHtml = bar.segments.map((segment) => {
     const warningClass = segment.meanCycles < 0n ? "legend-warning" : "";
-    const value = segment.stddevCycles === null
-      ? formatSignedCycles(segment.meanCycles)
-      : formatSignedCycles(segment.meanCycles) + " \u00B1 " + formatCycles(segment.stddevCycles);
+    const comparisonSegment = comparisonBar?.segments.find((item) => item.kind === segment.kind);
+    const value = renderTimingValue(
+      segment.meanCycles,
+      segment.stddevCycles,
+      comparisonSegment?.meanCycles,
+      comparisonSegment?.stddevCycles,
+      true
+    );
     const baseline = bar.baselineSegmentCycles?.get(segment.kind) ?? 0n;
     const change = bar.baselineSegmentCycles === undefined ? "" : " " + renderSegmentChange(segment.meanCycles, baseline);
-    const comparisonSegment = comparisonBar?.segments.find((item) => item.kind === segment.kind);
-    const reportDiff = comparisonSegment === undefined ? "" : renderReportDiff(segment.meanCycles, comparisonSegment.meanCycles);
-    return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + escapeHtml(value) + change + reportDiff + '</span>';
+    return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + value + change + '</span>';
   }).join("")
     + (hasTotalMatchingSegment
       ? ""
-      : '<span>Total Matching: ' + escapeHtml(formatCycles(bar.totalMatching.meanCycles))
-        + (bar.totalMatching.stddevCycles === null
-          ? ""
-          : ' \u00B1 ' + escapeHtml(formatCycles(bar.totalMatching.stddevCycles)))
+      : '<span>Total Matching: ' + renderTimingValue(
+        bar.totalMatching.meanCycles,
+        bar.totalMatching.stddevCycles,
+        comparisonBar?.totalMatching.meanCycles,
+        comparisonBar?.totalMatching.stddevCycles
+      )
         + (bar.baselineSegmentCycles === undefined
           ? ""
           : " " + renderSegmentChange(bar.totalMatching.meanCycles, bar.baselineSegmentCycles.get("totalMatching") ?? 0n))
-        + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalMatching.meanCycles, comparisonBar.totalMatching.meanCycles))
         + '</span>')
     + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles))
     + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalCycles, comparisonBar.totalCycles)) + '</span>';
@@ -1411,12 +1424,17 @@ function renderSelectorRows(rows: SelectorRow[], comparisonStats?: SelectorStats
   }
   return rows.map((row) => {
     const comparisonMean = comparisonStats?.means_cycles[row.selector];
+    const comparisonStddev = comparisonStats?.stddevs_cycles[row.selector];
     const comparisonResultCounts = SELECTOR_RESULT_COUNTS.map(([key]) => comparisonStats?.[key]?.[row.selector] ?? null);
     return [
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
-      '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles))
-        + (comparisonMean === undefined ? "" : renderReportDiff(row.meanCycles, toBigInt(comparisonMean))) + '</div></td>',
+      '<td class="col-time"><div class="cell-scroll">' + renderTimingValue(
+        row.meanCycles,
+        row.stddevCycles,
+        comparisonMean === undefined ? undefined : toBigInt(comparisonMean),
+        comparisonStddev === undefined ? undefined : toBigInt(comparisonStddev)
+      ) + '</div></td>',
       '<td class="col-count">' + renderOptionalCount(row.rejectCount, comparisonStats?.slow_reject_counts?.[row.selector] ?? null) + '</td>',
       ...row.resultCounts.map((count, index) => '<td class="col-result-count">' + renderOptionalCount(count, comparisonResultCounts[index]) + '</td>'),
       '</tr>'
@@ -1670,7 +1688,7 @@ function renderCompareResults(
     return [
       '<section class="compare-row" data-website-name="' + escapeHtml(website.name) + '">',
       '<div class="compare-column">',
-      renderCompareCell(website.left, "Not present in left report.", "left", website.right),
+      renderCompareCell(website.left, "Not present in left report.", "left"),
       '</div>',
       '<div class="compare-column">',
       renderCompareCell(website.right, "Not present in right report.", "right", website.left),
@@ -1678,19 +1696,16 @@ function renderCompareResults(
       '</section>'
     ].join("");
   }).join("");
-  const leftComparisons = new Map<string, WebsiteView>();
   const rightComparisons = new Map<string, WebsiteView>();
   for (const website of compareWebsites) {
     if (website.left !== null && website.right !== null) {
-      leftComparisons.set(website.left.name, website.right);
       rightComparisons.set(website.right.name, website.left);
     }
   }
   installWebsiteDetailsHandlers(
     compareResults,
     compareWebsites.flatMap((website) => website.left === null ? [] : [website.left]),
-    "left",
-    leftComparisons
+    "left"
   );
   installWebsiteDetailsHandlers(
     compareResults,
