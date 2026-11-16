@@ -144,6 +144,7 @@
       letter-spacing: 0.02em;
     }
     .compare-select {
+      box-sizing: border-box;
       width: 100%;
       min-width: 0;
       padding: 8px 10px;
@@ -401,7 +402,7 @@
     }
     .variant-summary {
       display: grid;
-      grid-template-columns: minmax(130px, 170px) minmax(120px, 1fr) 220px;
+      grid-template-columns: minmax(130px, 170px) minmax(120px, 1fr) 320px;
       align-items: center;
       gap: 10px;
     }
@@ -575,11 +576,13 @@
     }
     .time-value {
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
     .time-primary {
       display: flex;
       align-items: baseline;
       gap: 8px;
+      white-space: nowrap;
     }
     .metric-better {
       color: #15803d;
@@ -690,8 +693,8 @@
       background: #fafcfb;
     }
     .selector-breakdown-table .col-time {
-      width: 190px;
-      min-width: 190px;
+      width: 340px;
+      min-width: 340px;
     }
     .selector-breakdown-table .col-count {
       width: 145px;
@@ -715,7 +718,7 @@
       white-space: nowrap;
     }
     .selector-breakdown-table td.col-time .cell-scroll {
-      white-space: normal;
+      white-space: nowrap;
     }
     .cell-scroll {
       overflow-x: auto;
