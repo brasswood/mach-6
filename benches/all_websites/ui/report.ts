@@ -1925,7 +1925,7 @@ function getVariationSegment(bar: BarView | undefined, key: string | undefined, 
 
 function getVariationChange(value: number | null, baseline: number | null): number | null {
   if (value === null || baseline === null) return null;
-  return baseline === 0 ? (value === 0 ? 0 : null) : (value - baseline) / baseline * 100;
+  return baseline === 0 ? (value === 0 ? 0 : null) : (value - baseline) / Math.abs(baseline) * 100;
 }
 
 function getVariationMetric(report: ReportJson, metric: VariationMetricDescriptor): number | null {
