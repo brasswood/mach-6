@@ -156,6 +156,7 @@ interface BarView {
   selectorMapRejects: number | null;
   selectorsSummary: SelectorStatsSource;
   baselineTotalCycles?: bigint;
+  baselineSegmentCycles?: ReadonlyMap<SegmentKind, bigint>;
   showExpandedDetails: boolean;
 }
 
@@ -978,7 +979,13 @@ function buildWebsiteBars(
     buildBar("After Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), null, false),
     buildBar("With Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), website.summary.preprocessing)
   );
-  return bars.map((bar) => bar === baseline ? bar : { ...bar, baselineTotalCycles: baseline.totalCycles });
+  const baselineSegmentCycles = new Map(baseline.segments.map((segment) => [segment.kind, segment.meanCycles]));
+  baselineSegmentCycles.set("totalMatching", baseline.totalMatching.meanCycles);
+  return bars.map((bar) => bar === baseline ? bar : {
+    ...bar,
+    baselineTotalCycles: baseline.totalCycles,
+    baselineSegmentCycles
+  });
 }
 
 function buildWebsiteView(
@@ -1272,6 +1279,21 @@ function renderSegmentSwatch(kind: SegmentKind): string {
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
 }
 
+function renderSegmentChange(value: bigint, baseline: bigint): string {
+  if (baseline === 0n) {
+    return value === 0n
+      ? '<span>+0.000%</span>'
+      : '<span class="metric-worse">-%</span>';
+  }
+  const delta = value - baseline;
+  const magnitude = delta < 0n ? -delta : delta;
+  const milliPercent = (magnitude * 100_000n + baseline / 2n) / baseline;
+  const text = (delta < 0n ? "-" : "+") + (milliPercent / 1000n).toString()
+    + "." + (milliPercent % 1000n).toString().padStart(3, "0") + "%";
+  const colorClass = delta < 0n ? "metric-better" : delta > 0n ? "metric-worse" : "";
+  return '<span class="' + colorClass + '">' + text + '</span>';
+}
+
 function renderContextBar(bar: ContextBarView): string {
   return [
     '<div class="variant-context">',
@@ -1314,7 +1336,9 @@ function renderExpandedBar(bar: BarView): string {
     const value = segment.stddevCycles === null
       ? formatSignedCycles(segment.meanCycles)
       : formatSignedCycles(segment.meanCycles) + " \u00B1 " + formatCycles(segment.stddevCycles);
-    return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + escapeHtml(value) + '</span>';
+    const baseline = bar.baselineSegmentCycles?.get(segment.kind) ?? 0n;
+    const change = bar.baselineSegmentCycles === undefined ? "" : " " + renderSegmentChange(segment.meanCycles, baseline);
+    return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + escapeHtml(value) + change + '</span>';
   }).join("")
     + (hasTotalMatchingSegment
       ? ""
@@ -1322,6 +1346,9 @@ function renderExpandedBar(bar: BarView): string {
         + (bar.totalMatching.stddevCycles === null
           ? ""
           : ' \u00B1 ' + escapeHtml(formatCycles(bar.totalMatching.stddevCycles)))
+        + (bar.baselineSegmentCycles === undefined
+          ? ""
+          : " " + renderSegmentChange(bar.totalMatching.meanCycles, bar.baselineSegmentCycles.get("totalMatching") ?? 0n))
         + '</span>')
     + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles)) + '</span>';
 
