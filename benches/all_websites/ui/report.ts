@@ -114,6 +114,12 @@ interface VariationChartLayout {
   yPosition: (value: number) => number;
 }
 
+interface VariationPlotPoint {
+  datum: VariationChartDatum;
+  x: number;
+  y: number;
+}
+
 interface WebsiteJson {
   website: string;
   summary: SummaryJson;
