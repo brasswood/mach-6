@@ -1708,6 +1708,38 @@ function getVariationSegment(bar: BarView | undefined, key: string | undefined, 
   return value == null ? null : Number(value);
 }
 
+function getVariationChange(value: number | null, baseline: number | null): number | null {
+  if (value === null || baseline === null) return null;
+  return baseline === 0 ? (value === 0 ? 0 : null) : (value - baseline) / baseline * 100;
+}
+
+function getVariationMetric(report: ReportJson, metric: VariationMetricDescriptor): number | null {
+  const bar = getVariationBar(report, metric);
+  if (!bar) return null;
+  const baseline = getVariationBar(report, metric, metric.compareVariant ?? "Baseline");
+  switch (metric.kind) {
+    case "overall": return Number(bar.totalCycles);
+    case "displayed": return Number(bar.totalLengthCycles);
+    case "speedup": return baseline && bar.totalCycles !== 0n ? Number(baseline.totalCycles) / Number(bar.totalCycles) : null;
+    case "segment": return getVariationSegment(bar, metric.key);
+    case "segmentStddev": return getVariationSegment(bar, metric.key, true);
+    case "segmentChange": return getVariationChange(getVariationSegment(bar, metric.key), getVariationSegment(baseline, metric.key));
+    case "count": return getVariationCount(bar, metric.key ?? "");
+    case "selectorTime": return getSelectorStats(bar)?.means_cycles[metric.selector ?? ""] ?? null;
+    case "selectorStddev": return getSelectorStats(bar)?.stddevs_cycles[metric.selector ?? ""] ?? null;
+    case "selectorCount": return getVariationSelectorCount(bar, metric.selector ?? "", metric.key ?? "");
+    case "selectorChange": return baseline ? getVariationChange(
+      getVariationSelectorCount(bar, metric.selector ?? "", metric.key ?? ""),
+      getVariationSelectorCount(baseline, metric.selector ?? "", metric.key ?? "")
+    ) : null;
+    case "context": {
+      const aggregate = getVariationWebsite(report, "All Websites (" + report.websites.length + ")")?.bars.find((item) => item.label === bar.label);
+      return aggregate && aggregate.totalLengthCycles !== 0n
+        ? Number(bar.totalLengthCycles) / Number(aggregate.totalLengthCycles) * 100 : null;
+    }
+  }
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
