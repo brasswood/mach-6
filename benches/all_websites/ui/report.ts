@@ -1078,10 +1078,6 @@ function installCompareHandler(
       leftLoadedReport.label,
       rightLoadedReport.label
     );
-    renderGitHistoryGraph(gitHistoryGraph, gitHistory, [
-      leftLoadedReport.report.metadata,
-      rightLoadedReport.report.metadata
-    ]);
     installCompareSortHandlers(compareResults);
     const defaultSortButton = compareResults.querySelector<HTMLButtonElement>(
       '.compare-sort-controls button[data-compare-side="left"][data-sort-key="totalCycles"]'
@@ -1093,6 +1089,10 @@ function installCompareHandler(
     list.hidden = true;
     sortControls.hidden = true;
     document.body.classList.add("compare-active");
+    renderGitHistoryGraph(gitHistoryGraph, gitHistory, [
+      leftLoadedReport.report.metadata,
+      rightLoadedReport.report.metadata
+    ]);
     setCompareStatus(
       compareStatus,
       "Showing compare view for " + formatWebsiteCount(leftLoadedReport.report.websites.length) + " on the left and "
@@ -1106,11 +1106,11 @@ function installCompareHandler(
   const renderOneSided = async (side: "left" | "right"): Promise<void> => {
     const loadedReport = await loadSelectedReport(side);
     renderSingleReportList(list, loadedReport.report, loadedReport.label);
-    renderGitHistoryGraph(gitHistoryGraph, gitHistory, [loadedReport.report.metadata]);
     hideCompareResults(compareResults);
     list.hidden = false;
     sortControls.hidden = false;
     document.body.classList.remove("compare-active");
+    renderGitHistoryGraph(gitHistoryGraph, gitHistory, [loadedReport.report.metadata]);
     sortBy("totalCycles", byTotal, list, byTotal, bySlow);
     setCompareStatus(
       compareStatus,
