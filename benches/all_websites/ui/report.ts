@@ -1244,6 +1244,7 @@ function installCompareHandler(
       loadSelectedReport("left"),
       loadSelectedReport("right")
     ]);
+    variationActiveReports = [leftLoadedReport.report, rightLoadedReport.report];
     renderCompareResults(
       compareResults,
       leftLoadedReport.report,
@@ -1278,6 +1279,7 @@ function installCompareHandler(
 
   const renderOneSided = async (side: "left" | "right"): Promise<void> => {
     const loadedReport = await loadSelectedReport(side);
+    variationActiveReports = [loadedReport.report];
     renderSingleReportList(list, loadedReport.report, loadedReport.label);
     hideCompareResults(compareResults);
     list.hidden = false;
@@ -2866,6 +2868,7 @@ async function main(): Promise<void> {
       throw new Error("report.json had an unexpected shape");
     }
 
+    variationActiveReports = [report];
     renderMetadata(report.metadata, commitLine);
     renderDefaultReportList(list, byTotal, bySlow, report);
     list.hidden = false;
