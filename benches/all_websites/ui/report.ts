@@ -1307,8 +1307,22 @@ function renderReportDiff(value: bigint, baseline: bigint): string {
   return '<span class="report-diff">Δ' + text + '</span>';
 }
 
+function renderReportRatioDiff(value: number, baseline: number): string {
+  if (baseline === 0) {
+    return '<span class="report-diff">Δ' + (value === 0 ? "+0.000%" : "+∞%") + '</span>';
+  }
+  const milliPercent = Math.round(Math.abs((value - baseline) / baseline) * 100_000);
+  const text = (value < baseline ? "-" : "+") + Math.floor(milliPercent / 1000).toString()
+    + "." + (milliPercent % 1000).toString().padStart(3, "0") + "%";
+  return '<span class="report-diff">Δ' + text + '</span>';
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
-  const change = comparisonBar === undefined ? "" : renderReportDiff(bar.totalLengthCycles, comparisonBar.totalLengthCycles);
+  const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
+  const comparisonPercentage = comparisonBar === undefined
+    ? undefined
+    : Number(pct(comparisonBar.totalLengthCycles, comparisonBar.aggregateTotalLengthCycles));
+  const change = comparisonPercentage === undefined ? "" : renderReportRatioDiff(percentage, comparisonPercentage);
   return [
     '<div class="variant-context">',
     '<div class="variant-context-label">' + escapeHtml(bar.label) + '</div>',
@@ -1324,7 +1338,8 @@ function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint, compa
   }).join("");
   const warningClass = bar.totalLengthCycles !== bar.totalCycles ? " warning" : "";
   const displayNote = bar.totalLengthCycles !== bar.totalCycles
-    ? '<div class="time-display-note">Displayed: ' + escapeHtml(formatCycles(bar.totalLengthCycles)) + '</div>'
+    ? '<div class="time-display-note">Displayed: ' + escapeHtml(formatCycles(bar.totalLengthCycles))
+      + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalLengthCycles, comparisonBar.totalLengthCycles)) + '</div>'
     : "";
   const speedup = bar.baselineTotalCycles === undefined
     ? ""
@@ -1462,7 +1477,7 @@ function renderVariantDetails(bar: BarView, comparisonBar?: BarView): string {
         + SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count">').join("") + '</colgroup>',
       '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th>'
         + renderSelectorResultCountHeaders() + '</tr></thead>',
-      '<tbody>' + renderSelectorRows(topSlowRejectSelectors) + '</tbody>',
+      '<tbody>' + renderSelectorRows(topSlowRejectSelectors, comparisonSelectorStats) + '</tbody>',
       '</table>',
       '</div>',
       '</details>'
