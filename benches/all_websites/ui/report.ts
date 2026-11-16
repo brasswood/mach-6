@@ -1294,6 +1294,19 @@ function renderSegmentChange(value: bigint, baseline: bigint): string {
   return '<span class="' + colorClass + '">' + text + '</span>';
 }
 
+function renderReportDiff(value: bigint, baseline: bigint): string {
+  const delta = value - baseline;
+  if (baseline === 0n) {
+    return '<span class="report-diff">Δ' + (delta === 0n ? "+0.000%" : "+∞%") + '</span>';
+  }
+  const magnitude = delta < 0n ? -delta : delta;
+  const milliPercent = (magnitude * 100_000n + (baseline < 0n ? -baseline : baseline) / 2n)
+    / (baseline < 0n ? -baseline : baseline);
+  const text = (delta < 0n ? "-" : "+") + (milliPercent / 1000n).toString()
+    + "." + (milliPercent % 1000n).toString().padStart(3, "0") + "%";
+  return '<span class="report-diff">Δ' + text + '</span>';
+}
+
 function renderContextBar(bar: ContextBarView): string {
   return [
     '<div class="variant-context">',
