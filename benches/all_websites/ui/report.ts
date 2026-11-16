@@ -1994,7 +1994,7 @@ function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: Re
   };
 }
 
-function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
+function renderContextBar(bar: ContextBarView, website: string, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
     ? undefined
@@ -2004,7 +2004,9 @@ function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): 
     '<div class="variant-context">',
     '<div class="variant-context-label">' + escapeHtml(bar.label) + '</div>',
     '<div class="context-bar-wrap"><div class="context-bar-total" style="width: ' + pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles) + '%"></div></div>',
-    '<div class="context-value">' + escapeHtml(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles)) + '%' + change + '</div>',
+    '<div class="context-value">' + renderVariationValue(escapeHtml(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles)) + '%', {
+      website, variant: bar.label, kind: "context"
+    }) + change + '</div>',
     '</div>'
   ].join("");
 }
@@ -2316,7 +2318,7 @@ function renderWebsite(
       ? '<span class="aggregate-label">' + escapeHtml(website.name) + '</span>'
       : escapeHtml(website.name)) + '</div>',
     '<div class="summary-variants">' + website.contextBars.map((bar) => {
-      return renderContextBar(bar, comparisonContextBars.get(bar.label));
+      return renderContextBar(bar, website.name, comparisonContextBars.get(bar.label));
     }).join("") + website.bars.map((bar) => {
       return renderSummaryBar(bar, website.summaryMaxBarLengthCycles, comparisonBars.get(bar.label));
     }).join("") + '</div>',
