@@ -1830,8 +1830,9 @@ function renderReportRatioDiff(value: number, baseline: number): string {
 
 function renderVariationValue(value: string, metric: VariationMetricDescriptor): string {
   const data = escapeHtml(JSON.stringify(metric));
+  const label = "Show variation for " + describeVariationMetric(metric);
   return '<span class="variation-value">' + value
-    + '<button class="variation-trigger" type="button" data-variation="' + data + '" aria-label="Show metric variation">σ</button></span>';
+    + '<button class="variation-trigger" type="button" data-variation="' + data + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(label) + '">σ</button></span>';
 }
 
 function isVariationMetricDescriptor(value: unknown): value is VariationMetricDescriptor {
