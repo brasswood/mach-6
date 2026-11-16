@@ -1058,7 +1058,7 @@ function formatVariationValue(value: number, metric: VariationMetricDescriptor):
 }
 
 function layoutVariationChart(window: VariationHistoryWindow, data: VariationChartDatum[]): VariationChartLayout {
-  const left = 92, right = 30, top = 24, bottom = 92;
+  const left = 92, right = 30, top = 24, bottom = 140;
   const width = Math.max(720, left + right + Math.max(0, window.commits.length - 1) * 128);
   const height = 360;
   const xPositions = new Map(window.commits.map((commit, index) => [
@@ -1095,7 +1095,7 @@ function renderVariationGrid(layout: VariationChartLayout, data: VariationChartD
 function renderVariationCommitLabels(window: VariationHistoryWindow, layout: VariationChartLayout): string {
   return window.commits.map((commit) => {
     const x = layout.xPositions.get(commit.hash) ?? 0;
-    return '<text class="variation-axis-label" transform="translate(' + (x + 5) + ' ' + (layout.height - 54) + ') rotate(28)">'
+    return '<text class="variation-axis-label" transform="translate(' + (x + 5) + ' ' + (layout.height - 122) + ') rotate(28)">'
       + '<tspan>' + escapeHtml(commit.hash.slice(0, 7)) + '</tspan><tspan x="0" dy="12">'
       + escapeHtml(commit.subject.slice(0, 24)) + '</tspan></text>';
   }).join("");
