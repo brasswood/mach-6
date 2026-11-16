@@ -2221,13 +2221,20 @@ function renderSelectorRows(
       '<td class="col-count">' + renderSelectorCountValue(
         row.rejectCount,
         comparisonStats?.slow_reject_counts?.[row.selector],
-        algorithmComparisonLabel === "Baseline" ? algorithmComparisonStats?.slow_reject_counts?.[row.selector] : undefined
+        algorithmComparisonLabel === "Baseline" ? algorithmComparisonStats?.slow_reject_counts?.[row.selector] : undefined,
+        { website, variant, kind: "selectorCount", selector: row.selector, key: "slow_reject_counts" },
+        algorithmComparisonLabel === "Baseline" ? { website, variant, kind: "selectorChange", selector: row.selector, key: "slow_reject_counts", compareVariant: "Baseline" } : undefined
       ) + '</td>',
-      ...row.resultCounts.map((count, index) => '<td class="col-result-count">' + renderSelectorCountValue(
+      ...row.resultCounts.map((count, index) => {
+        const key = SELECTOR_RESULT_COUNTS[index]?.[0] ?? "";
+        return '<td class="col-result-count">' + renderSelectorCountValue(
         count,
         comparisonResultCounts[index],
-        algorithmComparisonLabel === "Baseline" ? algorithmResultCounts[index] : undefined
-      ) + '</td>'),
+        algorithmComparisonLabel === "Baseline" ? algorithmResultCounts[index] : undefined,
+        { website, variant, kind: "selectorCount", selector: row.selector, key },
+        algorithmComparisonLabel === "Baseline" ? { website, variant, kind: "selectorChange", selector: row.selector, key, compareVariant: "Baseline" } : undefined
+      ) + '</td>';
+      }),
       ...comparisonCells,
       '</tr>'
     ].join("");
