@@ -1666,6 +1666,12 @@ function renderReportRatioDiff(value: number, baseline: number): string {
   return '<span class="report-diff">Δ' + text + '</span>';
 }
 
+function renderVariationValue(value: string, metric: VariationMetricDescriptor): string {
+  const data = escapeHtml(JSON.stringify(metric));
+  return '<span class="variation-value">' + value
+    + '<button class="variation-trigger" type="button" data-variation="' + data + '" aria-label="Show metric variation">σ</button></span>';
+}
+
 function getVariationWebsite(report: ReportJson, name: string): WebsiteView | undefined {
   let websites = variationWebsiteCache.get(report);
   if (!websites) {
