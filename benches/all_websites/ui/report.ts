@@ -58,6 +58,11 @@ interface GitGraphView {
   dottedGap: boolean;
 }
 
+interface GitGraphCandidate {
+  commit: GitHistoryCommitJson;
+  depth: number;
+}
+
 interface GitGraphPosition {
   point: GitGraphPoint;
   x: number;
@@ -521,6 +526,25 @@ function collectHistoryDepths(
     }
   }
   return depths;
+}
+
+function collectGitGraphCandidates(
+  start: string,
+  neighbors: (hash: string) => string[],
+  commits: Map<string, GitHistoryCommitJson>,
+  maxDepth: number,
+  preferredPath: string[] = []
+): GitGraphCandidate[] {
+  const preferredOrder = new Map(preferredPath.map((hash, index) => [hash, index]));
+  return Array.from(collectHistoryDepths(start, neighbors, maxDepth), ([hash, depth]) => {
+    const commit = commits.get(hash);
+    return commit && depth > 0 ? { commit, depth } : null;
+  }).filter((candidate): candidate is GitGraphCandidate => candidate !== null)
+    .sort((left, right) => left.depth - right.depth
+      || (preferredOrder.get(left.commit.hash) ?? Number.MAX_SAFE_INTEGER)
+        - (preferredOrder.get(right.commit.hash) ?? Number.MAX_SAFE_INTEGER)
+      || right.commit.timestamp - left.commit.timestamp
+      || left.commit.hash.localeCompare(right.commit.hash));
 }
 
 function addGitGraphPoint(
