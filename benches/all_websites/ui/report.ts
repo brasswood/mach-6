@@ -17,6 +17,11 @@ type SortDatasetKey = "totalCycles" | "slowRejectCycles";
 type CompareSide = "left" | "right";
 type ReportSource = "nightly" | "local";
 type SelectorStatsSource = SelectorStatsJson | (() => SelectorStatsJson);
+const SELECTOR_RESULT_COUNTS = [
+  ["classic_global_failures", "Global Failures"],
+  ["classic_descendant_restarts", "Descendant Restarts"],
+  ["classic_sibling_restarts", "Sibling Restarts"]
+] as const;
 
 interface ReportJson {
   metadata: ReportMetadataJson;
@@ -115,6 +120,9 @@ interface SelectorStatsJson {
   means_cycles: Record<string, number>;
   stddevs_cycles: Record<string, number>;
   slow_reject_counts?: Record<string, number>;
+  classic_global_failures?: Record<string, number>;
+  classic_descendant_restarts?: Record<string, number>;
+  classic_sibling_restarts?: Record<string, number>;
 }
 
 interface SegmentInfo {
@@ -127,6 +135,7 @@ interface SelectorRow {
   meanCycles: bigint;
   stddevCycles: bigint;
   rejectCount: number | null;
+  resultCounts: (number | null)[];
 }
 
 interface SegmentView {
@@ -837,7 +846,8 @@ function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
       selector,
       meanCycles: toBigInt(meanCycles),
       stddevCycles: toBigInt(stddevCycles),
-      rejectCount: stats.slow_reject_counts?.[selector] ?? null
+      rejectCount: stats.slow_reject_counts?.[selector] ?? null,
+      resultCounts: SELECTOR_RESULT_COUNTS.map(([key]) => stats[key]?.[selector] ?? null)
     };
   });
   rows.sort((left, right) => {
@@ -1156,10 +1166,16 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
   }
 
   const slowRejectCounts = sumOptionalRecordValues(stats.map((entry) => entry.slow_reject_counts));
+  const globalFailures = sumOptionalRecordValues(stats.map((entry) => entry.classic_global_failures));
+  const descendantRestarts = sumOptionalRecordValues(stats.map((entry) => entry.classic_descendant_restarts));
+  const siblingRestarts = sumOptionalRecordValues(stats.map((entry) => entry.classic_sibling_restarts));
   return {
     means_cycles: sumRecordValues(stats.map((entry) => entry.means_cycles)),
     stddevs_cycles: stddevsCycles,
-    ...(slowRejectCounts === undefined ? {} : { slow_reject_counts: slowRejectCounts })
+    ...(slowRejectCounts === undefined ? {} : { slow_reject_counts: slowRejectCounts }),
+    ...(globalFailures === undefined ? {} : { classic_global_failures: globalFailures }),
+    ...(descendantRestarts === undefined ? {} : { classic_descendant_restarts: descendantRestarts }),
+    ...(siblingRestarts === undefined ? {} : { classic_sibling_restarts: siblingRestarts })
   };
 }
 
@@ -1312,7 +1328,7 @@ function renderOptionalCount(count: number | null): string {
 
 function renderSelectorRows(rows: SelectorRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="3">No selector stats captured.</td></tr>';
+    return '<tr><td colspan="' + (3 + SELECTOR_RESULT_COUNTS.length).toString() + '">No selector stats captured.</td></tr>';
   }
   return rows.map((row) => {
     return [
@@ -1320,8 +1336,15 @@ function renderSelectorRows(rows: SelectorRow[]): string {
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
       '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles)) + '</div></td>',
       '<td class="col-count">' + renderOptionalCount(row.rejectCount) + '</td>',
+      ...row.resultCounts.map((count) => '<td class="col-result-count">' + renderOptionalCount(count) + '</td>'),
       '</tr>'
     ].join("");
+  }).join("");
+}
+
+function renderSelectorResultCountHeaders(): string {
+  return SELECTOR_RESULT_COUNTS.map(([, label]) => {
+    return '<th class="col-result-count">' + escapeHtml(label) + '</th>';
   }).join("");
 }
 
@@ -1366,8 +1389,10 @@ function renderVariantDetails(bar: BarView): string {
       '<details class="selector-breakdown">',
       '<summary>Slow-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
       '<div class="selector-breakdown-inner">',
-      '<table class="selector-breakdown-table"><colgroup><col class="col-selector"><col class="col-time"><col class="col-count"></colgroup>',
-      '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th></tr></thead>',
+      '<table class="selector-breakdown-table"><colgroup><col class="col-selector"><col class="col-time"><col class="col-count">'
+        + SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count">').join("") + '</colgroup>',
+      '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th>'
+        + renderSelectorResultCountHeaders() + '</tr></thead>',
       '<tbody>' + renderSelectorRows(topSlowRejectSelectors) + '</tbody>',
       '</table>',
       '</div>',
@@ -1777,7 +1802,10 @@ function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
   return Object.values(means).every(isFiniteNumber)
     && Object.values(stddevs).every(isFiniteNumber)
     && [
-      record.slow_reject_counts
+      record.slow_reject_counts,
+      record.classic_global_failures,
+      record.classic_descendant_restarts,
+      record.classic_sibling_restarts
     ].every(isOptionalNumberRecord);
 }
 
