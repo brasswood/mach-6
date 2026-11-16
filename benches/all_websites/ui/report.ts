@@ -1698,6 +1698,16 @@ function getVariationSelectorCount(bar: BarView, selector: string, key: string):
   return values?.[selector] ?? null;
 }
 
+function getVariationBar(report: ReportJson, metric: VariationMetricDescriptor, variant = metric.variant): BarView | undefined {
+  return getVariationWebsite(report, metric.website)?.bars.find((bar) => bar.label === variant);
+}
+
+function getVariationSegment(bar: BarView | undefined, key: string | undefined, deviation = false): number | null {
+  const segment = bar?.segments.find((item) => item.kind === key);
+  const value = deviation ? segment?.stddevCycles : segment?.meanCycles;
+  return value == null ? null : Number(value);
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
