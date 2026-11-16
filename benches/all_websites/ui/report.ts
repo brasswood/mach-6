@@ -1746,6 +1746,16 @@ function getVariationMetric(report: ReportJson, metric: VariationMetricDescripto
   }
 }
 
+function latestVariationNeighbor(
+  hash: string,
+  commits: Map<string, GitHistoryCommitJson>,
+  children: Map<string, GitHistoryCommitJson[]>,
+  ahead: boolean
+): GitHistoryCommitJson | undefined {
+  const candidates = ahead ? children.get(hash) ?? [] : (commits.get(hash)?.parents ?? []).map((parent) => commits.get(parent)).filter((commit) => commit !== undefined);
+  return [...candidates].sort((left, right) => right.timestamp - left.timestamp || left.hash.localeCompare(right.hash))[0];
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
