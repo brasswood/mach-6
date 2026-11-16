@@ -1114,6 +1114,14 @@ function renderVariationSeries(points: VariationPlotPoint[], window: VariationHi
   return lines + circles;
 }
 
+function renderVariationSvg(window: VariationHistoryWindow, data: VariationChartDatum[], metric: VariationMetricDescriptor): string {
+  const layout = layoutVariationChart(window, data);
+  const points = positionVariationPoints(data, layout);
+  return '<svg role="img" aria-label="Metric values across nearby commits" width="' + layout.width + '" height="' + layout.height + '">'
+    + renderVariationGrid(layout, data, metric) + renderVariationSeries(points, window, layout, metric)
+    + renderVariationCommitLabels(window, layout) + '</svg>';
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
