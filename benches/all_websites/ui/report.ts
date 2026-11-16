@@ -2152,6 +2152,7 @@ function renderSelectorComparisonCells(
   const reportMean = reportStats?.means_cycles[row.selector];
   const reportStddev = reportStats?.stddevs_cycles[row.selector];
   const includeChange = label === "Bless List";
+  const variant = includeChange ? "With Bless List" : "Baseline";
   return [
     '<td class="col-time"><div class="cell-scroll">' + renderSelectorTimingValue(
       mean === undefined ? undefined : toBigInt(mean),
@@ -2165,12 +2166,16 @@ function renderSelectorComparisonCells(
     '<td class="col-count">' + renderSelectorCountValue(
       stats?.slow_reject_counts?.[row.selector],
       reportStats?.slow_reject_counts?.[row.selector],
-      includeChange ? row.rejectCount : undefined
+      includeChange ? row.rejectCount : undefined,
+      { website, variant, kind: "selectorCount", selector: row.selector, key: "slow_reject_counts" },
+      includeChange ? { website, variant, kind: "selectorChange", selector: row.selector, key: "slow_reject_counts", compareVariant: "Baseline" } : undefined
     ) + '</td>',
     ...SELECTOR_RESULT_COUNTS.map(([key], index) => '<td class="col-result-count">' + renderSelectorCountValue(
       stats?.[key]?.[row.selector],
       reportStats?.[key]?.[row.selector],
-      includeChange ? row.resultCounts[index] : undefined
+      includeChange ? row.resultCounts[index] : undefined,
+      { website, variant, kind: "selectorCount", selector: row.selector, key },
+      includeChange ? { website, variant, kind: "selectorChange", selector: row.selector, key, compareVariant: "Baseline" } : undefined
     ) + '</td>')
   ];
 }
