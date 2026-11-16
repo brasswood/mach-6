@@ -114,6 +114,7 @@ interface SelectorsSummaryJson {
 interface SelectorStatsJson {
   means_cycles: Record<string, number>;
   stddevs_cycles: Record<string, number>;
+  slow_reject_counts?: Record<string, number>;
 }
 
 interface SegmentInfo {
@@ -125,6 +126,7 @@ interface SelectorRow {
   selector: string;
   meanCycles: bigint;
   stddevCycles: bigint;
+  rejectCount: number | null;
 }
 
 interface SegmentView {
@@ -834,7 +836,8 @@ function buildSelectorRows(stats: SelectorStatsJson): SelectorRow[] {
     return {
       selector,
       meanCycles: toBigInt(meanCycles),
-      stddevCycles: toBigInt(stddevCycles)
+      stddevCycles: toBigInt(stddevCycles),
+      rejectCount: stats.slow_reject_counts?.[selector] ?? null
     };
   });
   rows.sort((left, right) => {
@@ -1078,6 +1081,12 @@ function sumRecordValues(records: Record<string, number>[]): Record<string, numb
   return summed;
 }
 
+function sumOptionalRecordValues(records: (Record<string, number> | undefined)[]): Record<string, number> | undefined {
+  return records.some((record) => record === undefined)
+    ? undefined
+    : sumRecordValues(records as Record<string, number>[]);
+}
+
 function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): BenchmarkRunSummaryJson {
   const counts = summaries.every((summary) => summary.counts !== undefined)
     ? summaries.map((summary) => summary.counts!)
@@ -1146,9 +1155,11 @@ function aggregateSelectorStats(stats: SelectorStatsJson[]): SelectorStatsJson {
     stddevsCycles[key] = combineStddevs(stats.map((entry) => entry.stddevs_cycles[key] ?? 0));
   }
 
+  const slowRejectCounts = sumOptionalRecordValues(stats.map((entry) => entry.slow_reject_counts));
   return {
     means_cycles: sumRecordValues(stats.map((entry) => entry.means_cycles)),
-    stddevs_cycles: stddevsCycles
+    stddevs_cycles: stddevsCycles,
+    ...(slowRejectCounts === undefined ? {} : { slow_reject_counts: slowRejectCounts })
   };
 }
 
@@ -1295,15 +1306,20 @@ function renderExpandedBar(bar: BarView): string {
   ].join("");
 }
 
+function renderOptionalCount(count: number | null): string {
+  return count === null ? "N/A" : escapeHtml(NUMBER_FORMAT.format(count));
+}
+
 function renderSelectorRows(rows: SelectorRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="2">No selector stats captured.</td></tr>';
+    return '<tr><td colspan="3">No selector stats captured.</td></tr>';
   }
   return rows.map((row) => {
     return [
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
       '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles)) + '</div></td>',
+      '<td class="col-count">' + renderOptionalCount(row.rejectCount) + '</td>',
       '</tr>'
     ].join("");
   }).join("");
@@ -1348,10 +1364,10 @@ function renderVariantDetails(bar: BarView): string {
     ? ""
     : [
       '<details class="selector-breakdown">',
-      '<summary>Slow-Reject Cycles Aggregated by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
+      '<summary>Slow-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
       '<div class="selector-breakdown-inner">',
-      '<table class="selector-breakdown-table">',
-      '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th></tr></thead>',
+      '<table class="selector-breakdown-table"><colgroup><col class="col-selector"><col class="col-time"><col class="col-count"></colgroup>',
+      '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th></tr></thead>',
       '<tbody>' + renderSelectorRows(topSlowRejectSelectors) + '</tbody>',
       '</table>',
       '</div>',
@@ -1759,7 +1775,18 @@ function isSelectorStatsJson(value: unknown): value is SelectorStatsJson {
     return false;
   }
   return Object.values(means).every(isFiniteNumber)
-    && Object.values(stddevs).every(isFiniteNumber);
+    && Object.values(stddevs).every(isFiniteNumber)
+    && [
+      record.slow_reject_counts
+    ].every(isOptionalNumberRecord);
+}
+
+function isOptionalNumberRecord(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+  const record = getRecord(value);
+  return record !== null && Object.values(record).every(isFiniteNumber);
 }
 
 function isSelectorsSummaryJson(value: unknown): boolean {

@@ -288,6 +288,7 @@ mod selector_summary {
     pub(crate) struct SelectorStatsJson {
         pub(crate) means_cycles: HashMap<SelectorString, u64>,
         pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
+        pub(crate) slow_reject_counts: HashMap<SelectorString, usize>,
     }
 
     #[cfg(feature = "detailed_statistics")]
@@ -301,6 +302,10 @@ mod selector_summary {
                 stddevs_cycles: value
                     .iter()
                     .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().cycles()))
+                    .collect(),
+                slow_reject_counts: value
+                    .iter()
+                    .map(|row| (row.selector.clone(), row.reject_count))
                     .collect(),
             }
         }
