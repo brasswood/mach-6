@@ -631,6 +631,25 @@ function renderGitGraphNodes(positions: Map<string, GitGraphPosition>): string {
   }).join("");
 }
 
+function renderGitHistoryGraph(
+  container: HTMLElement,
+  history: GitHistoryJson | null,
+  reports: ReportMetadataJson[]
+): void {
+  const section = container.closest<HTMLElement>(".git-history");
+  if (!section) return;
+  const view = buildGitGraphView(history, reports);
+  section.hidden = view.points.length === 0;
+  if (section.hidden) {
+    container.innerHTML = "";
+    return;
+  }
+  const layout = layoutGitGraphPoints(view.points);
+  container.innerHTML = '<svg class="git-history-svg" role="img" aria-label="Git commit history" width="'
+    + layout.width + '" height="' + layout.height + '">' + renderGitGraphEdges(layout.positions, view.dottedGap)
+    + renderGitGraphNodes(layout.positions) + '</svg>';
+}
+
 function isReportSource(value: unknown): value is ReportSource {
   return value === "nightly" || value === "local";
 }
