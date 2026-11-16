@@ -593,7 +593,7 @@ function layoutGitGraphPoints(points: GitGraphPoint[]): { positions: Map<string,
       positions.set(point.key, { point, x: 200 + (layer - minLayer) * 220, y: 30 + lane * 44 });
     });
   }
-  return { positions, width: (maxLayer - minLayer) * 220 + 400, height: maxLanes * 44 + 210 };
+  return { positions, width: (maxLayer - minLayer) * 220 + 400, height: (maxLanes - 1) * 44 + 180 };
 }
 
 function renderGitGraphEdges(positions: Map<string, GitGraphPosition>, dottedGap: boolean): string {
@@ -619,15 +619,34 @@ function renderGitGraphEdges(positions: Map<string, GitGraphPosition>, dottedGap
   return paths.join("");
 }
 
+function wrapGitSubject(subject: string): string[] {
+  const words = subject.split(/\s+/).flatMap((word) => word.match(/.{1,20}/g) ?? []);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    if (line && line.length + word.length + 1 > 22) {
+      lines.push(line);
+      line = word;
+    } else {
+      line += (line ? " " : "") + word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 function renderGitGraphNodes(positions: Map<string, GitGraphPosition>): string {
   return Array.from(positions.values()).map(({ point, x, y }) => {
     const className = point.anchor ? "git-history-node git-history-node-anchor" : "git-history-node";
     const label = point.commit.hash.slice(0, 7) + " " + point.commit.subject;
+    const subjectLines = wrapGitSubject(point.commit.subject).map((line) => {
+      return '<tspan x="0" dy="12">' + escapeHtml(line) + '</tspan>';
+    }).join("");
     return '<g aria-label="' + escapeHtml(label) + '">'
       + '<circle class="' + className + '" cx="' + x + '" cy="' + y + '" r="7"/>'
       + '<g class="git-history-label" transform="translate(' + (x + 9) + " " + (y + 28) + ') rotate(28)">'
       + '<text><tspan x="0">' + escapeHtml(point.commit.hash.slice(0, 7)) + '</tspan>'
-      + '<tspan x="0" dy="12">' + escapeHtml(point.commit.subject) + '</tspan></text></g></g>';
+      + subjectLines + '</text></g></g>';
   }).join("");
 }
 
@@ -650,7 +669,7 @@ function renderGitHistoryGraph(
     + renderGitGraphNodes(layout.positions) + '</svg>';
   const anchors = Array.from(layout.positions.values()).filter((position) => position.point.anchor);
   const center = anchors.reduce((total, position) => total + position.x, 0) / anchors.length;
-  container.scrollLeft = Math.max(0, center - container.clientWidth / 2);
+  container.scrollLeft = Math.max(0, center - container.clientWidth * 0.42);
 }
 
 function isReportSource(value: unknown): value is ReportSource {
