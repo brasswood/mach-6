@@ -1072,6 +1072,15 @@ function layoutVariationChart(window: VariationHistoryWindow, data: VariationCha
   return { width, height, xPositions, yPosition: (value) => top + (high - value) * (height - top - bottom) / (high - low) };
 }
 
+function positionVariationPoints(data: VariationChartDatum[], layout: VariationChartLayout): VariationPlotPoint[] {
+  const grouped = new Map<string, VariationChartDatum[]>();
+  for (const datum of data) grouped.set(datum.commit.hash, [...(grouped.get(datum.commit.hash) ?? []), datum]);
+  return Array.from(grouped.values()).flatMap((reports) => reports.map((datum, index) => {
+    const spread = (index - (reports.length - 1) / 2) * Math.min(12, 30 / reports.length);
+    return { datum, x: (layout.xPositions.get(datum.commit.hash) ?? 0) + spread, y: layout.yPosition(datum.value) };
+  }));
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
