@@ -1666,6 +1666,15 @@ function renderReportRatioDiff(value: number, baseline: number): string {
   return '<span class="report-diff">Δ' + text + '</span>';
 }
 
+function getVariationWebsite(report: ReportJson, name: string): WebsiteView | undefined {
+  let websites = variationWebsiteCache.get(report);
+  if (!websites) {
+    websites = new Map(buildReportWebsiteViews(report).map((website) => [website.name, website]));
+    variationWebsiteCache.set(report, websites);
+  }
+  return websites.get(name);
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
