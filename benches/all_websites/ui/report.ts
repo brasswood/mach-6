@@ -1481,14 +1481,29 @@ function renderSelectorComparisonCells(
   ];
 }
 
-function renderSelectorRows(rows: SelectorRow[], comparisonStats?: SelectorStatsJson): string {
+function renderSelectorRows(
+  rows: SelectorRow[],
+  comparisonStats?: SelectorStatsJson,
+  algorithmComparisonStats?: SelectorStatsJson,
+  reportAlgorithmComparisonStats?: SelectorStatsJson,
+  algorithmComparisonLabel?: string
+): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="' + (3 + SELECTOR_RESULT_COUNTS.length).toString() + '">No selector stats captured.</td></tr>';
+    const columns = 3 + SELECTOR_RESULT_COUNTS.length
+      + (algorithmComparisonLabel === undefined ? 0 : 2 + SELECTOR_RESULT_COUNTS.length);
+    return '<tr><td colspan="' + columns.toString() + '">No selector stats captured.</td></tr>';
   }
   return rows.map((row) => {
     const comparisonMean = comparisonStats?.means_cycles[row.selector];
     const comparisonStddev = comparisonStats?.stddevs_cycles[row.selector];
     const comparisonResultCounts = SELECTOR_RESULT_COUNTS.map(([key]) => comparisonStats?.[key]?.[row.selector] ?? null);
+    const algorithmResultCounts = SELECTOR_RESULT_COUNTS.map(([key]) => algorithmComparisonStats?.[key]?.[row.selector] ?? null);
+    const comparisonCells = algorithmComparisonLabel === undefined ? [] : renderSelectorComparisonCells(
+      row,
+      algorithmComparisonStats,
+      reportAlgorithmComparisonStats,
+      algorithmComparisonLabel
+    );
     return [
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
@@ -1498,16 +1513,25 @@ function renderSelectorRows(rows: SelectorRow[], comparisonStats?: SelectorStats
         comparisonMean === undefined ? undefined : toBigInt(comparisonMean),
         comparisonStddev === undefined ? undefined : toBigInt(comparisonStddev)
       ) + '</div></td>',
-      '<td class="col-count">' + renderSelectorCountValue(row.rejectCount, comparisonStats?.slow_reject_counts?.[row.selector]) + '</td>',
-      ...row.resultCounts.map((count, index) => '<td class="col-result-count">' + renderSelectorCountValue(count, comparisonResultCounts[index]) + '</td>'),
+      '<td class="col-count">' + renderSelectorCountValue(
+        row.rejectCount,
+        comparisonStats?.slow_reject_counts?.[row.selector],
+        algorithmComparisonLabel === "Baseline" ? algorithmComparisonStats?.slow_reject_counts?.[row.selector] : undefined
+      ) + '</td>',
+      ...row.resultCounts.map((count, index) => '<td class="col-result-count">' + renderSelectorCountValue(
+        count,
+        comparisonResultCounts[index],
+        algorithmComparisonLabel === "Baseline" ? algorithmResultCounts[index] : undefined
+      ) + '</td>'),
+      ...comparisonCells,
       '</tr>'
     ].join("");
   }).join("");
 }
 
-function renderSelectorResultCountHeaders(): string {
+function renderSelectorResultCountHeaders(prefix?: string): string {
   return SELECTOR_RESULT_COUNTS.map(([, label]) => {
-    return '<th class="col-result-count">' + escapeHtml(label) + '</th>';
+    return '<th class="col-result-count">' + escapeHtml(prefix === undefined ? label : prefix + " " + label) + '</th>';
   }).join("");
 }
 
