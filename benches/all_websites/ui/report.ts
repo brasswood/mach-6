@@ -30,6 +30,19 @@ interface ReportJson {
 
 interface ReportsIndexJson {
   reports: unknown[];
+  git_history?: GitHistoryJson;
+}
+
+interface GitHistoryJson {
+  head: string;
+  commits: GitHistoryCommitJson[];
+}
+
+interface GitHistoryCommitJson {
+  hash: string;
+  parents: string[];
+  subject: string;
+  timestamp: number;
 }
 
 interface ReportMetadataJson {
@@ -360,7 +373,24 @@ function isReportsIndexJson(value: unknown): value is ReportsIndexJson {
     return false;
   }
   const record = value as Record<string, unknown>;
-  return Array.isArray(record.reports);
+  return Array.isArray(record.reports)
+    && (record.git_history === undefined || isGitHistoryJson(record.git_history));
+}
+
+function isGitHistoryJson(value: unknown): value is GitHistoryJson {
+  const record = getRecord(value);
+  return record !== null
+    && typeof record.head === "string"
+    && Array.isArray(record.commits)
+    && record.commits.every((commit) => {
+      const item = getRecord(commit);
+      return item !== null
+        && typeof item.hash === "string"
+        && Array.isArray(item.parents)
+        && item.parents.every((parent) => typeof parent === "string")
+        && typeof item.subject === "string"
+        && isFiniteNumber(item.timestamp);
+    });
 }
 
 function isReportSource(value: unknown): value is ReportSource {
