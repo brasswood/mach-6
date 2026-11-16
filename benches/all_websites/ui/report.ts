@@ -75,6 +75,12 @@ interface VariationMetricDescriptor {
   compareVariant?: string;
 }
 
+interface VariationHistoryWindow {
+  commits: GitHistoryCommitJson[];
+  anchors: string[];
+  dottedGap: boolean;
+}
+
 interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
