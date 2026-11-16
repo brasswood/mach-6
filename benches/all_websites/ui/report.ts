@@ -107,6 +107,13 @@ interface VariationChartDatum {
   value: number;
 }
 
+interface VariationChartLayout {
+  width: number;
+  height: number;
+  xPositions: Map<string, number>;
+  yPosition: (value: number) => number;
+}
+
 interface WebsiteJson {
   website: string;
   summary: SummaryJson;
