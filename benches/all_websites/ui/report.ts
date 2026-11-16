@@ -592,7 +592,7 @@ async function loadCompareControls(
   rightFileInput: HTMLInputElement,
   compareStatus: HTMLElement,
   currentMetadata: ReportMetadataJson
-): Promise<void> {
+): Promise<GitHistoryJson | null> {
   const reportSource = getReportSource(currentMetadata);
   setCompareModeVisibility(reportSource, leftSelectField, rightSelectField, leftFileField, rightFileField);
   if (reportSource === "local") {
@@ -604,7 +604,7 @@ async function loadCompareControls(
     compareStatus.hidden = false;
     compareStatus.classList.remove("error");
     compareStatus.textContent = "Choose local report.json files or leave a side empty to use the current report.";
-    return;
+    return null;
   }
   try {
     const response = await fetch("reports-index.json");
@@ -638,6 +638,7 @@ async function loadCompareControls(
     compareStatus.hidden = true;
     compareStatus.textContent = "";
     compareStatus.classList.remove("error");
+    return raw.git_history ?? null;
   } catch (error: unknown) {
     container.hidden = false;
     leftSelect.innerHTML = '<option selected>Compare unavailable</option>';
@@ -646,6 +647,7 @@ async function loadCompareControls(
     compareStatus.classList.add("error");
     const message = error instanceof Error ? error.message : String(error);
     compareStatus.textContent = "Failed to load available reports: " + message;
+    return null;
   }
 }
 
