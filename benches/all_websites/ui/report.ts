@@ -1081,6 +1081,17 @@ function positionVariationPoints(data: VariationChartDatum[], layout: VariationC
   }));
 }
 
+function renderVariationGrid(layout: VariationChartLayout, data: VariationChartDatum[], metric: VariationMetricDescriptor): string {
+  const min = Math.min(...data.map((point) => point.value), 0), max = Math.max(...data.map((point) => point.value), 0);
+  const padding = (max - min) * 0.1 || Math.abs(max || min) * 0.1 || 1;
+  const low = min - padding, high = max + padding;
+  return Array.from({ length: 5 }, (_, index) => {
+    const value = high - index * (high - low) / 4, y = layout.yPosition(value);
+    return '<line class="variation-grid" x1="92" x2="' + (layout.width - 30) + '" y1="' + y + '" y2="' + y + '"/>'
+      + '<text class="variation-axis-label" x="4" y="' + (y + 4) + '">' + escapeHtml(formatVariationValue(value, metric)) + '</text>';
+  }).join("");
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
