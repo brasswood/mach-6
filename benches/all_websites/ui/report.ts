@@ -470,6 +470,45 @@ function collectHistoryDepths(
   return depths;
 }
 
+function addGitGraphPoint(
+  points: Map<string, GitGraphPoint>,
+  commit: GitHistoryCommitJson,
+  layer: number,
+  group: number,
+  anchor = false,
+  replaceLayer = false
+): void {
+  const key = group.toString() + ":" + commit.hash;
+  const existing = points.get(key);
+  if (existing) {
+    existing.anchor ||= anchor;
+    if (replaceLayer) existing.layer = layer;
+    return;
+  }
+  points.set(key, { key, commit, layer, group, anchor });
+}
+
+function addGitGraphNeighborhood(
+  points: Map<string, GitGraphPoint>,
+  anchor: GitHistoryCommitJson,
+  center: number,
+  group: number,
+  commits: Map<string, GitHistoryCommitJson>,
+  children: Map<string, GitHistoryCommitJson[]>
+): void {
+  addGitGraphPoint(points, anchor, center, group, true);
+  const behind = collectHistoryDepths(anchor.hash, (hash) => commits.get(hash)?.parents ?? [], 3);
+  const ahead = collectHistoryDepths(anchor.hash, (hash) => (children.get(hash) ?? []).map((commit) => commit.hash), 3);
+  for (const [hash, depth] of behind) {
+    const commit = commits.get(hash);
+    if (commit && depth > 0) addGitGraphPoint(points, commit, center - depth, group);
+  }
+  for (const [hash, depth] of ahead) {
+    const commit = commits.get(hash);
+    if (commit && depth > 0) addGitGraphPoint(points, commit, center + depth, group);
+  }
+}
+
 function isReportSource(value: unknown): value is ReportSource {
   return value === "nightly" || value === "local";
 }
