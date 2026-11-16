@@ -228,6 +228,11 @@ interface CompareWebsiteView {
 
 const MAX_SLOW_REJECT_ROWS = 100;
 const NUMBER_FORMAT = new Intl.NumberFormat("en-US");
+const variationReportCache = new Map<string, Promise<ReportJson>>();
+const variationWebsiteCache = new WeakMap<ReportJson, Map<string, WebsiteView>>();
+let variationHistory: GitHistoryJson | null = null;
+let variationIndexReports: Record<string, unknown>[] = [];
+let variationActiveReports: ReportJson[] = [];
 const REPORT_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   month: "short",
