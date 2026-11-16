@@ -65,6 +65,16 @@ interface GitGraphPosition {
   labelY: number;
 }
 
+interface VariationMetricDescriptor {
+  website: string;
+  variant: string;
+  kind: "overall" | "displayed" | "speedup" | "segment" | "segmentStddev" | "segmentChange"
+    | "count" | "selectorTime" | "selectorStddev" | "selectorCount" | "selectorChange" | "context";
+  key?: string;
+  selector?: string;
+  compareVariant?: string;
+}
+
 interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
