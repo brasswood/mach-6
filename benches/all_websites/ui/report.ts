@@ -1542,20 +1542,39 @@ function renderMetricLabel(label: string, description: string): string {
     + '<span class="metric-info-tooltip" role="tooltip">' + escapeHtml(description) + '</span></details>';
 }
 
-function renderVariantDetails(bar: BarView, comparisonBar?: BarView): string {
-  const selectorsSummary = typeof bar.selectorsSummary === "function"
-    ? bar.selectorsSummary()
-    : bar.selectorsSummary;
-  const comparisonSelectors = comparisonBar?.selectorsSummary;
-  const comparisonSelectorStats = typeof comparisonSelectors === "function"
-    ? comparisonSelectors()
-    : comparisonSelectors;
+function getSelectorStats(bar?: BarView): SelectorStatsJson | undefined {
+  const stats = bar?.selectorsSummary;
+  return typeof stats === "function" ? stats() : stats;
+}
+
+function renderVariantDetails(
+  bar: BarView,
+  comparisonBar?: BarView,
+  algorithmComparisonBar?: BarView,
+  reportAlgorithmComparisonBar?: BarView
+): string {
+  const selectorsSummary = getSelectorStats(bar) ?? emptySelectorStats();
+  const comparisonSelectorStats = getSelectorStats(comparisonBar);
+  const algorithmComparisonStats = getSelectorStats(algorithmComparisonBar);
+  const reportAlgorithmComparisonStats = getSelectorStats(reportAlgorithmComparisonBar);
+  const algorithmComparisonLabel = algorithmComparisonBar === undefined
+    ? undefined
+    : bar.label === "Baseline" ? "Bless List" : "Baseline";
   const comparisonCounts = comparisonBar?.counts;
   const comparedCount = (count: number, baseline?: number): string => renderCountValue(
     count,
     comparisonCounts === undefined ? undefined : baseline ?? 0
   );
   const topSlowRejectSelectors = buildSelectorRows(selectorsSummary);
+  const comparisonColumnHtml = algorithmComparisonLabel === undefined ? "" : [
+    '<col class="col-time"><col class="col-count">',
+    SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count">').join("")
+  ].join("");
+  const comparisonHeaderHtml = algorithmComparisonLabel === undefined ? "" : [
+    '<th class="col-time">' + algorithmComparisonLabel + ' Total Slow Reject Cycles</th>',
+    '<th class="col-count">' + algorithmComparisonLabel + ' Slow Reject Count</th>',
+    renderSelectorResultCountHeaders(algorithmComparisonLabel)
+  ].join("");
   const countsHtml = bar.counts === undefined
     ? '<p class="stats-disabled-note">Detailed matcher statistics were disabled for this report.</p>'
     : [
@@ -1584,10 +1603,16 @@ function renderVariantDetails(bar: BarView, comparisonBar?: BarView): string {
       '<summary>Slow-Reject Cycles and Counts by Selector (Top ' + MAX_SLOW_REJECT_ROWS + ')</summary>',
       '<div class="selector-breakdown-inner">',
       '<table class="selector-breakdown-table"><colgroup><col class="col-selector"><col class="col-time"><col class="col-count">'
-        + SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count">').join("") + '</colgroup>',
+        + SELECTOR_RESULT_COUNTS.map(() => '<col class="col-result-count">').join("") + comparisonColumnHtml + '</colgroup>',
       '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th>'
-        + renderSelectorResultCountHeaders() + '</tr></thead>',
-      '<tbody>' + renderSelectorRows(topSlowRejectSelectors, comparisonSelectorStats) + '</tbody>',
+        + renderSelectorResultCountHeaders() + comparisonHeaderHtml + '</tr></thead>',
+      '<tbody>' + renderSelectorRows(
+        topSlowRejectSelectors,
+        comparisonSelectorStats,
+        algorithmComparisonStats,
+        reportAlgorithmComparisonStats,
+        algorithmComparisonLabel
+      ) + '</tbody>',
       '</table>',
       '</div>',
       '</details>'
