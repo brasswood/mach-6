@@ -101,6 +101,12 @@ interface VariationReportCandidate {
   report?: ReportJson;
 }
 
+interface VariationChartDatum {
+  report: ReportJson;
+  commit: GitHistoryCommitJson;
+  value: number;
+}
+
 interface WebsiteJson {
   website: string;
   summary: SummaryJson;
