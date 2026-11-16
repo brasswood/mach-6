@@ -1839,6 +1839,24 @@ function describeVariationMetric(metric: VariationMetricDescriptor): string {
   return [metric.website, metric.variant, ...details, kind].join(" · ");
 }
 
+async function populateVariationDialog(metric: VariationMetricDescriptor, title: HTMLElement, status: HTMLElement, chart: HTMLElement): Promise<void> {
+  title.textContent = describeVariationMetric(metric);
+  status.textContent = "Loading reports from nearby commits...";
+  chart.innerHTML = "";
+  const window = buildVariationHistoryWindow(variationHistory, variationActiveReports);
+  if (window.commits.length === 0) {
+    status.textContent = "No commit history is available for these reports.";
+    return;
+  }
+  const data = await loadVariationData(window, metric);
+  if (data.length === 0) {
+    status.textContent = "No reports in this history window contain this metric.";
+    return;
+  }
+  chart.innerHTML = renderVariationSvg(window, data, metric);
+  status.textContent = "Showing " + data.length + " report" + (data.length === 1 ? "" : "s") + " across " + window.commits.length + " commits.";
+}
+
 function getVariationWebsite(report: ReportJson, name: string): WebsiteView | undefined {
   let websites = variationWebsiteCache.get(report);
   if (!websites) {
