@@ -2050,10 +2050,14 @@ function renderExpandedBar(bar: BarView, website: string, comparisonBar?: BarVie
       segment.stddevCycles,
       comparisonSegment?.meanCycles,
       comparisonSegment?.stddevCycles,
-      true
+      true,
+      { website, variant: bar.label, kind: "segment", key: segment.kind },
+      { website, variant: bar.label, kind: "segmentStddev", key: segment.kind }
     );
     const baseline = bar.baselineSegmentCycles?.get(segment.kind) ?? 0n;
-    const change = bar.baselineSegmentCycles === undefined ? "" : " " + renderSegmentChange(segment.meanCycles, baseline);
+    const change = bar.baselineSegmentCycles === undefined ? "" : " " + renderSegmentChange(segment.meanCycles, baseline, {
+      website, variant: bar.label, kind: "segmentChange", key: segment.kind
+    });
     return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + value + change + '</span>';
   }).join("")
     + (hasTotalMatchingSegment
