@@ -1802,11 +1802,16 @@ function renderTimingValue(
   stddevCycles: bigint | null,
   comparisonMean?: bigint,
   comparisonStddev?: bigint | null,
-  signed = false
+  signed = false,
+  metric?: VariationMetricDescriptor,
+  stddevMetric?: VariationMetricDescriptor
 ): string {
   const mean = signed ? formatSignedCycles(meanCycles) : formatCycles(meanCycles);
-  return escapeHtml(mean) + (comparisonMean === undefined ? "" : renderReportDiff(meanCycles, comparisonMean))
-    + (stddevCycles === null ? "" : ' \u00B1 ' + escapeHtml(formatCycles(stddevCycles))
+  const meanHtml = metric ? renderVariationValue(escapeHtml(mean), metric) : escapeHtml(mean);
+  const stddevText = stddevCycles === null ? "" : escapeHtml(formatCycles(stddevCycles));
+  const stddevHtml = stddevMetric && stddevCycles !== null ? renderVariationValue(stddevText, stddevMetric) : stddevText;
+  return meanHtml + (comparisonMean === undefined ? "" : renderReportDiff(meanCycles, comparisonMean))
+    + (stddevCycles === null ? "" : ' \u00B1 ' + stddevHtml
       + (comparisonStddev == null ? "" : renderReportDiff(stddevCycles, comparisonStddev)));
 }
 
