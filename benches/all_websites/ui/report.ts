@@ -1857,6 +1857,26 @@ async function populateVariationDialog(metric: VariationMetricDescriptor, title:
   status.textContent = "Showing " + data.length + " report" + (data.length === 1 ? "" : "s") + " across " + window.commits.length + " commits.";
 }
 
+function installVariationHandlers(dialog: HTMLDialogElement, title: HTMLElement, status: HTMLElement, chart: HTMLElement): void {
+  document.addEventListener("click", async (event) => {
+    if (!(event.target instanceof Element)) return;
+    const button = event.target.closest<HTMLButtonElement>("button.variation-trigger");
+    if (!button) return;
+    let metric: unknown;
+    try { metric = JSON.parse(button.dataset.variation ?? "null"); } catch { return; }
+    if (!isVariationMetricDescriptor(metric)) return;
+    dialog.showModal();
+    try {
+      await populateVariationDialog(metric, title, status, chart);
+    } catch (error: unknown) {
+      status.textContent = "Failed to load metric history: " + (error instanceof Error ? error.message : String(error));
+    }
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+}
+
 function getVariationWebsite(report: ReportJson, name: string): WebsiteView | undefined {
   let websites = variationWebsiteCache.get(report);
   if (!websites) {
