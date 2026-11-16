@@ -1092,6 +1092,15 @@ function renderVariationGrid(layout: VariationChartLayout, data: VariationChartD
   }).join("");
 }
 
+function renderVariationCommitLabels(window: VariationHistoryWindow, layout: VariationChartLayout): string {
+  return window.commits.map((commit) => {
+    const x = layout.xPositions.get(commit.hash) ?? 0;
+    return '<text class="variation-axis-label" transform="translate(' + (x + 5) + ' ' + (layout.height - 54) + ') rotate(28)">'
+      + '<tspan>' + escapeHtml(commit.hash.slice(0, 7)) + '</tspan><tspan x="0" dy="12">'
+      + escapeHtml(commit.subject.slice(0, 24)) + '</tspan></text>';
+  }).join("");
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
