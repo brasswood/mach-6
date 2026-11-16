@@ -1682,6 +1682,16 @@ function getVariationCount(bar: BarView, key: string): number | null {
   return isFiniteNumber(value) ? value : null;
 }
 
+function getVariationSelectorCount(bar: BarView, selector: string, key: string): number | null {
+  const stats = getSelectorStats(bar);
+  if (!stats) return null;
+  const values = key === "slow_reject_counts" ? stats.slow_reject_counts
+    : key === "classic_global_failures" ? stats.classic_global_failures
+      : key === "classic_descendant_restarts" ? stats.classic_descendant_restarts
+        : key === "classic_sibling_restarts" ? stats.classic_sibling_restarts : undefined;
+  return values?.[selector] ?? null;
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
