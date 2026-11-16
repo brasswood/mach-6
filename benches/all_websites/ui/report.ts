@@ -120,7 +120,9 @@ interface VariationChartDatum {
 interface VariationChartLayout {
   width: number;
   height: number;
+  axisWidth: number;
   xPositions: Map<string, number>;
+  yTicks: number[];
   yPosition: (value: number) => number;
 }
 
@@ -1156,7 +1158,15 @@ function layoutVariationChart(window: VariationHistoryWindow, data: VariationCha
   const max = Math.max(...data.map((point) => point.value));
   const padding = (max - min) * 0.1 || Math.abs(max || min) * 0.1 || 1;
   const low = min - padding, high = max + padding;
-  return { width, height, xPositions, yPosition: (value) => top + (high - value) * (height - top - bottom) / (high - low) };
+  const yPosition = (value: number) => top + (high - value) * (height - top - bottom) / (high - low);
+  return {
+    width,
+    height,
+    axisWidth: left,
+    xPositions,
+    yTicks: Array.from({ length: 5 }, (_, index) => high - index * (high - low) / 4),
+    yPosition
+  };
 }
 
 function positionVariationPoints(data: VariationChartDatum[], layout: VariationChartLayout): VariationPlotPoint[] {
@@ -1168,15 +1178,26 @@ function positionVariationPoints(data: VariationChartDatum[], layout: VariationC
   }));
 }
 
-function renderVariationGrid(layout: VariationChartLayout, data: VariationChartDatum[], metric: VariationMetricDescriptor): string {
-  const min = Math.min(...data.map((point) => point.value)), max = Math.max(...data.map((point) => point.value));
-  const padding = (max - min) * 0.1 || Math.abs(max || min) * 0.1 || 1;
-  const low = min - padding, high = max + padding;
-  return Array.from({ length: 5 }, (_, index) => {
-    const value = high - index * (high - low) / 4, y = layout.yPosition(value);
-    return '<line class="variation-grid" x1="92" x2="' + (layout.width - 30) + '" y1="' + y + '" y2="' + y + '"/>'
-      + '<text class="variation-axis-label" x="4" y="' + (y + 4) + '">' + escapeHtml(formatVariationValue(value, metric)) + '</text>';
+function renderVariationGrid(layout: VariationChartLayout): string {
+  return layout.yTicks.map((value) => {
+    const y = layout.yPosition(value);
+    return '<line class="variation-grid" x1="' + layout.axisWidth + '" x2="' + (layout.width - 30)
+      + '" y1="' + y + '" y2="' + y + '"/>';
   }).join("");
+}
+
+function renderVariationYAxis(layout: VariationChartLayout, metric: VariationMetricDescriptor): string {
+  const labels = layout.yTicks.map((value) => {
+    const y = layout.yPosition(value);
+    return '<line class="variation-y-axis-tick" x1="' + (layout.axisWidth - 5) + '" x2="' + layout.axisWidth
+      + '" y1="' + y + '" y2="' + y + '"/><text class="variation-axis-label" x="4" y="' + (y + 4) + '">'
+      + escapeHtml(formatVariationValue(value, metric)) + '</text>';
+  }).join("");
+  return '<svg class="variation-y-axis" role="img" aria-label="Y-axis values" width="' + layout.axisWidth
+    + '" height="' + layout.height + '"><rect class="variation-y-axis-background" width="' + layout.axisWidth
+    + '" height="' + layout.height + '"/>' + labels
+    + '<line class="variation-y-axis-border" x1="' + (layout.axisWidth - 1) + '" x2="' + (layout.axisWidth - 1)
+    + '" y1="24" y2="' + (layout.height - 140) + '"/></svg>';
 }
 
 function renderVariationCommitLabels(window: VariationHistoryWindow, layout: VariationChartLayout): string {
@@ -1225,10 +1246,12 @@ function renderVariationSeries(points: VariationPlotPoint[], window: VariationHi
 function renderVariationSvg(window: VariationHistoryWindow, data: VariationChartDatum[], metric: VariationMetricDescriptor): string {
   const layout = layoutVariationChart(window, data);
   const points = positionVariationPoints(data, layout);
-  return '<svg role="img" aria-label="Metric values across commits with reports" width="' + layout.width + '" height="' + layout.height + '">'
-    + renderVariationGrid(layout, data, metric) + renderVariationHistoryAxis(window, layout)
+  return '<div class="variation-chart-track" style="width:' + layout.width + 'px;height:' + layout.height + 'px">'
+    + '<svg class="variation-chart-svg" role="img" aria-label="Metric values across commits with reports" width="'
+    + layout.width + '" height="' + layout.height + '">' + renderVariationGrid(layout)
+    + renderVariationHistoryAxis(window, layout)
     + renderVariationSeries(points, window, layout, metric)
-    + renderVariationCommitLabels(window, layout) + '</svg>';
+    + renderVariationCommitLabels(window, layout) + '</svg>' + renderVariationYAxis(layout, metric) + '</div>';
 }
 
 async function readReportJsonFile(file: File): Promise<ReportJson> {
