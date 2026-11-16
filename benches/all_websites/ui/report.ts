@@ -1341,7 +1341,7 @@ function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint, compa
   ].join("");
 }
 
-function renderExpandedBar(bar: BarView): string {
+function renderExpandedBar(bar: BarView, comparisonBar?: BarView): string {
   const segmentsHtml = bar.segments.map((segment) => {
     return '<div class="expanded-bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
@@ -1353,7 +1353,9 @@ function renderExpandedBar(bar: BarView): string {
       : formatSignedCycles(segment.meanCycles) + " \u00B1 " + formatCycles(segment.stddevCycles);
     const baseline = bar.baselineSegmentCycles?.get(segment.kind) ?? 0n;
     const change = bar.baselineSegmentCycles === undefined ? "" : " " + renderSegmentChange(segment.meanCycles, baseline);
-    return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + escapeHtml(value) + change + '</span>';
+    const comparisonSegment = comparisonBar?.segments.find((item) => item.kind === segment.kind);
+    const reportDiff = comparisonSegment === undefined ? "" : renderReportDiff(segment.meanCycles, comparisonSegment.meanCycles);
+    return '<span class="' + warningClass + '">' + renderSegmentSwatch(segment.kind) + ': ' + escapeHtml(value) + change + reportDiff + '</span>';
   }).join("")
     + (hasTotalMatchingSegment
       ? ""
@@ -1364,8 +1366,10 @@ function renderExpandedBar(bar: BarView): string {
         + (bar.baselineSegmentCycles === undefined
           ? ""
           : " " + renderSegmentChange(bar.totalMatching.meanCycles, bar.baselineSegmentCycles.get("totalMatching") ?? 0n))
+        + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalMatching.meanCycles, comparisonBar.totalMatching.meanCycles))
         + '</span>')
-    + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles)) + '</span>';
+    + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles))
+    + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalCycles, comparisonBar.totalCycles)) + '</span>';
 
   return [
     '<section class="expanded-chart">',
@@ -1409,7 +1413,7 @@ function renderMetricLabel(label: string, description: string): string {
     + '<span class="metric-info-tooltip" role="tooltip">' + escapeHtml(description) + '</span></details>';
 }
 
-function renderVariantDetails(bar: BarView): string {
+function renderVariantDetails(bar: BarView, comparisonBar?: BarView): string {
   const selectorsSummary = typeof bar.selectorsSummary === "function"
     ? bar.selectorsSummary()
     : bar.selectorsSummary;
@@ -1455,7 +1459,7 @@ function renderVariantDetails(bar: BarView): string {
   return [
     '<section class="variant-details">',
     '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
-    renderExpandedBar(bar),
+    renderExpandedBar(bar, comparisonBar),
     countsHtml,
     selectorBreakdownHtml,
     '</section>'
@@ -1498,7 +1502,8 @@ function renderWebsite(
 function installWebsiteDetailsHandlers(
   container: HTMLElement,
   websites: WebsiteView[],
-  reportSide: CompareSide | null = null
+  reportSide: CompareSide | null = null,
+  comparisonWebsites: ReadonlyMap<string, WebsiteView> = new Map()
 ): void {
   const websitesByName = new Map(websites.map((website) => [website.name, website]));
   const siteElements = container.querySelectorAll<HTMLDetailsElement>("details.site");
@@ -1516,9 +1521,11 @@ function installWebsiteDetailsHandlers(
       if (!site.open || detailsVariants.dataset.rendered === "true") {
         return;
       }
+      const comparisonWebsite = comparisonWebsites.get(website.name);
+      const comparisonBars = new Map((comparisonWebsite?.bars ?? []).map((bar) => [bar.label, bar]));
       detailsVariants.innerHTML = website.bars
         .filter((bar) => bar.showExpandedDetails)
-        .map(renderVariantDetails)
+        .map((bar) => renderVariantDetails(bar, comparisonBars.get(bar.label)))
         .join("");
       detailsVariants.dataset.rendered = "true";
       if (reportSide !== null) {
@@ -1640,15 +1647,25 @@ function renderCompareResults(
       '</section>'
     ].join("");
   }).join("");
+  const leftComparisons = new Map<string, WebsiteView>();
+  const rightComparisons = new Map<string, WebsiteView>();
+  for (const website of compareWebsites) {
+    if (website.left !== null && website.right !== null) {
+      leftComparisons.set(website.left.name, website.right);
+      rightComparisons.set(website.right.name, website.left);
+    }
+  }
   installWebsiteDetailsHandlers(
     compareResults,
     compareWebsites.flatMap((website) => website.left === null ? [] : [website.left]),
-    "left"
+    "left",
+    leftComparisons
   );
   installWebsiteDetailsHandlers(
     compareResults,
     compareWebsites.flatMap((website) => website.right === null ? [] : [website.right]),
-    "right"
+    "right",
+    rightComparisons
   );
   compareResults.hidden = false;
 }
