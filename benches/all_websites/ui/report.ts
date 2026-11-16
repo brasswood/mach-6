@@ -509,6 +509,39 @@ function addGitGraphNeighborhood(
   }
 }
 
+function historyAnchorsFromReports(
+  reports: ReportMetadataJson[],
+  commits: Map<string, GitHistoryCommitJson>
+): GitHistoryCommitJson[] {
+  const anchors = new Map<string, GitHistoryCommitJson>();
+  for (const metadata of reports) {
+    const hash = metadata.commit_hash;
+    if (!hash || anchors.has(hash)) continue;
+    const timestamp = metadata.time_end ? Date.parse(metadata.time_end) / 1000 : 0;
+    anchors.set(hash, commits.get(hash) ?? {
+      hash,
+      parents: [],
+      subject: metadata.tagline ?? "",
+      timestamp: Number.isFinite(timestamp) ? timestamp : 0
+    });
+  }
+  return Array.from(anchors.values()).sort((left, right) => left.timestamp - right.timestamp);
+}
+
+function orderGitGraphAnchors(
+  anchors: GitHistoryCommitJson[],
+  children: Map<string, GitHistoryCommitJson[]>
+): { anchors: GitHistoryCommitJson[]; path: string[] | null } {
+  const first = anchors[0];
+  const second = anchors[1];
+  if (!first || !second) return { anchors, path: null };
+  const forward = findHistoryPath(first.hash, second.hash, children, 6);
+  if (forward) return { anchors: [first, second], path: forward };
+  const reverse = findHistoryPath(second.hash, first.hash, children, 6);
+  if (reverse) return { anchors: [second, first], path: reverse };
+  return { anchors, path: null };
+}
+
 function isReportSource(value: unknown): value is ReportSource {
   return value === "nightly" || value === "local";
 }
