@@ -2089,27 +2089,31 @@ function renderExpandedBar(bar: BarView, website: string, comparisonBar?: BarVie
   ].join("");
 }
 
-function renderCountValue(count: number, comparisonCount?: number | null): string {
-  return escapeHtml(NUMBER_FORMAT.format(count))
+function renderCountValue(count: number, comparisonCount?: number | null, metric?: VariationMetricDescriptor): string {
+  const value = escapeHtml(NUMBER_FORMAT.format(count));
+  return (metric ? renderVariationValue(value, metric) : value)
     + (comparisonCount == null ? "" : renderReportDiff(toBigInt(count), toBigInt(comparisonCount)));
 }
 
-function renderOptionalCount(count: number | null, comparisonCount?: number | null): string {
-  return count === null ? "N/A" : renderCountValue(count, comparisonCount);
+function renderOptionalCount(count: number | null, comparisonCount?: number | null, metric?: VariationMetricDescriptor): string {
+  return count === null ? "N/A" : renderCountValue(count, comparisonCount, metric);
 }
 
 function renderSelectorCountValue(
   count: number | null | undefined,
   reportComparisonCount?: number | null,
-  algorithmBaselineCount?: number | null
+  algorithmBaselineCount?: number | null,
+  metric?: VariationMetricDescriptor,
+  changeMetric?: VariationMetricDescriptor
 ): string {
   if (count == null) {
     return "N/A";
   }
   const algorithmChange = algorithmBaselineCount == null
     ? ""
-    : " " + renderSegmentChange(toBigInt(count), toBigInt(algorithmBaselineCount));
-  return escapeHtml(NUMBER_FORMAT.format(count)) + algorithmChange
+    : " " + renderSegmentChange(toBigInt(count), toBigInt(algorithmBaselineCount), changeMetric);
+  const value = escapeHtml(NUMBER_FORMAT.format(count));
+  return (metric ? renderVariationValue(value, metric) : value) + algorithmChange
     + (reportComparisonCount == null ? "" : renderReportDiff(toBigInt(count), toBigInt(reportComparisonCount)));
 }
 
