@@ -155,6 +155,7 @@ interface BarView {
   sharingRejects: number | null;
   selectorMapRejects: number | null;
   selectorsSummary: SelectorStatsSource;
+  baselineTotalCycles?: bigint;
   showExpandedDetails: boolean;
 }
 
@@ -966,9 +967,8 @@ function buildWebsiteBars(
     }
     return () => getAggregateSelectors()[key] ?? emptySelectorStats();
   };
-  const bars = [
-    buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), null)
-  ];
+  const baseline = buildBar("Baseline", website.summary.baseline, getSelectors("baseline"), null);
+  const bars = [baseline];
   const withBlessList = website.summary.with_bless_list;
   const withBlessListSelectors = website.selector_slow_rejects_summary.with_bless_list;
   if (withBlessList !== undefined && withBlessListSelectors !== undefined) {
@@ -978,7 +978,7 @@ function buildWebsiteBars(
     buildBar("After Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), null, false),
     buildBar("With Preprocessing", website.summary.after_preprocessing, getSelectors("after_preprocessing"), website.summary.preprocessing)
   );
-  return bars;
+  return bars.map((bar) => bar === baseline ? bar : { ...bar, baselineTotalCycles: baseline.totalCycles });
 }
 
 function buildWebsiteView(
@@ -1259,6 +1259,14 @@ function pct(numerator: bigint, denominator: bigint): string {
   return ((Number(numerator) / Number(denominator)) * 100).toFixed(2);
 }
 
+function formatSpeedup(baselineCycles: bigint, algorithmCycles: bigint): string {
+  if (algorithmCycles === 0n) {
+    return baselineCycles === 0n ? "1.000x" : "N/A";
+  }
+  const milliSpeedup = (baselineCycles * 1000n + algorithmCycles / 2n) / algorithmCycles;
+  return (milliSpeedup / 1000n).toString() + "." + (milliSpeedup % 1000n).toString().padStart(3, "0") + "x";
+}
+
 function renderSegmentSwatch(kind: SegmentKind): string {
   const info = SEGMENT_INFO[kind];
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
@@ -1282,12 +1290,16 @@ function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint): stri
   const displayNote = bar.totalLengthCycles !== bar.totalCycles
     ? '<div class="time-display-note">Displayed: ' + escapeHtml(formatCycles(bar.totalLengthCycles)) + '</div>'
     : "";
+  const speedup = bar.baselineTotalCycles === undefined
+    ? ""
+    : '<span class="speedup ' + (bar.baselineTotalCycles > bar.totalCycles ? "metric-better" : bar.baselineTotalCycles < bar.totalCycles ? "metric-worse" : "")
+      + '">' + escapeHtml(formatSpeedup(bar.baselineTotalCycles, bar.totalCycles)) + '</span>';
 
   return [
     '<div class="variant-summary">',
     '<div class="variant-label">' + escapeHtml(bar.label) + '</div>',
     '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, summaryMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
-    '<div class="time"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles)) + '</div>' + displayNote + '</div>',
+    '<div class="time"><div class="time-primary"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles)) + '</div>' + speedup + '</div>' + displayNote + '</div>',
     '</div>'
   ].join("");
 }
