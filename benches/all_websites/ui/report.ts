@@ -547,6 +547,24 @@ function collectGitGraphCandidates(
       || left.commit.hash.localeCompare(right.commit.hash));
 }
 
+function selectGitGraphNeighborhood(ahead: GitGraphCandidate[], behind: GitGraphCandidate[]): {
+  ahead: GitGraphCandidate[];
+  behind: GitGraphCandidate[];
+} {
+  const selectedAhead = ahead.slice(0, 3);
+  const selectedBehind = behind.slice(0, 3);
+  let remaining = 6 - selectedAhead.length - selectedBehind.length;
+  if (selectedAhead.length < 3 && remaining > 0) {
+    const extra = behind.slice(selectedBehind.length, selectedBehind.length + remaining);
+    selectedBehind.push(...extra);
+    remaining -= extra.length;
+  }
+  if (selectedBehind.length < 3 && remaining > 0) {
+    selectedAhead.push(...ahead.slice(selectedAhead.length, selectedAhead.length + remaining));
+  }
+  return { ahead: selectedAhead, behind: selectedBehind };
+}
+
 function addGitGraphPoint(
   points: Map<string, GitGraphPoint>,
   commit: GitHistoryCommitJson,
