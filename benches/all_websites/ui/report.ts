@@ -1101,6 +1101,19 @@ function renderVariationCommitLabels(window: VariationHistoryWindow, layout: Var
   }).join("");
 }
 
+function renderVariationSeries(points: VariationPlotPoint[], window: VariationHistoryWindow, layout: VariationChartLayout, metric: VariationMetricDescriptor): string {
+  const anchorXs = window.anchors.map((hash) => layout.xPositions.get(hash)).filter((x): x is number => x !== undefined);
+  const gapStart = Math.min(...anchorXs), gapEnd = Math.max(...anchorXs);
+  const lines = points.slice(1).map((point, index) => {
+    const previous = points[index]!;
+    const dotted = window.dottedGap && previous.x <= gapEnd && point.x >= gapStart;
+    return '<path class="variation-line' + (dotted ? ' variation-gap' : '') + '" d="M ' + previous.x + ' ' + previous.y + ' L ' + point.x + ' ' + point.y + '"/>';
+  }).join("");
+  const circles = points.map((point) => '<circle class="variation-point" cx="' + point.x + '" cy="' + point.y + '" r="4"><title>'
+    + escapeHtml(point.datum.commit.hash.slice(0, 7) + ": " + formatVariationValue(point.datum.value, metric)) + '</title></circle>').join("");
+  return lines + circles;
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
