@@ -1058,8 +1058,8 @@ function formatVariationValue(value: number, metric: VariationMetricDescriptor):
 }
 
 function layoutVariationChart(window: VariationHistoryWindow, data: VariationChartDatum[]): VariationChartLayout {
-  const left = 92, right = 30, top = 24, bottom = 140;
-  const width = Math.max(720, left + right + Math.max(0, window.commits.length - 1) * 128);
+  const left = 92, right = 150, top = 24, bottom = 140;
+  const width = Math.max(720, left + right + Math.max(0, window.commits.length - 1) * 105);
   const height = 360;
   const xPositions = new Map(window.commits.map((commit, index) => [
     commit.hash,
