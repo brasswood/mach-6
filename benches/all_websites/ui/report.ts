@@ -1019,6 +1019,20 @@ async function loadVariationCandidate(candidate: VariationReportCandidate): Prom
   return pending;
 }
 
+async function loadVariationData(window: VariationHistoryWindow, metric: VariationMetricDescriptor): Promise<VariationChartDatum[]> {
+  const candidates = getVariationCandidates(window);
+  const commits = new Map(window.commits.map((commit) => [commit.hash, commit]));
+  const loaded = await Promise.allSettled(candidates.map(loadVariationCandidate));
+  return loaded.flatMap((result, index) => {
+    if (result.status !== "fulfilled") return [];
+    const report = result.value;
+    const commit = commits.get(candidates[index]?.metadata.commit_hash ?? report.metadata.commit_hash ?? "");
+    const value = getVariationMetric(report, metric);
+    return commit && value !== null && Number.isFinite(value) ? [{ report, commit, value }] : [];
+  }).sort((left, right) => left.commit.timestamp - right.commit.timestamp
+    || (left.report.metadata.time_end ?? "").localeCompare(right.report.metadata.time_end ?? ""));
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
