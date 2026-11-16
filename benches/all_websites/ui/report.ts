@@ -573,6 +573,7 @@ function addGitGraphCandidates(
   group: number,
   limit: number
 ): number {
+  if (limit <= 0) return 0;
   let added = 0;
   for (const candidate of candidates) {
     if (points.has(group.toString() + ":" + candidate.commit.hash)) continue;
@@ -675,6 +676,25 @@ function buildGitGraphView(history: GitHistoryJson | null, reports: ReportMetada
     const commit = commits.get(hash);
     if (commit) addGitGraphPoint(points, commit, index, 0, index === 0 || index === path.length - 1, true);
   });
+  if (path && ordered.anchors.length > 1) {
+    const earlier = ordered.anchors[0]!;
+    const later = ordered.anchors[1]!;
+    let remaining = 14 - points.size;
+    const behind = collectGitGraphCandidates(earlier.hash,
+      (hash) => commits.get(hash)?.parents ?? [], commits, 14);
+    remaining -= addGitGraphCandidates(points, behind, centers[0] ?? 0, -1, 0, remaining);
+    if (remaining > 0) {
+      const ahead = collectGitGraphCandidates(later.hash,
+        (hash) => (children.get(hash) ?? []).map((commit) => commit.hash), commits, 14);
+      addGitGraphCandidates(points, ahead, centers[1] ?? 0, 1, 0, remaining);
+    }
+  }
+  if (!path && ordered.anchors.length > 1) {
+    const leftmost = Math.max(...Array.from(points.values()).filter((point) => point.group === 0).map((point) => point.layer));
+    const rightmost = Math.min(...Array.from(points.values()).filter((point) => point.group === 1).map((point) => point.layer));
+    const shift = leftmost + 2 - rightmost;
+    for (const point of points.values()) if (point.group === 1) point.layer += shift;
+  }
 
   return {
     points: Array.from(points.values()).sort((left, right) => left.group - right.group || left.layer - right.layer),
