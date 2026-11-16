@@ -1297,7 +1297,8 @@ function renderSegmentChange(value: bigint, baseline: bigint): string {
 function renderReportDiff(value: bigint, baseline: bigint): string {
   const delta = value - baseline;
   if (baseline === 0n) {
-    return '<span class="report-diff">Δ' + (delta === 0n ? "+0.000%" : "+∞%") + '</span>';
+    const text = delta === 0n ? "+0.000%" : delta < 0n ? "-∞%" : "+∞%";
+    return '<span class="report-diff">Δ' + text + '</span>';
   }
   const magnitude = delta < 0n ? -delta : delta;
   const milliPercent = (magnitude * 100_000n + (baseline < 0n ? -baseline : baseline) / 2n)
@@ -1445,6 +1446,10 @@ function renderVariantDetails(bar: BarView, comparisonBar?: BarView): string {
     ? comparisonSelectors()
     : comparisonSelectors;
   const comparisonCounts = comparisonBar?.counts;
+  const comparedCount = (count: number, baseline?: number): string => renderCountValue(
+    count,
+    comparisonCounts === undefined ? undefined : baseline ?? 0
+  );
   const topSlowRejectSelectors = buildSelectorRows(selectorsSummary);
   const countsHtml = bar.counts === undefined
     ? '<p class="stats-disabled-note">Detailed matcher statistics were disabled for this report.</p>'
@@ -1452,19 +1457,19 @@ function renderVariantDetails(bar: BarView, comparisonBar?: BarView): string {
       '<table><tbody>',
       bar.counts.num_elements === undefined
         ? ""
-        : '<tr><th>Elements</th><td>' + renderCountValue(bar.counts.num_elements, comparisonCounts?.num_elements) + '</td></tr>',
-      '<tr><th>Selectors</th><td>' + renderCountValue(bar.counts.num_selectors ?? 0, comparisonCounts?.num_selectors ?? 0) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Sharing Instances", "The number of elements that matched an element in the sharing cache and shared styles with it.") + '</th><td>' + renderCountValue(bar.counts.sharing_instances, comparisonCounts?.sharing_instances) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Sharing Misses", "The number of style sharing candidates that were tested and failed.") + '</th><td>' + renderCountValue(bar.counts.sharing_misses ?? 0, comparisonCounts?.sharing_misses ?? 0) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Sharing Accepts", "The effective number of (selector, element) pairs accepted by style sharing.") + '</th><td>' + renderCountValue(bar.counts.sharing_accepts ?? 0, comparisonCounts?.sharing_accepts ?? 0) + '</td></tr>',
+        : '<tr><th>Elements</th><td>' + comparedCount(bar.counts.num_elements, comparisonCounts?.num_elements) + '</td></tr>',
+      '<tr><th>Selectors</th><td>' + comparedCount(bar.counts.num_selectors ?? 0, comparisonCounts?.num_selectors) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Sharing Instances", "The number of elements that matched an element in the sharing cache and shared styles with it.") + '</th><td>' + comparedCount(bar.counts.sharing_instances, comparisonCounts?.sharing_instances) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Sharing Misses", "The number of style sharing candidates that were tested and failed.") + '</th><td>' + comparedCount(bar.counts.sharing_misses ?? 0, comparisonCounts?.sharing_misses) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Sharing Accepts", "The effective number of (selector, element) pairs accepted by style sharing.") + '</th><td>' + comparedCount(bar.counts.sharing_accepts ?? 0, comparisonCounts?.sharing_accepts) + '</td></tr>',
       '<tr><th>' + renderMetricLabel("Sharing Rejects", "The effective number of (selector, element) pairs rejected by style sharing. Derived by taking (selectors * sharing instances) - sharing accepts.") + '</th><td>' + renderOptionalCount(bar.sharingRejects, comparisonBar?.sharingRejects) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Selector Map Hits", "The number of (selector, element) candidate matches presented by the Selector Map.") + '</th><td>' + renderCountValue(bar.counts.selector_map_hits, comparisonCounts?.selector_map_hits) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Tail Selector Map Hits", "The number of (selector, element) candidate matches presented by the universal-tail or universal-bucket Selector Map for bless lists.") + '</th><td>' + renderCountValue(bar.counts.tail_selector_map_hits ?? 0, comparisonCounts?.tail_selector_map_hits ?? 0) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Selector Map Hits", "The number of (selector, element) candidate matches presented by the Selector Map.") + '</th><td>' + comparedCount(bar.counts.selector_map_hits, comparisonCounts?.selector_map_hits) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Tail Selector Map Hits", "The number of (selector, element) candidate matches presented by the universal-tail or universal-bucket Selector Map for bless lists.") + '</th><td>' + comparedCount(bar.counts.tail_selector_map_hits ?? 0, comparisonCounts?.tail_selector_map_hits) + '</td></tr>',
       '<tr><th>' + renderMetricLabel("Selector Map Rejects", "The number of (selector, element) pairs effectively rejected by the Selector Map. Derived by taking ((elements - sharing instances) * selectors) - selector map hits - tail selector map hits.") + '</th><td>' + renderOptionalCount(bar.selectorMapRejects, comparisonBar?.selectorMapRejects) + '</td></tr>',
-      '<tr><th>Bless List Hits</th><td>' + renderCountValue(bar.counts.bless_list_hits ?? 0, comparisonCounts?.bless_list_hits ?? 0) + '</td></tr>',
-      '<tr><th>Bloom Filter Rejects</th><td>' + renderCountValue(bar.counts.fast_rejects, comparisonCounts?.fast_rejects) + '</td></tr>',
-      '<tr><th>Slow Rejects</th><td>' + renderCountValue(bar.counts.slow_rejects, comparisonCounts?.slow_rejects) + '</td></tr>',
-      '<tr><th>Slow Accepts</th><td>' + renderCountValue(bar.counts.slow_accepts, comparisonCounts?.slow_accepts) + '</td></tr>',
+      '<tr><th>Bless List Hits</th><td>' + comparedCount(bar.counts.bless_list_hits ?? 0, comparisonCounts?.bless_list_hits) + '</td></tr>',
+      '<tr><th>Bloom Filter Rejects</th><td>' + comparedCount(bar.counts.fast_rejects, comparisonCounts?.fast_rejects) + '</td></tr>',
+      '<tr><th>Slow Rejects</th><td>' + comparedCount(bar.counts.slow_rejects, comparisonCounts?.slow_rejects) + '</td></tr>',
+      '<tr><th>Slow Accepts</th><td>' + comparedCount(bar.counts.slow_accepts, comparisonCounts?.slow_accepts) + '</td></tr>',
       '</tbody></table>'
     ].join("");
   const selectorBreakdownHtml = bar.counts === undefined
