@@ -53,6 +53,11 @@ interface GitGraphPoint {
   anchor: boolean;
 }
 
+interface GitGraphView {
+  points: GitGraphPoint[];
+  dottedGap: boolean;
+}
+
 interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
@@ -444,6 +449,25 @@ function findHistoryPath(
     }
   }
   return null;
+}
+
+function collectHistoryDepths(
+  start: string,
+  neighbors: (hash: string) => string[],
+  maxDepth: number
+): Map<string, number> {
+  const depths = new Map<string, number>([[start, 0]]);
+  const queue = [start];
+  for (const current of queue) {
+    const nextDepth = (depths.get(current) ?? maxDepth) + 1;
+    if (nextDepth > maxDepth) continue;
+    for (const neighbor of neighbors(current)) {
+      if (depths.has(neighbor)) continue;
+      depths.set(neighbor, nextDepth);
+      queue.push(neighbor);
+    }
+  }
+  return depths;
 }
 
 function isReportSource(value: unknown): value is ReportSource {
