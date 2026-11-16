@@ -1182,10 +1182,30 @@ function renderVariationGrid(layout: VariationChartLayout, data: VariationChartD
 function renderVariationCommitLabels(window: VariationHistoryWindow, layout: VariationChartLayout): string {
   return window.commits.map((commit) => {
     const x = layout.xPositions.get(commit.hash) ?? 0;
-    return '<text class="variation-axis-label" transform="translate(' + (x + 5) + ' ' + (layout.height - 122) + ') rotate(28)">'
+    return '<text class="variation-axis-label" transform="translate(' + (x + 5) + ' ' + (layout.height - 104) + ') rotate(28)">'
       + '<tspan>' + escapeHtml(commit.hash.slice(0, 7)) + '</tspan><tspan x="0" dy="12">'
       + escapeHtml(commit.subject.slice(0, 24)) + '</tspan></text>';
   }).join("");
+}
+
+function renderVariationHistoryAxis(window: VariationHistoryWindow, layout: VariationChartLayout): string {
+  const axisY = layout.height - 132;
+  const edges = window.commits.slice(1).map((commit, index) => {
+    const previous = window.commits[index]!;
+    const adjacent = commit.parents.includes(previous.hash) || previous.parents.includes(commit.hash);
+    const className = adjacent ? "variation-history-edge" : "variation-history-edge variation-gap";
+    return '<line class="' + className + '" x1="' + layout.xPositions.get(previous.hash) + '" x2="'
+      + layout.xPositions.get(commit.hash) + '" y1="' + axisY + '" y2="' + axisY + '"/>';
+  }).join("");
+  const anchors = new Set(window.anchors);
+  const nodes = window.commits.map((commit) => {
+    const className = anchors.has(commit.hash)
+      ? "variation-history-node variation-history-node-anchor" : "variation-history-node";
+    const x = layout.xPositions.get(commit.hash) ?? 0;
+    return '<circle class="' + className + '" cx="' + x + '" cy="' + axisY + '" r="4"><title>'
+      + escapeHtml(commit.hash.slice(0, 7) + " " + commit.subject) + '</title></circle>';
+  }).join("");
+  return edges + nodes;
 }
 
 function renderVariationSeries(points: VariationPlotPoint[], window: VariationHistoryWindow, layout: VariationChartLayout, metric: VariationMetricDescriptor): string {
@@ -1205,8 +1225,9 @@ function renderVariationSeries(points: VariationPlotPoint[], window: VariationHi
 function renderVariationSvg(window: VariationHistoryWindow, data: VariationChartDatum[], metric: VariationMetricDescriptor): string {
   const layout = layoutVariationChart(window, data);
   const points = positionVariationPoints(data, layout);
-  return '<svg role="img" aria-label="Metric values across nearby commits" width="' + layout.width + '" height="' + layout.height + '">'
-    + renderVariationGrid(layout, data, metric) + renderVariationSeries(points, window, layout, metric)
+  return '<svg role="img" aria-label="Metric values across commits with reports" width="' + layout.width + '" height="' + layout.height + '">'
+    + renderVariationGrid(layout, data, metric) + renderVariationHistoryAxis(window, layout)
+    + renderVariationSeries(points, window, layout, metric)
     + renderVariationCommitLabels(window, layout) + '</svg>';
 }
 
