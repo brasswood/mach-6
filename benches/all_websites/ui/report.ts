@@ -589,19 +589,18 @@ function addGitGraphNeighborhood(
   center: number,
   group: number,
   commits: Map<string, GitHistoryCommitJson>,
-  children: Map<string, GitHistoryCommitJson[]>
+  children: Map<string, GitHistoryCommitJson[]>,
+  aheadPreferred: string[] = [],
+  behindPreferred: string[] = []
 ): void {
   addGitGraphPoint(points, anchor, center, group, true);
-  const behind = collectHistoryDepths(anchor.hash, (hash) => commits.get(hash)?.parents ?? [], 3);
-  const ahead = collectHistoryDepths(anchor.hash, (hash) => (children.get(hash) ?? []).map((commit) => commit.hash), 3);
-  for (const [hash, depth] of behind) {
-    const commit = commits.get(hash);
-    if (commit && depth > 0) addGitGraphPoint(points, commit, center - depth, group);
-  }
-  for (const [hash, depth] of ahead) {
-    const commit = commits.get(hash);
-    if (commit && depth > 0) addGitGraphPoint(points, commit, center + depth, group);
-  }
+  const ahead = collectGitGraphCandidates(anchor.hash,
+    (hash) => (children.get(hash) ?? []).map((commit) => commit.hash), commits, 6, aheadPreferred);
+  const behind = collectGitGraphCandidates(anchor.hash,
+    (hash) => commits.get(hash)?.parents ?? [], commits, 6, behindPreferred);
+  const selected = selectGitGraphNeighborhood(ahead, behind);
+  for (const candidate of selected.behind) addGitGraphPoint(points, candidate.commit, center - candidate.depth, group);
+  for (const candidate of selected.ahead) addGitGraphPoint(points, candidate.commit, center + candidate.depth, group);
 }
 
 function historyAnchorsFromReports(
@@ -649,7 +648,10 @@ function buildGitGraphView(history: GitHistoryJson | null, reports: ReportMetada
     : ordered.anchors.map((_, index) => index * 7);
   const points = new Map<string, GitGraphPoint>();
   ordered.anchors.forEach((anchor, index) => {
-    addGitGraphNeighborhood(points, anchor, centers[index] ?? 0, ordered.path ? 0 : index, commits, children);
+    const aheadPreferred = index === 0 ? ordered.path?.slice(1) ?? [] : [];
+    const behindPreferred = index === 1 ? ordered.path?.slice(0, -1).reverse() ?? [] : [];
+    addGitGraphNeighborhood(points, anchor, centers[index] ?? 0, ordered.path ? 0 : index,
+      commits, children, aheadPreferred, behindPreferred);
   });
   const path = ordered.path;
   path?.forEach((hash, index) => {
