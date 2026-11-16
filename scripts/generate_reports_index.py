@@ -75,6 +75,9 @@ def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]
 
 def collect_git_history() -> dict[str, Any]:
     repo_root = Path(__file__).resolve().parent.parent
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo_root, check=True, capture_output=True, text=True
+    ).stdout.strip()
     result = subprocess.run(
         ["git", "log", "--all", "--format=%H%x00%P%x00%s%x00%ct", "HEAD"],
         cwd=repo_root,
@@ -91,7 +94,7 @@ def collect_git_history() -> dict[str, Any]:
             "subject": subject,
             "timestamp": int(timestamp),
         })
-    return {"head": commits[0]["hash"] if commits else "", "commits": commits}
+    return {"head": head, "commits": commits}
 
 
 def write_json_atomically(path: Path, payload: dict[str, Any]) -> None:
