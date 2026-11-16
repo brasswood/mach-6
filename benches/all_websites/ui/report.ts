@@ -1768,11 +1768,12 @@ function renderSegmentSwatch(kind: SegmentKind): string {
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
 }
 
-function renderSegmentChange(value: bigint, baseline: bigint): string {
+function renderSegmentChange(value: bigint, baseline: bigint, metric?: VariationMetricDescriptor): string {
   if (baseline === 0n) {
-    return value === 0n
+    const change = value === 0n
       ? '<span>+0.000%</span>'
       : '<span class="metric-worse">-%</span>';
+    return metric ? renderVariationValue(change, metric) : change;
   }
   const delta = value - baseline;
   const magnitude = delta < 0n ? -delta : delta;
@@ -1780,7 +1781,8 @@ function renderSegmentChange(value: bigint, baseline: bigint): string {
   const text = (delta < 0n ? "-" : "+") + (milliPercent / 1000n).toString()
     + "." + (milliPercent % 1000n).toString().padStart(3, "0") + "%";
   const colorClass = delta < 0n ? "metric-better" : delta > 0n ? "metric-worse" : "";
-  return '<span class="' + colorClass + '">' + text + '</span>';
+  const change = '<span class="' + colorClass + '">' + text + '</span>';
+  return metric ? renderVariationValue(change, metric) : change;
 }
 
 function renderReportDiff(value: bigint, baseline: bigint): string {
