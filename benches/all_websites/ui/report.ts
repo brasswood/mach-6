@@ -908,6 +908,8 @@ async function loadCompareControls(
   const reportSource = getReportSource(currentMetadata);
   setCompareModeVisibility(reportSource, leftSelectField, rightSelectField, leftFileField, rightFileField);
   if (reportSource === "local") {
+    variationHistory = null;
+    variationIndexReports = [];
     leftSelect.innerHTML = "";
     rightSelect.innerHTML = "";
     leftFileInput.value = "";
@@ -950,6 +952,8 @@ async function loadCompareControls(
     compareStatus.hidden = true;
     compareStatus.textContent = "";
     compareStatus.classList.remove("error");
+    variationHistory = raw.git_history ?? null;
+    variationIndexReports = reportEntries;
     return raw.git_history ?? null;
   } catch (error: unknown) {
     container.hidden = false;
