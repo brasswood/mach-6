@@ -1418,6 +1418,38 @@ function renderOptionalCount(count: number | null, comparisonCount?: number | nu
   return count === null ? "N/A" : renderCountValue(count, comparisonCount);
 }
 
+function renderSelectorCountValue(
+  count: number | null | undefined,
+  reportComparisonCount?: number | null,
+  algorithmBaselineCount?: number | null
+): string {
+  if (count == null) {
+    return "N/A";
+  }
+  const algorithmChange = algorithmBaselineCount == null
+    ? ""
+    : " " + renderSegmentChange(toBigInt(count), toBigInt(algorithmBaselineCount));
+  return escapeHtml(NUMBER_FORMAT.format(count)) + algorithmChange
+    + (reportComparisonCount == null ? "" : renderReportDiff(toBigInt(count), toBigInt(reportComparisonCount)));
+}
+
+function renderSelectorTimingValue(
+  mean: bigint | undefined,
+  stddev: bigint | null | undefined,
+  reportComparisonMean?: bigint,
+  reportComparisonStddev?: bigint | null
+): string {
+  if (mean === undefined) {
+    return "N/A";
+  }
+  return renderTimingValue(
+    mean,
+    stddev ?? null,
+    reportComparisonMean,
+    reportComparisonStddev
+  );
+}
+
 function renderSelectorRows(rows: SelectorRow[], comparisonStats?: SelectorStatsJson): string {
   if (rows.length === 0) {
     return '<tr><td colspan="' + (3 + SELECTOR_RESULT_COUNTS.length).toString() + '">No selector stats captured.</td></tr>';
@@ -1429,14 +1461,14 @@ function renderSelectorRows(rows: SelectorRow[], comparisonStats?: SelectorStats
     return [
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
-      '<td class="col-time"><div class="cell-scroll">' + renderTimingValue(
+      '<td class="col-time"><div class="cell-scroll">' + renderSelectorTimingValue(
         row.meanCycles,
         row.stddevCycles,
         comparisonMean === undefined ? undefined : toBigInt(comparisonMean),
         comparisonStddev === undefined ? undefined : toBigInt(comparisonStddev)
       ) + '</div></td>',
-      '<td class="col-count">' + renderOptionalCount(row.rejectCount, comparisonStats?.slow_reject_counts?.[row.selector] ?? null) + '</td>',
-      ...row.resultCounts.map((count, index) => '<td class="col-result-count">' + renderOptionalCount(count, comparisonResultCounts[index]) + '</td>'),
+      '<td class="col-count">' + renderSelectorCountValue(row.rejectCount, comparisonStats?.slow_reject_counts?.[row.selector]) + '</td>',
+      ...row.resultCounts.map((count, index) => '<td class="col-result-count">' + renderSelectorCountValue(count, comparisonResultCounts[index]) + '</td>'),
       '</tr>'
     ].join("");
   }).join("");
