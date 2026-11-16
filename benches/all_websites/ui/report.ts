@@ -45,6 +45,14 @@ interface GitHistoryCommitJson {
   timestamp: number;
 }
 
+interface GitGraphPoint {
+  key: string;
+  commit: GitHistoryCommitJson;
+  layer: number;
+  group: number;
+  anchor: boolean;
+}
+
 interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
@@ -391,6 +399,18 @@ function isGitHistoryJson(value: unknown): value is GitHistoryJson {
         && typeof item.subject === "string"
         && isFiniteNumber(item.timestamp);
     });
+}
+
+function historyChildrenByHash(history: GitHistoryJson): Map<string, GitHistoryCommitJson[]> {
+  const children = new Map<string, GitHistoryCommitJson[]>();
+  for (const commit of history.commits) {
+    for (const parent of commit.parents) {
+      const siblings = children.get(parent) ?? [];
+      siblings.push(commit);
+      children.set(parent, siblings);
+    }
+  }
+  return children;
 }
 
 function isReportSource(value: unknown): value is ReportSource {
