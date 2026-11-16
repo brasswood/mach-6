@@ -62,6 +62,7 @@ interface GitGraphPosition {
   point: GitGraphPoint;
   x: number;
   y: number;
+  labelY: number;
 }
 
 interface ReportMetadataJson {
@@ -586,14 +587,19 @@ function layoutGitGraphPoints(points: GitGraphPoint[]): { positions: Map<string,
   const maxLayer = Math.max(...layerNumbers);
   const positions = new Map<string, GitGraphPosition>();
   let maxLanes = 1;
+  for (const column of layers.values()) maxLanes = Math.max(maxLanes, column.length);
   for (const [layer, column] of layers) {
     column.sort((left, right) => Number(right.anchor) - Number(left.anchor) || right.commit.timestamp - left.commit.timestamp);
-    maxLanes = Math.max(maxLanes, column.length);
     column.forEach((point, lane) => {
-      positions.set(point.key, { point, x: 200 + (layer - minLayer) * 130, y: 30 + lane * 44 });
+      positions.set(point.key, {
+        point,
+        x: 200 + (layer - minLayer) * 130,
+        y: 30 + lane * 44,
+        labelY: 38 + maxLanes * 44 + lane * 14
+      });
     });
   }
-  return { positions, width: (maxLayer - minLayer) * 130 + 400, height: (maxLanes - 1) * 44 + 180 };
+  return { positions, width: (maxLayer - minLayer) * 130 + 400, height: 102 + maxLanes * 58 };
 }
 
 function renderGitGraphEdges(positions: Map<string, GitGraphPosition>, dottedGap: boolean): string {
@@ -636,7 +642,7 @@ function wrapGitSubject(subject: string): string[] {
 }
 
 function renderGitGraphNodes(positions: Map<string, GitGraphPosition>): string {
-  return Array.from(positions.values()).map(({ point, x, y }) => {
+  return Array.from(positions.values()).map(({ point, x, y, labelY }) => {
     const className = point.anchor ? "git-history-node git-history-node-anchor" : "git-history-node";
     const label = point.commit.hash.slice(0, 7) + " " + point.commit.subject;
     const subjectLines = wrapGitSubject(point.commit.subject).map((line) => {
@@ -644,7 +650,7 @@ function renderGitGraphNodes(positions: Map<string, GitGraphPosition>): string {
     }).join("");
     return '<g aria-label="' + escapeHtml(label) + '">'
       + '<circle class="' + className + '" cx="' + x + '" cy="' + y + '" r="7"/>'
-      + '<g class="git-history-label" transform="translate(' + (x + 9) + " " + (y + 28) + ') rotate(28)">'
+      + '<g class="git-history-label" transform="translate(' + (x + 9) + " " + labelY + ') rotate(28)">'
       + '<text><tspan x="0">' + escapeHtml(point.commit.hash.slice(0, 7)) + '</tspan>'
       + subjectLines + '</text></g></g>';
   }).join("");
