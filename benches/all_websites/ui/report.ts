@@ -797,36 +797,13 @@ function renderGitHistoryGraph(
     return;
   }
   const layout = layoutGitGraphPoints(view.points);
-  const anchors = Array.from(layout.positions.values()).filter((position) => position.point.anchor).sort((a, b) => a.x - b.x);
-  const first = anchors[0], last = anchors[anchors.length - 1];
-  if (!first || !last) return;
-  const positions = Array.from(layout.positions.values());
-  let behind = 0, ahead = 0;
-  for (const group of new Set(anchors.map((position) => position.point.group))) {
-    const groupAnchors = anchors.filter((position) => position.point.group === group);
-    const groupFirst = groupAnchors[0]!, groupLast = groupAnchors[groupAnchors.length - 1]!;
-    const groupPositions = positions.filter((position) => position.point.group === group);
-    behind += new Set(groupPositions.filter((position) => position.point.layer < groupFirst.point.layer).map((position) => position.point.commit.hash)).size;
-    ahead += new Set(groupPositions.filter((position) => position.point.layer > groupLast.point.layer).map((position) => position.point.commit.hash)).size;
-  }
-  const margin = 16;
-  const anchorSpan = last.x - first.x;
   const viewportWidth = container.clientWidth;
-  const freeSpace = Math.max(0, viewportWidth - anchorSpan - margin * 2);
-  const weight = behind + ahead === 0 ? 0.5 : behind / (behind + ahead);
-  const anchorViewportX = freeSpace > 0
-    ? margin + freeSpace * weight
-    : Math.max(0, (viewportWidth - anchorSpan) / 2);
-  const minX = Math.min(...positions.map((position) => position.x));
-  const contentOffset = layout.width <= viewportWidth
-    ? Math.min(viewportWidth - layout.width, Math.max(margin - minX + 7, anchorViewportX - first.x))
-    : 0;
+  const contentOffset = Math.max(0, (viewportWidth - layout.width) / 2);
   const svgWidth = Math.max(layout.width, viewportWidth);
   container.innerHTML = '<svg class="git-history-svg" role="img" aria-label="Git commit history" width="'
     + svgWidth + '" height="' + layout.height + '"><g transform="translate(' + contentOffset + ' 0)">'
     + renderGitGraphEdges(layout.positions, view.dottedGap) + renderGitGraphNodes(layout.positions) + '</g></svg>';
-  const maxScroll = Math.max(0, svgWidth - viewportWidth);
-  container.scrollLeft = Math.min(maxScroll, Math.max(0, first.x + contentOffset - anchorViewportX));
+  container.scrollLeft = Math.max(0, (layout.width - viewportWidth) / 2);
 }
 
 function isReportSource(value: unknown): value is ReportSource {
