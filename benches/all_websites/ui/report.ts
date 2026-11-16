@@ -1380,21 +1380,29 @@ function renderExpandedBar(bar: BarView, comparisonBar?: BarView): string {
   ].join("");
 }
 
-function renderOptionalCount(count: number | null): string {
-  return count === null ? "N/A" : escapeHtml(NUMBER_FORMAT.format(count));
+function renderCountValue(count: number, comparisonCount?: number | null): string {
+  return escapeHtml(NUMBER_FORMAT.format(count))
+    + (comparisonCount == null ? "" : renderReportDiff(toBigInt(count), toBigInt(comparisonCount)));
 }
 
-function renderSelectorRows(rows: SelectorRow[]): string {
+function renderOptionalCount(count: number | null, comparisonCount?: number | null): string {
+  return count === null ? "N/A" : renderCountValue(count, comparisonCount);
+}
+
+function renderSelectorRows(rows: SelectorRow[], comparisonStats?: SelectorStatsJson): string {
   if (rows.length === 0) {
     return '<tr><td colspan="' + (3 + SELECTOR_RESULT_COUNTS.length).toString() + '">No selector stats captured.</td></tr>';
   }
   return rows.map((row) => {
+    const comparisonMean = comparisonStats?.means_cycles[row.selector];
+    const comparisonResultCounts = SELECTOR_RESULT_COUNTS.map(([key]) => comparisonStats?.[key]?.[row.selector] ?? null);
     return [
       '<tr>',
       '<td class="col-selector"><div class="cell-scroll"><code>' + escapeHtml(row.selector) + '</code></div></td>',
-      '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles)) + '</div></td>',
-      '<td class="col-count">' + renderOptionalCount(row.rejectCount) + '</td>',
-      ...row.resultCounts.map((count) => '<td class="col-result-count">' + renderOptionalCount(count) + '</td>'),
+      '<td class="col-time"><div class="cell-scroll">' + escapeHtml(meanWithStddev(row.meanCycles, row.stddevCycles))
+        + (comparisonMean === undefined ? "" : renderReportDiff(row.meanCycles, toBigInt(comparisonMean))) + '</div></td>',
+      '<td class="col-count">' + renderOptionalCount(row.rejectCount, comparisonStats?.slow_reject_counts?.[row.selector] ?? null) + '</td>',
+      ...row.resultCounts.map((count, index) => '<td class="col-result-count">' + renderOptionalCount(count, comparisonResultCounts[index]) + '</td>'),
       '</tr>'
     ].join("");
   }).join("");
@@ -1417,28 +1425,31 @@ function renderVariantDetails(bar: BarView, comparisonBar?: BarView): string {
   const selectorsSummary = typeof bar.selectorsSummary === "function"
     ? bar.selectorsSummary()
     : bar.selectorsSummary;
+  const comparisonSelectors = comparisonBar?.selectorsSummary;
+  const comparisonSelectorStats = typeof comparisonSelectors === "function"
+    ? comparisonSelectors()
+    : comparisonSelectors;
+  const comparisonCounts = comparisonBar?.counts;
   const topSlowRejectSelectors = buildSelectorRows(selectorsSummary);
-  const sharingRejects = bar.sharingRejects === null ? "N/A" : NUMBER_FORMAT.format(bar.sharingRejects);
-  const selectorMapRejects = bar.selectorMapRejects === null ? "N/A" : NUMBER_FORMAT.format(bar.selectorMapRejects);
   const countsHtml = bar.counts === undefined
     ? '<p class="stats-disabled-note">Detailed matcher statistics were disabled for this report.</p>'
     : [
       '<table><tbody>',
       bar.counts.num_elements === undefined
         ? ""
-        : '<tr><th>Elements</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.num_elements)) + '</td></tr>',
-      '<tr><th>Selectors</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.num_selectors ?? 0)) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Sharing Instances", "The number of elements that matched an element in the sharing cache and shared styles with it.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_instances)) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Sharing Misses", "The number of style sharing candidates that were tested and failed.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_misses ?? 0)) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Sharing Accepts", "The effective number of (selector, element) pairs accepted by style sharing.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.sharing_accepts ?? 0)) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Sharing Rejects", "The effective number of (selector, element) pairs rejected by style sharing. Derived by taking (selectors * sharing instances) - sharing accepts.") + '</th><td>' + escapeHtml(sharingRejects) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Selector Map Hits", "The number of (selector, element) candidate matches presented by the Selector Map.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.selector_map_hits)) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Tail Selector Map Hits", "The number of (selector, element) candidate matches presented by the universal-tail or universal-bucket Selector Map for bless lists.") + '</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.tail_selector_map_hits ?? 0)) + '</td></tr>',
-      '<tr><th>' + renderMetricLabel("Selector Map Rejects", "The number of (selector, element) pairs effectively rejected by the Selector Map. Derived by taking ((elements - sharing instances) * selectors) - selector map hits - tail selector map hits.") + '</th><td>' + escapeHtml(selectorMapRejects) + '</td></tr>',
-      '<tr><th>Bless List Hits</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.bless_list_hits ?? 0)) + '</td></tr>',
-      '<tr><th>Bloom Filter Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.fast_rejects)) + '</td></tr>',
-      '<tr><th>Slow Rejects</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_rejects)) + '</td></tr>',
-      '<tr><th>Slow Accepts</th><td>' + escapeHtml(NUMBER_FORMAT.format(bar.counts.slow_accepts)) + '</td></tr>',
+        : '<tr><th>Elements</th><td>' + renderCountValue(bar.counts.num_elements, comparisonCounts?.num_elements) + '</td></tr>',
+      '<tr><th>Selectors</th><td>' + renderCountValue(bar.counts.num_selectors ?? 0, comparisonCounts?.num_selectors ?? 0) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Sharing Instances", "The number of elements that matched an element in the sharing cache and shared styles with it.") + '</th><td>' + renderCountValue(bar.counts.sharing_instances, comparisonCounts?.sharing_instances) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Sharing Misses", "The number of style sharing candidates that were tested and failed.") + '</th><td>' + renderCountValue(bar.counts.sharing_misses ?? 0, comparisonCounts?.sharing_misses ?? 0) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Sharing Accepts", "The effective number of (selector, element) pairs accepted by style sharing.") + '</th><td>' + renderCountValue(bar.counts.sharing_accepts ?? 0, comparisonCounts?.sharing_accepts ?? 0) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Sharing Rejects", "The effective number of (selector, element) pairs rejected by style sharing. Derived by taking (selectors * sharing instances) - sharing accepts.") + '</th><td>' + renderOptionalCount(bar.sharingRejects, comparisonBar?.sharingRejects) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Selector Map Hits", "The number of (selector, element) candidate matches presented by the Selector Map.") + '</th><td>' + renderCountValue(bar.counts.selector_map_hits, comparisonCounts?.selector_map_hits) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Tail Selector Map Hits", "The number of (selector, element) candidate matches presented by the universal-tail or universal-bucket Selector Map for bless lists.") + '</th><td>' + renderCountValue(bar.counts.tail_selector_map_hits ?? 0, comparisonCounts?.tail_selector_map_hits ?? 0) + '</td></tr>',
+      '<tr><th>' + renderMetricLabel("Selector Map Rejects", "The number of (selector, element) pairs effectively rejected by the Selector Map. Derived by taking ((elements - sharing instances) * selectors) - selector map hits - tail selector map hits.") + '</th><td>' + renderOptionalCount(bar.selectorMapRejects, comparisonBar?.selectorMapRejects) + '</td></tr>',
+      '<tr><th>Bless List Hits</th><td>' + renderCountValue(bar.counts.bless_list_hits ?? 0, comparisonCounts?.bless_list_hits ?? 0) + '</td></tr>',
+      '<tr><th>Bloom Filter Rejects</th><td>' + renderCountValue(bar.counts.fast_rejects, comparisonCounts?.fast_rejects) + '</td></tr>',
+      '<tr><th>Slow Rejects</th><td>' + renderCountValue(bar.counts.slow_rejects, comparisonCounts?.slow_rejects) + '</td></tr>',
+      '<tr><th>Slow Accepts</th><td>' + renderCountValue(bar.counts.slow_accepts, comparisonCounts?.slow_accepts) + '</td></tr>',
       '</tbody></table>'
     ].join("");
   const selectorBreakdownHtml = bar.counts === undefined
