@@ -648,6 +648,9 @@ function renderGitHistoryGraph(
   container.innerHTML = '<svg class="git-history-svg" role="img" aria-label="Git commit history" width="'
     + layout.width + '" height="' + layout.height + '">' + renderGitGraphEdges(layout.positions, view.dottedGap)
     + renderGitGraphNodes(layout.positions) + '</svg>';
+  const anchors = Array.from(layout.positions.values()).filter((position) => position.point.anchor);
+  const center = anchors.reduce((total, position) => total + position.x, 0) / anchors.length;
+  container.scrollLeft = Math.max(0, center - container.clientWidth / 2);
 }
 
 function isReportSource(value: unknown): value is ReportSource {
