@@ -2066,13 +2066,18 @@ function renderExpandedBar(bar: BarView, website: string, comparisonBar?: BarVie
         bar.totalMatching.meanCycles,
         bar.totalMatching.stddevCycles,
         comparisonBar?.totalMatching.meanCycles,
-        comparisonBar?.totalMatching.stddevCycles
+        comparisonBar?.totalMatching.stddevCycles,
+        false,
+        { website, variant: bar.label, kind: "segment", key: "totalMatching" },
+        { website, variant: bar.label, kind: "segmentStddev", key: "totalMatching" }
       )
         + (bar.baselineSegmentCycles === undefined
           ? ""
-          : " " + renderSegmentChange(bar.totalMatching.meanCycles, bar.baselineSegmentCycles.get("totalMatching") ?? 0n))
+          : " " + renderSegmentChange(bar.totalMatching.meanCycles, bar.baselineSegmentCycles.get("totalMatching") ?? 0n, {
+            website, variant: bar.label, kind: "segmentChange", key: "totalMatching"
+          }))
         + '</span>')
-    + '<span>Total: ' + escapeHtml(formatCycles(bar.totalCycles))
+    + '<span>Total: ' + renderVariationValue(escapeHtml(formatCycles(bar.totalCycles)), { website, variant: bar.label, kind: "overall" })
     + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalCycles, comparisonBar.totalCycles)) + '</span>';
 
   return [
