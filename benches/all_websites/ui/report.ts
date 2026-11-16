@@ -413,6 +413,39 @@ function historyChildrenByHash(history: GitHistoryJson): Map<string, GitHistoryC
   return children;
 }
 
+function findHistoryPath(
+  start: string,
+  end: string,
+  children: Map<string, GitHistoryCommitJson[]>,
+  maxLength: number
+): string[] | null {
+  if (start === end) return [start];
+  const previous = new Map<string, string | null>([[start, null]]);
+  const depth = new Map<string, number>([[start, 0]]);
+  const queue = [start];
+  for (const current of queue) {
+    const nextDepth = (depth.get(current) ?? maxLength) + 1;
+    if (nextDepth > maxLength) continue;
+    for (const child of children.get(current) ?? []) {
+      if (depth.has(child.hash)) continue;
+      previous.set(child.hash, current);
+      depth.set(child.hash, nextDepth);
+      queue.push(child.hash);
+      if (child.hash !== end) continue;
+      const path = [end];
+      let cursor = end;
+      while (cursor !== start) {
+        const parent = previous.get(cursor);
+        if (parent === null || parent === undefined) return null;
+        path.push(parent);
+        cursor = parent;
+      }
+      return path.reverse();
+    }
+  }
+  return null;
+}
+
 function isReportSource(value: unknown): value is ReportSource {
   return value === "nightly" || value === "local";
 }
