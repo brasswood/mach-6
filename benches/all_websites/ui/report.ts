@@ -95,6 +95,12 @@ interface LoadedReport {
   report: ReportJson;
 }
 
+interface VariationReportCandidate {
+  url: string | null;
+  metadata: ReportMetadataJson;
+  report?: ReportJson;
+}
+
 interface WebsiteJson {
   website: string;
   summary: SummaryJson;
