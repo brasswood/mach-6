@@ -1824,6 +1824,15 @@ function renderVariationValue(value: string, metric: VariationMetricDescriptor):
     + '<button class="variation-trigger" type="button" data-variation="' + data + '" aria-label="Show metric variation">σ</button></span>';
 }
 
+function isVariationMetricDescriptor(value: unknown): value is VariationMetricDescriptor {
+  const record = getRecord(value);
+  const kinds = ["overall", "displayed", "speedup", "segment", "segmentStddev", "segmentChange", "count", "selectorTime", "selectorStddev", "selectorCount", "selectorChange", "context"];
+  return record !== null && typeof record.website === "string" && typeof record.variant === "string"
+    && typeof record.kind === "string" && kinds.includes(record.kind)
+    && (record.key === undefined || typeof record.key === "string")
+    && (record.selector === undefined || typeof record.selector === "string");
+}
+
 function getVariationWebsite(report: ReportJson, name: string): WebsiteView | undefined {
   let websites = variationWebsiteCache.get(report);
   if (!websites) {
