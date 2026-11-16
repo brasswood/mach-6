@@ -58,6 +58,12 @@ interface GitGraphView {
   dottedGap: boolean;
 }
 
+interface GitGraphPosition {
+  point: GitGraphPoint;
+  x: number;
+  y: number;
+}
+
 interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
@@ -566,6 +572,28 @@ function buildGitGraphView(history: GitHistoryJson | null, reports: ReportMetada
     points: Array.from(points.values()).sort((left, right) => left.group - right.group || left.layer - right.layer),
     dottedGap: ordered.anchors.length > 1 && ordered.path === null
   };
+}
+
+function layoutGitGraphPoints(points: GitGraphPoint[]): { positions: Map<string, GitGraphPosition>; width: number; height: number } {
+  const layers = new Map<number, GitGraphPoint[]>();
+  for (const point of points) {
+    const column = layers.get(point.layer) ?? [];
+    column.push(point);
+    layers.set(point.layer, column);
+  }
+  const layerNumbers = Array.from(layers.keys());
+  const minLayer = Math.min(...layerNumbers);
+  const maxLayer = Math.max(...layerNumbers);
+  const positions = new Map<string, GitGraphPosition>();
+  let maxLanes = 1;
+  for (const [layer, column] of layers) {
+    column.sort((left, right) => Number(right.anchor) - Number(left.anchor) || right.commit.timestamp - left.commit.timestamp);
+    maxLanes = Math.max(maxLanes, column.length);
+    column.forEach((point, lane) => {
+      positions.set(point.key, { point, x: 200 + (layer - minLayer) * 220, y: 30 + lane * 44 });
+    });
+  }
+  return { positions, width: (maxLayer - minLayer) * 220 + 400, height: maxLanes * 44 + 210 };
 }
 
 function isReportSource(value: unknown): value is ReportSource {
