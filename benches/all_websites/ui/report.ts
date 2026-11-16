@@ -2069,6 +2069,25 @@ function collectVariationHistoryPath(
   return path;
 }
 
+function findVariationHistoryPath(
+  start: string,
+  end: string,
+  ahead: boolean,
+  maxDepth: number,
+  commits: Map<string, GitHistoryCommitJson>,
+  children: Map<string, GitHistoryCommitJson[]>
+): string[] | null {
+  const path = [start];
+  let current = commits.get(start);
+  for (let depth = 0; depth < maxDepth && current; depth++) {
+    current = latestVariationNeighbor(current.hash, commits, children, ahead);
+    if (!current) return null;
+    path.push(current.hash);
+    if (current.hash === end) return path;
+  }
+  return null;
+}
+
 function allocateVariationHistorySlots(
   anchor: string,
   budget: number,
@@ -2113,8 +2132,15 @@ function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: Re
     for (const commit of allocation.behind) selected.set(commit.hash, commit);
     for (const commit of allocation.ahead) selected.set(commit.hash, commit);
   }
-  const connected = orderedAnchors.length < 2 || !!findHistoryPath(orderedAnchors[0]!, orderedAnchors[1]!, children, 13)
-    || !!findHistoryPath(orderedAnchors[1]!, orderedAnchors[0]!, children, 13);
+  const firstAnchor = orderedAnchors[0];
+  const secondAnchor = orderedAnchors[1];
+  const forwardPath = firstAnchor && secondAnchor
+    ? findVariationHistoryPath(firstAnchor, secondAnchor, true, 25, commits, children) : null;
+  const reversePath = firstAnchor && secondAnchor
+    ? findVariationHistoryPath(secondAnchor, firstAnchor, false, 25, commits, children) : null;
+  const historyOrderAnchors = reversePath ? [secondAnchor!, firstAnchor!] : orderedAnchors;
+  const connectedPath = forwardPath ?? reversePath;
+  const connected = orderedAnchors.length < 2 || !!connectedPath && connectedPath.every((hash) => selected.has(hash));
   if (isDiff && connected && orderedAnchors.length > 0 && selected.size < 26) {
     const addPath = (path: GitHistoryCommitJson[], limit: number): number => {
       let added = 0;
@@ -2126,9 +2152,9 @@ function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: Re
       return added;
     };
     let remaining = 26 - selected.size;
-    remaining -= addPath(collectVariationHistoryPath(orderedAnchors[0]!, false, 25, commits, children), remaining);
+    remaining -= addPath(collectVariationHistoryPath(historyOrderAnchors[0]!, false, 25, commits, children), remaining);
     if (remaining > 0) {
-      const lastAnchor = orderedAnchors[orderedAnchors.length - 1]!;
+      const lastAnchor = historyOrderAnchors[historyOrderAnchors.length - 1]!;
       addPath(collectVariationHistoryPath(lastAnchor, true, 25, commits, children), remaining);
     }
   }
