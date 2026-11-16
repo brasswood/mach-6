@@ -1307,17 +1307,18 @@ function renderReportDiff(value: bigint, baseline: bigint): string {
   return '<span class="report-diff">Δ' + text + '</span>';
 }
 
-function renderContextBar(bar: ContextBarView): string {
+function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
+  const change = comparisonBar === undefined ? "" : renderReportDiff(bar.totalLengthCycles, comparisonBar.totalLengthCycles);
   return [
     '<div class="variant-context">',
     '<div class="variant-context-label">' + escapeHtml(bar.label) + '</div>',
     '<div class="context-bar-wrap"><div class="context-bar-total" style="width: ' + pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles) + '%"></div></div>',
-    '<div class="context-value">' + escapeHtml(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles)) + '%</div>',
+    '<div class="context-value">' + escapeHtml(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles)) + '%' + change + '</div>',
     '</div>'
   ].join("");
 }
 
-function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint): string {
+function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint, comparisonBar?: BarView): string {
   const segmentsHtml = bar.segments.map((segment) => {
     return '<div class="bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
@@ -1334,7 +1335,8 @@ function renderSummaryBar(bar: BarView, summaryMaxBarLengthCycles: bigint): stri
     '<div class="variant-summary">',
     '<div class="variant-label">' + escapeHtml(bar.label) + '</div>',
     '<div class="bar-wrap"><div class="bar-total" style="width: ' + pct(bar.totalLengthCycles, summaryMaxBarLengthCycles) + '%">' + segmentsHtml + '</div></div>',
-    '<div class="time"><div class="time-primary"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles)) + '</div>' + speedup + '</div>' + displayNote + '</div>',
+    '<div class="time"><div class="time-primary"><div class="time-value' + warningClass + '">' + escapeHtml(formatCycles(bar.totalCycles))
+      + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalCycles, comparisonBar.totalCycles)) + '</div>' + speedup + '</div>' + displayNote + '</div>',
     '</div>'
   ].join("");
 }
@@ -1460,7 +1462,13 @@ function renderVariantDetails(bar: BarView): string {
   ].join("");
 }
 
-function renderWebsite(website: WebsiteView, reportSide: CompareSide | null = null): string {
+function renderWebsite(
+  website: WebsiteView,
+  reportSide: CompareSide | null = null,
+  comparisonWebsite: WebsiteView | null = null
+): string {
+  const comparisonContextBars = new Map((comparisonWebsite?.contextBars ?? []).map((bar) => [bar.label, bar]));
+  const comparisonBars = new Map((comparisonWebsite?.bars ?? []).map((bar) => [bar.label, bar]));
   const reportSideAttribute = reportSide === null ? "" : ' data-report-side="' + reportSide + '"';
   return [
     '<details class="site" data-website-name="' + escapeHtml(website.name) + '"' + reportSideAttribute + ' data-total-cycles="' + website.totalSortKeyCycles.toString() + '" data-slow-reject-cycles="' + website.slowRejectSortKeyCycles.toString() + '">',
@@ -1471,9 +1479,9 @@ function renderWebsite(website: WebsiteView, reportSide: CompareSide | null = nu
       ? '<span class="aggregate-label">' + escapeHtml(website.name) + '</span>'
       : escapeHtml(website.name)) + '</div>',
     '<div class="summary-variants">' + website.contextBars.map((bar) => {
-      return renderContextBar(bar);
+      return renderContextBar(bar, comparisonContextBars.get(bar.label));
     }).join("") + website.bars.map((bar) => {
-      return renderSummaryBar(bar, website.summaryMaxBarLengthCycles);
+      return renderSummaryBar(bar, website.summaryMaxBarLengthCycles, comparisonBars.get(bar.label));
     }).join("") + '</div>',
     '</div>',
     '<div class="bar-legend">' + website.legendKinds.map((kind) => {
@@ -1555,12 +1563,13 @@ function buildCompareWebsites(leftReport: ReportJson, rightReport: ReportJson): 
 function renderCompareCell(
   website: WebsiteView | null,
   missingLabel: string,
-  reportSide: CompareSide
+  reportSide: CompareSide,
+  comparisonWebsite: WebsiteView | null = null
 ): string {
   if (website === null) {
     return '<p class="compare-empty">' + escapeHtml(missingLabel) + '</p>';
   }
-  return renderWebsite(website, reportSide);
+  return renderWebsite(website, reportSide, comparisonWebsite);
 }
 
 function renderCompareHeaderHtml(metadata: ReportMetadataJson, fallbackLabel: string): string {
@@ -1623,10 +1632,10 @@ function renderCompareResults(
     return [
       '<section class="compare-row" data-website-name="' + escapeHtml(website.name) + '">',
       '<div class="compare-column">',
-      renderCompareCell(website.left, "Not present in left report.", "left"),
+      renderCompareCell(website.left, "Not present in left report.", "left", website.right),
       '</div>',
       '<div class="compare-column">',
-      renderCompareCell(website.right, "Not present in right report.", "right"),
+      renderCompareCell(website.right, "Not present in right report.", "right", website.left),
       '</div>',
       '</section>'
     ].join("");
