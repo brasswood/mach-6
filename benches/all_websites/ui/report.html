@@ -642,7 +642,12 @@
     .variation-close { border: 0; background: transparent; font-size: 22px; cursor: pointer; }
     .variation-status { color: var(--muted); font-size: 13px; }
     .variation-chart { overflow-x: auto; }
+    .variation-chart-track { position: relative; }
     .variation-chart svg { display: block; max-width: none; }
+    .variation-chart .variation-chart-svg { position: absolute; inset: 0; }
+    .variation-chart .variation-y-axis { position: sticky; left: 0; z-index: 1; }
+    .variation-y-axis-background { fill: var(--card); }
+    .variation-y-axis-tick, .variation-y-axis-border { stroke: var(--line); stroke-width: 1; }
     .variation-grid { stroke: var(--line); stroke-width: 1; }
     .variation-line { fill: none; stroke: #0f766e; stroke-width: 2; }
     .variation-history-edge { stroke: #94a3b8; stroke-width: 1.5; }
