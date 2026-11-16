@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -72,6 +73,27 @@ def gather_reports(reports_fs_root: Path, base_url: str) -> list[dict[str, Any]]
     return reports
 
 
+def collect_git_history() -> dict[str, Any]:
+    repo_root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        ["git", "log", "--all", "--format=%H%x00%P%x00%s%x00%ct", "HEAD"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    commits = []
+    for line in result.stdout.splitlines():
+        commit_hash, parents, subject, timestamp = line.split("\0", 3)
+        commits.append({
+            "hash": commit_hash,
+            "parents": parents.split() if parents else [],
+            "subject": subject,
+            "timestamp": int(timestamp),
+        })
+    return {"head": commits[0]["hash"] if commits else "", "commits": commits}
+
+
 def write_json_atomically(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(
@@ -96,7 +118,7 @@ def main() -> int:
         raise SystemExit(f"{reports_fs_root} is not a directory")
 
     reports = gather_reports(reports_fs_root, base_url)
-    write_json_atomically(OUT_REPORTS_INDEX, {"reports": reports})
+    write_json_atomically(OUT_REPORTS_INDEX, {"reports": reports, "git_history": collect_git_history()})
     return 0
 
 
