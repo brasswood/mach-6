@@ -1794,7 +1794,10 @@ function latestVariationNeighbor(
 }
 
 function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: ReportJson[]): VariationHistoryWindow {
-  if (!history) return { commits: [], anchors: [], dottedGap: false };
+  if (!history) {
+    const commits = reports.map((report) => report.metadata.commit_hash).filter((hash): hash is string => !!hash);
+    return { commits: Array.from(new Set(commits)).map((hash) => ({ hash, parents: [], subject: "", timestamp: 0 })), anchors: commits, dottedGap: false };
+  }
   const commits = new Map(history.commits.map((commit) => [commit.hash, commit]));
   const children = historyChildrenByHash(history);
   const anchors = Array.from(new Set(reports.map((report) => report.metadata.commit_hash).filter((hash): hash is string => !!hash)));
