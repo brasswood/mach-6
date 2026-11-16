@@ -2808,6 +2808,10 @@ async function main(): Promise<void> {
   const compareRightOnly = document.getElementById("compare-right-only");
   const compareResults = document.getElementById("compare-results");
   const sortControls = document.querySelector(".sort-controls");
+  const variationDialog = document.getElementById("variation-dialog");
+  const variationTitle = document.getElementById("variation-title");
+  const variationStatus = document.getElementById("variation-status");
+  const variationChart = document.getElementById("variation-chart");
   if (!(list instanceof HTMLElement)
     || !(byTotal instanceof HTMLButtonElement)
     || !(bySlow instanceof HTMLButtonElement)
@@ -2834,10 +2838,15 @@ async function main(): Promise<void> {
     || !(compareRightOnly instanceof HTMLButtonElement)
     || !(compareResults instanceof HTMLElement)
     || !(gitHistoryGraph instanceof HTMLElement)
+    || !(variationDialog instanceof HTMLDialogElement)
+    || !(variationTitle instanceof HTMLElement)
+    || !(variationStatus instanceof HTMLElement)
+    || !(variationChart instanceof HTMLElement)
     || !(sortControls instanceof HTMLElement)) {
     return;
   }
 
+  installVariationHandlers(variationDialog, variationTitle, variationStatus, variationChart);
   byTotal.addEventListener("click", () => {
     sortBy("totalCycles", byTotal, list, byTotal, bySlow);
   });
