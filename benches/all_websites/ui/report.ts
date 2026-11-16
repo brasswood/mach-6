@@ -1756,6 +1756,35 @@ function latestVariationNeighbor(
   return [...candidates].sort((left, right) => right.timestamp - left.timestamp || left.hash.localeCompare(right.hash))[0];
 }
 
+function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: ReportJson[]): VariationHistoryWindow {
+  if (!history) return { commits: [], anchors: [], dottedGap: false };
+  const commits = new Map(history.commits.map((commit) => [commit.hash, commit]));
+  const children = historyChildrenByHash(history);
+  const anchors = Array.from(new Set(reports.map((report) => report.metadata.commit_hash).filter((hash): hash is string => !!hash)));
+  const selected = new Map<string, GitHistoryCommitJson>();
+  for (const anchor of anchors) {
+    let current = commits.get(anchor);
+    if (!current) continue;
+    selected.set(current.hash, current);
+    for (const ahead of [false, true]) {
+      current = commits.get(anchor)!;
+      for (let depth = 0; depth < 3; depth++) {
+        current = latestVariationNeighbor(current.hash, commits, children, ahead);
+        if (!current) break;
+        selected.set(current.hash, current);
+      }
+    }
+  }
+  const orderedAnchors = anchors.filter((hash) => commits.has(hash)).sort((left, right) => commits.get(left)!.timestamp - commits.get(right)!.timestamp);
+  const connected = orderedAnchors.length < 2 || !!findHistoryPath(orderedAnchors[0]!, orderedAnchors[1]!, children, 7)
+    || !!findHistoryPath(orderedAnchors[1]!, orderedAnchors[0]!, children, 7);
+  return {
+    commits: Array.from(selected.values()).sort((left, right) => left.timestamp - right.timestamp || left.hash.localeCompare(right.hash)),
+    anchors: orderedAnchors,
+    dottedGap: !connected
+  };
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
