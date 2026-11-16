@@ -1051,6 +1051,21 @@ function formatVariationValue(value: number, metric: VariationMetricDescriptor):
   return metric.kind === "context" ? value.toFixed(3) + "%" : NUMBER_FORMAT.format(value);
 }
 
+function layoutVariationChart(window: VariationHistoryWindow, data: VariationChartDatum[]): VariationChartLayout {
+  const left = 92, right = 30, top = 24, bottom = 92;
+  const width = Math.max(720, left + right + Math.max(0, window.commits.length - 1) * 128);
+  const height = 360;
+  const xPositions = new Map(window.commits.map((commit, index) => [
+    commit.hash,
+    window.commits.length === 1 ? width / 2 : left + index * (width - left - right) / (window.commits.length - 1)
+  ]));
+  const min = Math.min(...data.map((point) => point.value), 0);
+  const max = Math.max(...data.map((point) => point.value), 0);
+  const padding = (max - min) * 0.1 || Math.abs(max || min) * 0.1 || 1;
+  const low = min - padding, high = max + padding;
+  return { width, height, xPositions, yPosition: (value) => top + (high - value) * (height - top - bottom) / (high - low) };
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
