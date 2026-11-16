@@ -1065,8 +1065,8 @@ function layoutVariationChart(window: VariationHistoryWindow, data: VariationCha
     commit.hash,
     window.commits.length === 1 ? width / 2 : left + index * (width - left - right) / (window.commits.length - 1)
   ]));
-  const min = Math.min(...data.map((point) => point.value), 0);
-  const max = Math.max(...data.map((point) => point.value), 0);
+  const min = Math.min(...data.map((point) => point.value));
+  const max = Math.max(...data.map((point) => point.value));
   const padding = (max - min) * 0.1 || Math.abs(max || min) * 0.1 || 1;
   const low = min - padding, high = max + padding;
   return { width, height, xPositions, yPosition: (value) => top + (high - value) * (height - top - bottom) / (high - low) };
@@ -1082,7 +1082,7 @@ function positionVariationPoints(data: VariationChartDatum[], layout: VariationC
 }
 
 function renderVariationGrid(layout: VariationChartLayout, data: VariationChartDatum[], metric: VariationMetricDescriptor): string {
-  const min = Math.min(...data.map((point) => point.value), 0), max = Math.max(...data.map((point) => point.value), 0);
+  const min = Math.min(...data.map((point) => point.value)), max = Math.max(...data.map((point) => point.value));
   const padding = (max - min) * 0.1 || Math.abs(max || min) * 0.1 || 1;
   const low = min - padding, high = max + padding;
   return Array.from({ length: 5 }, (_, index) => {
