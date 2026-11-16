@@ -971,6 +971,14 @@
       <h2 id="git-history-title" class="git-history-title">Git History</h2>
       <div id="git-history-graph" class="git-history-scroll"></div>
     </section>
+    <dialog id="variation-dialog" aria-labelledby="variation-title">
+      <div class="variation-dialog-header">
+        <h2 id="variation-title">Metric variation</h2>
+        <form method="dialog"><button class="variation-close" aria-label="Close variation chart">×</button></form>
+      </div>
+      <p id="variation-status" class="variation-status" role="status"></p>
+      <div id="variation-chart" class="variation-chart"></div>
+    </dialog>
     <div class="report-body">
       <div class="sort-controls" role="group" aria-label="Sort websites">
         <button id="sort-total" class="sort-btn" type="button">Sort by Overall Cycles</button>
