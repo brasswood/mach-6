@@ -596,6 +596,41 @@ function layoutGitGraphPoints(points: GitGraphPoint[]): { positions: Map<string,
   return { positions, width: (maxLayer - minLayer) * 220 + 400, height: maxLanes * 44 + 210 };
 }
 
+function renderGitGraphEdges(positions: Map<string, GitGraphPosition>, dottedGap: boolean): string {
+  const paths: string[] = [];
+  for (const child of positions.values()) {
+    for (const parentHash of child.point.commit.parents) {
+      const parent = positions.get(child.point.group.toString() + ":" + parentHash);
+      if (!parent) continue;
+      const middleX = (parent.x + child.x) / 2;
+      paths.push('<path class="git-history-edge" d="M ' + parent.x + " " + parent.y
+        + " C " + middleX + " " + parent.y + ", " + middleX + " " + child.y + ", " + child.x + " " + child.y + '"/>');
+    }
+  }
+  if (dottedGap) {
+    const left = Array.from(positions.values()).filter((position) => position.point.group === 0).sort((a, b) => b.x - a.x)[0];
+    const right = Array.from(positions.values()).filter((position) => position.point.group === 1).sort((a, b) => a.x - b.x)[0];
+    if (left && right && left.x < right.x) {
+      const middleX = (left.x + right.x) / 2;
+      paths.push('<path class="git-history-edge git-history-gap" d="M ' + left.x + " " + left.y
+        + " C " + middleX + " " + left.y + ", " + middleX + " " + right.y + ", " + right.x + " " + right.y + '"/>');
+    }
+  }
+  return paths.join("");
+}
+
+function renderGitGraphNodes(positions: Map<string, GitGraphPosition>): string {
+  return Array.from(positions.values()).map(({ point, x, y }) => {
+    const className = point.anchor ? "git-history-node git-history-node-anchor" : "git-history-node";
+    const label = point.commit.hash.slice(0, 7) + " " + point.commit.subject;
+    return '<g aria-label="' + escapeHtml(label) + '">'
+      + '<circle class="' + className + '" cx="' + x + '" cy="' + y + '" r="7"/>'
+      + '<g class="git-history-label" transform="translate(' + (x + 9) + " " + (y + 28) + ') rotate(28)">'
+      + '<text><tspan x="0">' + escapeHtml(point.commit.hash.slice(0, 7)) + '</tspan>'
+      + '<tspan x="0" dy="12">' + escapeHtml(point.commit.subject) + '</tspan></text></g></g>';
+  }).join("");
+}
+
 function isReportSource(value: unknown): value is ReportSource {
   return value === "nightly" || value === "local";
 }
