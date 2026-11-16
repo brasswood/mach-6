@@ -2037,7 +2037,7 @@ function renderSummaryBar(bar: BarView, website: string, summaryMaxBarLengthCycl
   ].join("");
 }
 
-function renderExpandedBar(bar: BarView, comparisonBar?: BarView): string {
+function renderExpandedBar(bar: BarView, website: string, comparisonBar?: BarView): string {
   const segmentsHtml = bar.segments.map((segment) => {
     return '<div class="expanded-bar-seg ' + SEGMENT_INFO[segment.kind].cssClass + '" style="width: ' + pct(segment.meanCycles > 0n ? segment.meanCycles : 0n, bar.totalLengthCycles) + '%"></div>';
   }).join("");
@@ -2220,6 +2220,7 @@ function getSelectorStats(bar?: BarView): SelectorStatsJson | undefined {
 
 function renderVariantDetails(
   bar: BarView,
+  website: string,
   comparisonBar?: BarView,
   algorithmComparisonBar?: BarView,
   reportAlgorithmComparisonBar?: BarView
@@ -2296,7 +2297,7 @@ function renderVariantDetails(
   return [
     '<section class="variant-details">',
     '<h4 class="variant-details-title">' + escapeHtml(bar.label) + '</h4>',
-    renderExpandedBar(bar, comparisonBar),
+    renderExpandedBar(bar, website, comparisonBar),
     countsHtml,
     selectorBreakdownHtml,
     '</section>'
@@ -2369,6 +2370,7 @@ function installWebsiteDetailsHandlers(
             : bar.label === "With Bless List" ? "Baseline" : undefined;
           return renderVariantDetails(
             bar,
+            website.name,
             comparisonBars.get(bar.label),
             algorithmLabel === undefined ? undefined : websiteBars.get(algorithmLabel),
             algorithmLabel === undefined ? undefined : comparisonBars.get(algorithmLabel)
