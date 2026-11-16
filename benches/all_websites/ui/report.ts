@@ -590,10 +590,10 @@ function layoutGitGraphPoints(points: GitGraphPoint[]): { positions: Map<string,
     column.sort((left, right) => Number(right.anchor) - Number(left.anchor) || right.commit.timestamp - left.commit.timestamp);
     maxLanes = Math.max(maxLanes, column.length);
     column.forEach((point, lane) => {
-      positions.set(point.key, { point, x: 200 + (layer - minLayer) * 220, y: 30 + lane * 44 });
+      positions.set(point.key, { point, x: 200 + (layer - minLayer) * 170, y: 30 + lane * 44 });
     });
   }
-  return { positions, width: (maxLayer - minLayer) * 220 + 400, height: (maxLanes - 1) * 44 + 180 };
+  return { positions, width: (maxLayer - minLayer) * 170 + 400, height: (maxLanes - 1) * 44 + 180 };
 }
 
 function renderGitGraphEdges(positions: Map<string, GitGraphPosition>, dottedGap: boolean): string {
@@ -669,8 +669,7 @@ function renderGitHistoryGraph(
     + renderGitGraphNodes(layout.positions) + '</svg>';
   const anchors = Array.from(layout.positions.values()).filter((position) => position.point.anchor);
   const center = anchors.reduce((total, position) => total + position.x, 0) / anchors.length;
-  const offset = container.clientWidth * (anchors.length === 1 ? 0.42 : 0.5);
-  container.scrollLeft = Math.max(0, center - offset);
+  container.scrollLeft = Math.max(0, center - container.clientWidth / 2);
 }
 
 function isReportSource(value: unknown): value is ReportSource {
