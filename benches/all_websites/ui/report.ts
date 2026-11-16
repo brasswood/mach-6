@@ -2069,6 +2069,30 @@ function collectVariationHistoryPath(
   return path;
 }
 
+function allocateVariationHistorySlots(
+  anchor: string,
+  budget: number,
+  aheadSlots: number,
+  behindSlots: number,
+  commits: Map<string, GitHistoryCommitJson>,
+  children: Map<string, GitHistoryCommitJson[]>
+): VariationHistoryAllocation {
+  const aheadCandidates = collectVariationHistoryPath(anchor, true, budget - 1, commits, children);
+  const behindCandidates = collectVariationHistoryPath(anchor, false, budget - 1, commits, children);
+  const ahead = aheadCandidates.slice(0, aheadSlots);
+  const behind = behindCandidates.slice(0, behindSlots);
+  let remaining = budget - 1 - ahead.length - behind.length;
+  if (ahead.length < aheadSlots && remaining > 0) {
+    const extra = behindCandidates.slice(behind.length, behind.length + remaining);
+    behind.push(...extra);
+    remaining -= extra.length;
+  }
+  if (behind.length < behindSlots && remaining > 0) {
+    ahead.push(...aheadCandidates.slice(ahead.length, ahead.length + remaining));
+  }
+  return { ahead, behind };
+}
+
 function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: ReportJson[]): VariationHistoryWindow {
   if (!history) {
     const commits = reports.map((report) => report.metadata.commit_hash).filter((hash): hash is string => !!hash);
