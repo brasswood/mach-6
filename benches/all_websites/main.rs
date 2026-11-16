@@ -58,6 +58,14 @@ impl From<&Selector> for SelectorString {
 struct SelectorSlowRejectSamples {
     selector: SelectorString,
     aggregate_durations: Samples<tsc_timer::Duration>,
+    reject_count: usize,
+}
+
+#[cfg(feature = "detailed_statistics")]
+#[derive(Default)]
+struct SelectorRejectMeasurements {
+    aggregate_durations: Vec<tsc_timer::Duration>,
+    reject_count: usize,
 }
 
 /// Aggregated data for one matching variant in the website report.
@@ -96,32 +104,38 @@ impl MatchBenchResult {
 
         #[cfg(feature = "detailed_statistics")]
         let selector_slow_reject_times = {
-        let mut map: HashMap<SelectorString, Vec<tsc_timer::Duration>> = HashMap::new();
+        let mut map: HashMap<SelectorString, SelectorRejectMeasurements> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
-                let slow_reject_duration = match selector_stats {
-                    SelectorStats::Bloom(bq) =>
+                let (duration, count) = match selector_stats {
+                    SelectorStats::Bloom(bq) => (
                         bq.time_slow_rejecting.unwrap_or_default(),
-                    SelectorStats::ScopeProximity(sp) =>
-                        sp.time_slow_rejecting,
+                        usize::from(bq.time_slow_rejecting.is_some()),
+                    ),
+                    SelectorStats::ScopeProximity(sp) => (sp.time_slow_rejecting, sp.slow_rejects),
                 };
                 let selector = SelectorString::from(&selector);
-                let samples = map.entry(selector).or_default();
+                let measurements = map.entry(selector).or_default();
+                measurements.reject_count += count;
                 // If this is the first time we have touched the vector at this
                 // selector for this sample (samples.len() == i), push a new
                 // Duration onto the end. Otherwise, samples.len() == i + 1,
                 // which means we have already started building up an aggregate
                 // duration for this sample, so just accumulate that. 
-                if samples.len() == i {
-                    samples.push(slow_reject_duration);
+                if measurements.aggregate_durations.len() == i {
+                    measurements.aggregate_durations.push(duration);
                 } else {
-                    samples[i] += slow_reject_duration;
+                    measurements.aggregate_durations[i] += duration;
                 }
             }
         }
 
-        let mut sorted: Vec<_> = map.into_iter().map(|(selector, durations)|
-            SelectorSlowRejectSamples { selector, aggregate_durations: Samples::from_vec(durations) }
+        let mut sorted: Vec<_> = map.into_iter().map(|(selector, measurements)|
+            SelectorSlowRejectSamples {
+                selector,
+                aggregate_durations: Samples::from_vec(measurements.aggregate_durations),
+                reject_count: measurements.reject_count,
+            }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
         sorted
