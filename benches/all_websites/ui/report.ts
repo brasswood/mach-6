@@ -2115,6 +2115,23 @@ function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: Re
   }
   const connected = orderedAnchors.length < 2 || !!findHistoryPath(orderedAnchors[0]!, orderedAnchors[1]!, children, 13)
     || !!findHistoryPath(orderedAnchors[1]!, orderedAnchors[0]!, children, 13);
+  if (isDiff && connected && orderedAnchors.length > 0 && selected.size < 26) {
+    const addPath = (path: GitHistoryCommitJson[], limit: number): number => {
+      let added = 0;
+      for (const commit of path) {
+        if (selected.has(commit.hash)) continue;
+        selected.set(commit.hash, commit);
+        if (++added === limit) break;
+      }
+      return added;
+    };
+    let remaining = 26 - selected.size;
+    remaining -= addPath(collectVariationHistoryPath(orderedAnchors[0]!, false, 25, commits, children), remaining);
+    if (remaining > 0) {
+      const lastAnchor = orderedAnchors[orderedAnchors.length - 1]!;
+      addPath(collectVariationHistoryPath(lastAnchor, true, 25, commits, children), remaining);
+    }
+  }
   return {
     commits: Array.from(selected.values()).sort((left, right) => left.timestamp - right.timestamp || left.hash.localeCompare(right.hash)),
     anchors: orderedAnchors,
