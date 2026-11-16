@@ -1033,6 +1033,17 @@ async function loadVariationData(window: VariationHistoryWindow, metric: Variati
     || (left.report.metadata.time_end ?? "").localeCompare(right.report.metadata.time_end ?? ""));
 }
 
+function formatVariationValue(value: number, metric: VariationMetricDescriptor): string {
+  if (["overall", "displayed", "segment", "segmentStddev", "selectorTime", "selectorStddev"].includes(metric.kind)) {
+    return formatSignedCycles(BigInt(Math.round(value)));
+  }
+  if (metric.kind === "speedup") return value.toFixed(3) + "x";
+  if (metric.kind === "segmentChange" || metric.kind === "selectorChange") {
+    return (value < 0 ? "-" : "+") + Math.abs(value).toFixed(3) + "%";
+  }
+  return metric.kind === "context" ? value.toFixed(3) + "%" : NUMBER_FORMAT.format(value);
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
