@@ -86,6 +86,11 @@ interface VariationHistoryWindow {
   dottedGap: boolean;
 }
 
+interface VariationHistoryAllocation {
+  ahead: GitHistoryCommitJson[];
+  behind: GitHistoryCommitJson[];
+}
+
 interface ReportMetadataJson {
   branch: string | null;
   commit_hash: string | null;
@@ -2046,6 +2051,22 @@ function latestVariationNeighbor(
 ): GitHistoryCommitJson | undefined {
   const candidates = ahead ? children.get(hash) ?? [] : (commits.get(hash)?.parents ?? []).map((parent) => commits.get(parent)).filter((commit) => commit !== undefined);
   return [...candidates].sort((left, right) => right.timestamp - left.timestamp || left.hash.localeCompare(right.hash))[0];
+}
+
+function collectVariationHistoryPath(
+  start: string,
+  ahead: boolean,
+  maxDepth: number,
+  commits: Map<string, GitHistoryCommitJson>,
+  children: Map<string, GitHistoryCommitJson[]>
+): GitHistoryCommitJson[] {
+  const path: GitHistoryCommitJson[] = [];
+  let current = commits.get(start);
+  for (let depth = 0; depth < maxDepth && current; depth++) {
+    current = latestVariationNeighbor(current.hash, commits, children, ahead);
+    if (current) path.push(current);
+  }
+  return path;
 }
 
 function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: ReportJson[]): VariationHistoryWindow {
