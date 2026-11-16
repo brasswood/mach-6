@@ -557,7 +557,7 @@ function buildGitGraphView(history: GitHistoryJson | null, reports: ReportMetada
   const ordered = orderGitGraphAnchors(anchors, children);
   const centers = ordered.path
     ? [0, ordered.path.length - 1]
-    : ordered.anchors.map((_, index) => index * 10);
+    : ordered.anchors.map((_, index) => index * 8);
   const points = new Map<string, GitGraphPoint>();
   ordered.anchors.forEach((anchor, index) => {
     addGitGraphNeighborhood(points, anchor, centers[index] ?? 0, ordered.path ? 0 : index, commits, children);
@@ -669,7 +669,8 @@ function renderGitHistoryGraph(
     + renderGitGraphNodes(layout.positions) + '</svg>';
   const anchors = Array.from(layout.positions.values()).filter((position) => position.point.anchor);
   const center = anchors.reduce((total, position) => total + position.x, 0) / anchors.length;
-  container.scrollLeft = Math.max(0, center - container.clientWidth * 0.42);
+  const offset = container.clientWidth * (anchors.length === 1 ? 0.42 : 0.5);
+  container.scrollLeft = Math.max(0, center - offset);
 }
 
 function isReportSource(value: unknown): value is ReportSource {
