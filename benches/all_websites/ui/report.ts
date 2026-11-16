@@ -986,6 +986,33 @@ async function fetchReportJson(reportUrl: string): Promise<ReportJson> {
   return report;
 }
 
+function getVariationCandidates(window: VariationHistoryWindow): VariationReportCandidate[] {
+  const commitHashes = new Set(window.commits.map((commit) => commit.hash));
+  const candidates = new Map<string, VariationReportCandidate>();
+  const add = (candidate: VariationReportCandidate): void => {
+    const key = [candidate.metadata.commit_hash, candidate.metadata.time_end, candidate.metadata.tagline].join("|");
+    if (candidate.metadata.commit_hash && commitHashes.has(candidate.metadata.commit_hash)) candidates.set(key, candidate);
+  };
+  for (const report of variationActiveReports) add({ url: null, metadata: report.metadata, report });
+  for (const entry of variationIndexReports) {
+    const metadata = getRecord(entry.metadata) ?? getRecord(entry.raw_metadata);
+    const url = getOptionalString(entry, "url");
+    if (metadata && url && isReportMetadataJson(metadata)) add({ url, metadata });
+  }
+  return Array.from(candidates.values());
+}
+
+async function loadVariationCandidate(candidate: VariationReportCandidate): Promise<ReportJson> {
+  if (candidate.report) return candidate.report;
+  if (!candidate.url) throw new Error("A historical report has no URL");
+  let pending = variationReportCache.get(candidate.url);
+  if (!pending) {
+    pending = fetchReportJson(candidate.url);
+    variationReportCache.set(candidate.url, pending);
+  }
+  return pending;
+}
+
 async function readReportJsonFile(file: File): Promise<ReportJson> {
   const raw: unknown = JSON.parse(await file.text());
   const report = parseReportJson(raw);
