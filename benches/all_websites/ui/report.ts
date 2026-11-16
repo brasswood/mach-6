@@ -1833,6 +1833,12 @@ function isVariationMetricDescriptor(value: unknown): value is VariationMetricDe
     && (record.selector === undefined || typeof record.selector === "string");
 }
 
+function describeVariationMetric(metric: VariationMetricDescriptor): string {
+  const kind = metric.kind.replace(/([A-Z])/g, " $1").toLowerCase();
+  const details = [metric.selector, metric.key?.replace(/_/g, " ")].filter((value) => !!value);
+  return [metric.website, metric.variant, ...details, kind].join(" · ");
+}
+
 function getVariationWebsite(report: ReportJson, name: string): WebsiteView | undefined {
   let websites = variationWebsiteCache.get(report);
   if (!websites) {
