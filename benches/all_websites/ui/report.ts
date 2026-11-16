@@ -1675,6 +1675,13 @@ function getVariationWebsite(report: ReportJson, name: string): WebsiteView | un
   return websites.get(name);
 }
 
+function getVariationCount(bar: BarView, key: string): number | null {
+  if (key === "sharingRejects") return bar.sharingRejects;
+  if (key === "selectorMapRejects") return bar.selectorMapRejects;
+  const value = bar.counts?.[key as keyof CountingStatsJson];
+  return isFiniteNumber(value) ? value : null;
+}
+
 function renderContextBar(bar: ContextBarView, comparisonBar?: ContextBarView): string {
   const percentage = Number(pct(bar.totalLengthCycles, bar.aggregateTotalLengthCycles));
   const comparisonPercentage = comparisonBar === undefined
