@@ -2101,23 +2101,20 @@ function buildVariationHistoryWindow(history: GitHistoryJson | null, reports: Re
   const commits = new Map(history.commits.map((commit) => [commit.hash, commit]));
   const children = historyChildrenByHash(history);
   const anchors = Array.from(new Set(reports.map((report) => report.metadata.commit_hash).filter((hash): hash is string => !!hash)));
-  const selected = new Map<string, GitHistoryCommitJson>();
-  for (const anchor of anchors) {
-    let current = commits.get(anchor);
-    if (!current) continue;
-    selected.set(current.hash, current);
-    for (const ahead of [false, true]) {
-      current = commits.get(anchor)!;
-      for (let depth = 0; depth < 3; depth++) {
-        current = latestVariationNeighbor(current.hash, commits, children, ahead);
-        if (!current) break;
-        selected.set(current.hash, current);
-      }
-    }
-  }
   const orderedAnchors = anchors.filter((hash) => commits.has(hash)).sort((left, right) => commits.get(left)!.timestamp - commits.get(right)!.timestamp);
-  const connected = orderedAnchors.length < 2 || !!findHistoryPath(orderedAnchors[0]!, orderedAnchors[1]!, children, 7)
-    || !!findHistoryPath(orderedAnchors[1]!, orderedAnchors[0]!, children, 7);
+  const isDiff = reports.length > 1;
+  const budget = isDiff ? 13 : 26;
+  const aheadSlots = isDiff ? 6 : 12;
+  const behindSlots = isDiff ? 6 : 13;
+  const selected = new Map<string, GitHistoryCommitJson>();
+  for (const anchor of orderedAnchors) {
+    const allocation = allocateVariationHistorySlots(anchor, budget, aheadSlots, behindSlots, commits, children);
+    selected.set(anchor, commits.get(anchor)!);
+    for (const commit of allocation.behind) selected.set(commit.hash, commit);
+    for (const commit of allocation.ahead) selected.set(commit.hash, commit);
+  }
+  const connected = orderedAnchors.length < 2 || !!findHistoryPath(orderedAnchors[0]!, orderedAnchors[1]!, children, 13)
+    || !!findHistoryPath(orderedAnchors[1]!, orderedAnchors[0]!, children, 13);
   return {
     commits: Array.from(selected.values()).sort((left, right) => left.timestamp - right.timestamp || left.hash.localeCompare(right.hash)),
     anchors: orderedAnchors,
