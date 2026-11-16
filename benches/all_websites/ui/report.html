@@ -615,6 +615,38 @@
       font-weight: 400;
       white-space: nowrap;
     }
+    .variation-value { white-space: nowrap; }
+    .variation-trigger {
+      margin-left: 4px;
+      padding: 0 2px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85em;
+      cursor: pointer;
+    }
+    .variation-trigger:hover, .variation-trigger:focus-visible { color: var(--bar); }
+    #variation-dialog {
+      width: min(900px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--fg);
+      background: var(--card);
+    }
+    #variation-dialog::backdrop { background: rgba(15, 23, 42, 0.48); }
+    .variation-dialog-header { display: flex; align-items: center; justify-content: space-between; }
+    .variation-dialog-header h2 { margin: 0; font-size: 16px; }
+    .variation-close { border: 0; background: transparent; font-size: 22px; cursor: pointer; }
+    .variation-status { color: var(--muted); font-size: 13px; }
+    .variation-chart { overflow-x: auto; }
+    .variation-chart svg { display: block; max-width: none; }
+    .variation-grid { stroke: var(--line); stroke-width: 1; }
+    .variation-line { fill: none; stroke: #0f766e; stroke-width: 2; }
+    .variation-point { fill: #0f766e; stroke: #fff; stroke-width: 1.5; }
+    .variation-axis-label { fill: var(--muted); font: 11px ui-monospace, monospace; }
     .context-value {
       color: #94a3b8;
       font-size: 11px;
