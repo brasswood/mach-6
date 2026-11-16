@@ -565,6 +565,23 @@ function selectGitGraphNeighborhood(ahead: GitGraphCandidate[], behind: GitGraph
   return { ahead: selectedAhead, behind: selectedBehind };
 }
 
+function addGitGraphCandidates(
+  points: Map<string, GitGraphPoint>,
+  candidates: GitGraphCandidate[],
+  center: number,
+  direction: -1 | 1,
+  group: number,
+  limit: number
+): number {
+  let added = 0;
+  for (const candidate of candidates) {
+    if (points.has(group.toString() + ":" + candidate.commit.hash)) continue;
+    addGitGraphPoint(points, candidate.commit, center + direction * candidate.depth, group);
+    if (++added === limit) break;
+  }
+  return added;
+}
+
 function addGitGraphPoint(
   points: Map<string, GitGraphPoint>,
   commit: GitHistoryCommitJson,
