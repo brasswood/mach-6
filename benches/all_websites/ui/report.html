@@ -116,6 +116,25 @@
       font-size: 14px;
       font-weight: 700;
     }
+    .git-history {
+      max-width: 980px;
+      margin: 0 auto 18px;
+      padding: 14px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .git-history[hidden] { display: none; }
+    body.compare-active .git-history { max-width: 1960px; }
+    .git-history-title { margin: 0 0 8px; font-size: 14px; }
+    .git-history-scroll { overflow-x: auto; }
+    .git-history-svg { display: block; max-width: none; }
+    .git-history-edge { fill: none; stroke: #82909d; stroke-width: 2; }
+    .git-history-gap { stroke-dasharray: 4 5; }
+    .git-history-node { fill: #fff; stroke: #64748b; stroke-width: 2; }
+    .git-history-node-anchor { fill: var(--bar); stroke: var(--bar); }
+    .git-history-label { fill: var(--muted); font: 11px ui-monospace, monospace; }
     .compare-controls-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -916,6 +935,10 @@
         <p id="compare-status" class="compare-status" hidden></p>
       </section>
     </div>
+    <section id="git-history" class="git-history" hidden aria-labelledby="git-history-title">
+      <h2 id="git-history-title" class="git-history-title">Git History</h2>
+      <div id="git-history-graph" class="git-history-scroll"></div>
+    </section>
     <div class="report-body">
       <div class="sort-controls" role="group" aria-label="Sort websites">
         <button id="sort-total" class="sort-btn" type="button">Sort by Overall Cycles</button>
