@@ -2117,7 +2117,10 @@ function renderSelectorTimingValue(
   mean: bigint | undefined,
   stddev: bigint | null | undefined,
   reportComparisonMean?: bigint,
-  reportComparisonStddev?: bigint | null
+  reportComparisonStddev?: bigint | null,
+  website = "",
+  variant = "",
+  selector = ""
 ): string {
   if (mean === undefined) {
     return "N/A";
@@ -2126,7 +2129,10 @@ function renderSelectorTimingValue(
     mean,
     stddev ?? null,
     reportComparisonMean,
-    reportComparisonStddev
+    reportComparisonStddev,
+    false,
+    { website, variant, kind: "selectorTime", selector },
+    { website, variant, kind: "selectorStddev", selector }
   );
 }
 
@@ -2134,7 +2140,8 @@ function renderSelectorComparisonCells(
   row: SelectorRow,
   stats: SelectorStatsJson | undefined,
   reportStats: SelectorStatsJson | undefined,
-  label: string
+  label: string,
+  website: string
 ): string[] {
   const mean = stats?.means_cycles[row.selector];
   const stddev = stats?.stddevs_cycles[row.selector];
@@ -2146,7 +2153,10 @@ function renderSelectorComparisonCells(
       mean === undefined ? undefined : toBigInt(mean),
       stddev === undefined ? null : toBigInt(stddev),
       reportMean === undefined ? undefined : toBigInt(reportMean),
-      reportStddev === undefined ? undefined : toBigInt(reportStddev)
+      reportStddev === undefined ? undefined : toBigInt(reportStddev),
+      website,
+      label === "Bless List" ? "With Bless List" : "Baseline",
+      row.selector
     ) + '</div></td>',
     '<td class="col-count">' + renderSelectorCountValue(
       stats?.slow_reject_counts?.[row.selector],
@@ -2162,6 +2172,8 @@ function renderSelectorComparisonCells(
 }
 
 function renderSelectorRows(
+  website: string,
+  variant: string,
   rows: SelectorRow[],
   comparisonStats?: SelectorStatsJson,
   algorithmComparisonStats?: SelectorStatsJson,
@@ -2182,7 +2194,8 @@ function renderSelectorRows(
       row,
       algorithmComparisonStats,
       reportAlgorithmComparisonStats,
-      algorithmComparisonLabel
+      algorithmComparisonLabel,
+      website
     );
     return [
       '<tr>',
@@ -2191,7 +2204,10 @@ function renderSelectorRows(
         row.meanCycles,
         row.stddevCycles,
         comparisonMean === undefined ? undefined : toBigInt(comparisonMean),
-        comparisonStddev === undefined ? undefined : toBigInt(comparisonStddev)
+        comparisonStddev === undefined ? undefined : toBigInt(comparisonStddev),
+        website,
+        variant,
+        row.selector
       ) + '</div></td>',
       '<td class="col-count">' + renderSelectorCountValue(
         row.rejectCount,
@@ -2293,6 +2309,8 @@ function renderVariantDetails(
       '<thead><tr><th class="col-selector">Selector</th><th class="col-time">Total Slow Reject Cycles</th><th class="col-count">Slow Reject Count</th>'
         + renderSelectorResultCountHeaders() + comparisonHeaderHtml + '</tr></thead>',
       '<tbody>' + renderSelectorRows(
+        website,
+        bar.label,
         topSlowRejectSelectors,
         comparisonSelectorStats,
         algorithmComparisonStats,
