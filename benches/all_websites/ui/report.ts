@@ -1012,6 +1012,8 @@ function installCompareHandler(
   list: HTMLElement,
   sortControls: HTMLElement,
   compareResults: HTMLElement,
+  gitHistoryGraph: HTMLElement,
+  gitHistory: GitHistoryJson | null,
   byTotal: HTMLButtonElement,
   bySlow: HTMLButtonElement
 ): void {
@@ -1054,6 +1056,10 @@ function installCompareHandler(
       leftLoadedReport.label,
       rightLoadedReport.label
     );
+    renderGitHistoryGraph(gitHistoryGraph, gitHistory, [
+      leftLoadedReport.report.metadata,
+      rightLoadedReport.report.metadata
+    ]);
     installCompareSortHandlers(compareResults);
     const defaultSortButton = compareResults.querySelector<HTMLButtonElement>(
       '.compare-sort-controls button[data-compare-side="left"][data-sort-key="totalCycles"]'
@@ -1078,6 +1084,7 @@ function installCompareHandler(
   const renderOneSided = async (side: "left" | "right"): Promise<void> => {
     const loadedReport = await loadSelectedReport(side);
     renderSingleReportList(list, loadedReport.report, loadedReport.label);
+    renderGitHistoryGraph(gitHistoryGraph, gitHistory, [loadedReport.report.metadata]);
     hideCompareResults(compareResults);
     list.hidden = false;
     sortControls.hidden = false;
@@ -2416,6 +2423,7 @@ async function main(): Promise<void> {
   const status = document.getElementById("report-status");
   const commitLine = document.getElementById("report-commit-line");
   const compareControls = document.getElementById("compare-controls");
+  const gitHistoryGraph = document.getElementById("git-history-graph");
   const compareLeftSelectField = document.getElementById("compare-left-select-field");
   const compareRightSelectField = document.getElementById("compare-right-select-field");
   const compareLeftFileField = document.getElementById("compare-left-file-field");
@@ -2461,6 +2469,7 @@ async function main(): Promise<void> {
     || !(compareLeftOnly instanceof HTMLButtonElement)
     || !(compareRightOnly instanceof HTMLButtonElement)
     || !(compareResults instanceof HTMLElement)
+    || !(gitHistoryGraph instanceof HTMLElement)
     || !(sortControls instanceof HTMLElement)) {
     return;
   }
@@ -2490,7 +2499,7 @@ async function main(): Promise<void> {
     hideCompareResults(compareResults);
     document.body.classList.remove("compare-active");
     status.hidden = true;
-    await loadCompareControls(
+    const gitHistory = await loadCompareControls(
       compareControls,
       compareLeftSelectField,
       compareRightSelectField,
@@ -2503,6 +2512,7 @@ async function main(): Promise<void> {
       compareStatus,
       report.metadata
     );
+    renderGitHistoryGraph(gitHistoryGraph, gitHistory, [report.metadata]);
     installCompareSelectDropdown(compareLeftDropdown, compareLeftSearch, compareLeft, compareLeftNoMatches);
     installCompareSelectDropdown(compareRightDropdown, compareRightSearch, compareRight, compareRightNoMatches);
     installCompareHandler(
@@ -2519,6 +2529,8 @@ async function main(): Promise<void> {
       list,
       sortControls,
       compareResults,
+      gitHistoryGraph,
+      gitHistory,
       byTotal,
       bySlow
     );
