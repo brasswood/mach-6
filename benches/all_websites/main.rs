@@ -8,7 +8,7 @@ use scraper::Html;
 use selectors::matching::{Statistics, TimingStats};
 use selectors::matching::CountingStats;
 #[cfg(feature = "detailed_statistics")]
-use selectors::matching::SelectorStats;
+use selectors::matching::{NotMatchedResultCounts, SelectorStats};
 #[cfg(feature = "detailed_statistics")]
 use smallvec::SmallVec;
 #[cfg(feature = "detailed_statistics")]
@@ -59,6 +59,7 @@ struct SelectorSlowRejectSamples {
     selector: SelectorString,
     aggregate_durations: Samples<tsc_timer::Duration>,
     reject_count: usize,
+    result_counts: NotMatchedResultCounts,
 }
 
 #[cfg(feature = "detailed_statistics")]
@@ -66,6 +67,7 @@ struct SelectorSlowRejectSamples {
 struct SelectorRejectMeasurements {
     aggregate_durations: Vec<tsc_timer::Duration>,
     reject_count: usize,
+    result_counts: NotMatchedResultCounts,
 }
 
 /// Aggregated data for one matching variant in the website report.
@@ -107,16 +109,26 @@ impl MatchBenchResult {
         let mut map: HashMap<SelectorString, SelectorRejectMeasurements> = HashMap::new();
         for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
-                let (duration, count) = match selector_stats {
+                let (duration, count, result_counts) = match selector_stats {
                     SelectorStats::Bloom(bq) => (
                         bq.time_slow_rejecting.unwrap_or_default(),
-                        usize::from(bq.time_slow_rejecting.is_some()),
+                        bq.slow_rejects,
+                        if bq.time_slow_rejecting.is_some() {
+                            bq.not_matched_result_counts
+                        } else {
+                            NotMatchedResultCounts::default()
+                        },
                     ),
-                    SelectorStats::ScopeProximity(sp) => (sp.time_slow_rejecting, sp.slow_rejects),
+                    SelectorStats::ScopeProximity(sp) => (
+                        sp.time_slow_rejecting,
+                        sp.slow_rejects,
+                        sp.slow_reject_not_matched_result_counts,
+                    ),
                 };
                 let selector = SelectorString::from(&selector);
                 let measurements = map.entry(selector).or_default();
                 measurements.reject_count += count;
+                measurements.result_counts += result_counts;
                 // If this is the first time we have touched the vector at this
                 // selector for this sample (samples.len() == i), push a new
                 // Duration onto the end. Otherwise, samples.len() == i + 1,
@@ -135,6 +147,7 @@ impl MatchBenchResult {
                 selector,
                 aggregate_durations: Samples::from_vec(measurements.aggregate_durations),
                 reject_count: measurements.reject_count,
+                result_counts: measurements.result_counts,
             }
         ).collect();
         sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));

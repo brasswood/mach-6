@@ -289,6 +289,9 @@ mod selector_summary {
         pub(crate) means_cycles: HashMap<SelectorString, u64>,
         pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
         pub(crate) slow_reject_counts: HashMap<SelectorString, usize>,
+        pub(crate) classic_global_failures: HashMap<SelectorString, usize>,
+        pub(crate) classic_descendant_restarts: HashMap<SelectorString, usize>,
+        pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
     }
 
     #[cfg(feature = "detailed_statistics")]
@@ -306,6 +309,18 @@ mod selector_summary {
                 slow_reject_counts: value
                     .iter()
                     .map(|row| (row.selector.clone(), row.reject_count))
+                    .collect(),
+                classic_global_failures: value
+                    .iter()
+                    .map(|row| (row.selector.clone(), row.result_counts.classic_global_failures))
+                    .collect(),
+                classic_descendant_restarts: value
+                    .iter()
+                    .map(|row| (row.selector.clone(), row.result_counts.classic_descendant_restarts))
+                    .collect(),
+                classic_sibling_restarts: value
+                    .iter()
+                    .map(|row| (row.selector.clone(), row.result_counts.classic_sibling_restarts))
                     .collect(),
             }
         }
