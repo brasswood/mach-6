@@ -1450,6 +1450,37 @@ function renderSelectorTimingValue(
   );
 }
 
+function renderSelectorComparisonCells(
+  row: SelectorRow,
+  stats: SelectorStatsJson | undefined,
+  reportStats: SelectorStatsJson | undefined,
+  label: string
+): string[] {
+  const mean = stats?.means_cycles[row.selector];
+  const stddev = stats?.stddevs_cycles[row.selector];
+  const reportMean = reportStats?.means_cycles[row.selector];
+  const reportStddev = reportStats?.stddevs_cycles[row.selector];
+  const includeChange = label === "Bless List";
+  return [
+    '<td class="col-time"><div class="cell-scroll">' + renderSelectorTimingValue(
+      mean === undefined ? undefined : toBigInt(mean),
+      stddev === undefined ? null : toBigInt(stddev),
+      reportMean === undefined ? undefined : toBigInt(reportMean),
+      reportStddev === undefined ? undefined : toBigInt(reportStddev)
+    ) + '</div></td>',
+    '<td class="col-count">' + renderSelectorCountValue(
+      stats?.slow_reject_counts?.[row.selector],
+      reportStats?.slow_reject_counts?.[row.selector],
+      includeChange ? row.rejectCount : undefined
+    ) + '</td>',
+    ...SELECTOR_RESULT_COUNTS.map(([key], index) => '<td class="col-result-count">' + renderSelectorCountValue(
+      stats?.[key]?.[row.selector],
+      reportStats?.[key]?.[row.selector],
+      includeChange ? row.resultCounts[index] : undefined
+    ) + '</td>')
+  ];
+}
+
 function renderSelectorRows(rows: SelectorRow[], comparisonStats?: SelectorStatsJson): string {
   if (rows.length === 0) {
     return '<tr><td colspan="' + (3 + SELECTOR_RESULT_COUNTS.length).toString() + '">No selector stats captured.</td></tr>';
