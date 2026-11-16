@@ -542,6 +542,32 @@ function orderGitGraphAnchors(
   return { anchors, path: null };
 }
 
+function buildGitGraphView(history: GitHistoryJson | null, reports: ReportMetadataJson[]): GitGraphView {
+  const commits = new Map((history?.commits ?? []).map((commit) => [commit.hash, commit]));
+  const children = history ? historyChildrenByHash(history) : new Map<string, GitHistoryCommitJson[]>();
+  const anchors = historyAnchorsFromReports(reports, commits);
+  if (anchors.length === 0) return { points: [], dottedGap: false };
+
+  const ordered = orderGitGraphAnchors(anchors, children);
+  const centers = ordered.path
+    ? [0, ordered.path.length - 1]
+    : ordered.anchors.map((_, index) => index * 10);
+  const points = new Map<string, GitGraphPoint>();
+  ordered.anchors.forEach((anchor, index) => {
+    addGitGraphNeighborhood(points, anchor, centers[index] ?? 0, ordered.path ? 0 : index, commits, children);
+  });
+  const path = ordered.path;
+  path?.forEach((hash, index) => {
+    const commit = commits.get(hash);
+    if (commit) addGitGraphPoint(points, commit, index, 0, index === 0 || index === path.length - 1, true);
+  });
+
+  return {
+    points: Array.from(points.values()).sort((left, right) => left.group - right.group || left.layer - right.layer),
+    dottedGap: ordered.anchors.length > 1 && ordered.path === null
+  };
+}
+
 function isReportSource(value: unknown): value is ReportSource {
   return value === "nightly" || value === "local";
 }
