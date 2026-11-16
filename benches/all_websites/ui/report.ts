@@ -1682,11 +1682,22 @@ function installWebsiteDetailsHandlers(
       if (!site.open || detailsVariants.dataset.rendered === "true") {
         return;
       }
+      const websiteBars = new Map(website.bars.map((bar) => [bar.label, bar]));
       const comparisonWebsite = comparisonWebsites.get(website.name);
       const comparisonBars = new Map((comparisonWebsite?.bars ?? []).map((bar) => [bar.label, bar]));
       detailsVariants.innerHTML = website.bars
         .filter((bar) => bar.showExpandedDetails)
-        .map((bar) => renderVariantDetails(bar, comparisonBars.get(bar.label)))
+        .map((bar) => {
+          const algorithmLabel = bar.label === "Baseline"
+            ? "With Bless List"
+            : bar.label === "With Bless List" ? "Baseline" : undefined;
+          return renderVariantDetails(
+            bar,
+            comparisonBars.get(bar.label),
+            algorithmLabel === undefined ? undefined : websiteBars.get(algorithmLabel),
+            algorithmLabel === undefined ? undefined : comparisonBars.get(algorithmLabel)
+          );
+        })
         .join("");
       detailsVariants.dataset.rendered = "true";
       if (reportSide !== null) {
