@@ -1132,6 +1132,7 @@ async function loadVariationData(window: VariationHistoryWindow, metric: Variati
     const value = getVariationMetric(report, metric);
     return commit && value !== null && Number.isFinite(value) ? [{ report, commit, value }] : [];
   }).sort((left, right) => left.commit.timestamp - right.commit.timestamp
+    || left.commit.hash.localeCompare(right.commit.hash)
     || (left.report.metadata.time_end ?? "").localeCompare(right.report.metadata.time_end ?? ""));
 }
 
@@ -1240,7 +1241,15 @@ function renderVariationSeries(points: VariationPlotPoint[], window: VariationHi
   }).join("");
   const circles = points.map((point) => '<circle class="variation-point" cx="' + point.x + '" cy="' + point.y + '" r="4"><title>'
     + escapeHtml(point.datum.commit.hash.slice(0, 7) + " " + (point.datum.report.metadata.time_end ?? "") + ": " + formatVariationValue(point.datum.value, metric)) + '</title></circle>').join("");
-  return lines + circles;
+  const changes = points.slice(1).map((point, index) => {
+    const previous = points[index]!;
+    const change = getVariationChange(point.datum.value, previous.datum.value);
+    if (change === null) return "";
+    const sign = change < 0 ? "-" : "+";
+    return '<text class="variation-change-label" x="' + point.x + '" y="' + (point.y - 8)
+      + '" text-anchor="middle">' + sign + Math.round(Math.abs(change)) + '%</text>';
+  }).join("");
+  return lines + circles + changes;
 }
 
 function renderVariationSvg(window: VariationHistoryWindow, data: VariationChartDatum[], metric: VariationMetricDescriptor): string {
