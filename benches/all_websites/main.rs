@@ -1,4 +1,6 @@
 use log::{error, warn};
+#[cfg(feature = "detailed_statistics")]
+use indexmap::IndexMap;
 use mach_6::{self, MatchingContext, Optimizations, get_all_documents_and_selectors, stylesheet_from_selectors};
 use mach_6::parse::{ParsedWebsite, get_document_and_selectors, websites_path};
 use mach_6::preprocessing::{self, concretize, distribute};
@@ -11,8 +13,6 @@ use selectors::matching::CountingStats;
 use selectors::matching::{NotMatchedResultCounts, SelectorStats};
 #[cfg(feature = "detailed_statistics")]
 use smallvec::SmallVec;
-#[cfg(feature = "detailed_statistics")]
-use std::collections::HashMap;
 #[cfg(feature = "detailed_statistics")]
 use std::cmp::Reverse;
 use std::fs;
@@ -51,21 +51,12 @@ impl From<&Selector> for SelectorString {
     }
 }
 
-/// A selector and its aggregate (i.e. for every element) slow-reject time in
+/// A selector's aggregate (i.e. for every element) slow-reject time in
 /// each sample
 #[cfg(feature = "detailed_statistics")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct SelectorSlowRejectSamples {
-    selector: SelectorString,
     aggregate_durations: Samples<tsc_timer::Duration>,
-    reject_count: usize,
-    result_counts: NotMatchedResultCounts,
-}
-
-#[cfg(feature = "detailed_statistics")]
-#[derive(Default)]
-struct SelectorRejectMeasurements {
-    aggregate_durations: Vec<tsc_timer::Duration>,
     reject_count: usize,
     result_counts: NotMatchedResultCounts,
 }
@@ -87,7 +78,7 @@ struct MatchBenchResult {
     /// All slow-rejecting selectors and their aggregate slow-reject durations
     /// for each sample. Sorted in descending order by mean.
     #[cfg(feature = "detailed_statistics")]
-    selector_slow_reject_times: Vec<SelectorSlowRejectSamples>,
+    selector_slow_reject_times: IndexMap<SelectorString, SelectorSlowRejectSamples>,
 }
 
 impl MatchBenchResult {
@@ -106,7 +97,7 @@ impl MatchBenchResult {
 
         #[cfg(feature = "detailed_statistics")]
         let selector_slow_reject_times = {
-        let mut map: HashMap<SelectorString, SelectorRejectMeasurements> = HashMap::new();
+        let mut map: IndexMap<SelectorString, SelectorSlowRejectSamples> = IndexMap::new();
         for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
                 let (duration, count, result_counts) = match selector_stats {
@@ -137,21 +128,13 @@ impl MatchBenchResult {
                 if measurements.aggregate_durations.len() == i {
                     measurements.aggregate_durations.push(duration);
                 } else {
-                    measurements.aggregate_durations[i] += duration;
+                    measurements.aggregate_durations.0[i] += duration;
                 }
             }
         }
 
-        let mut sorted: Vec<_> = map.into_iter().map(|(selector, measurements)|
-            SelectorSlowRejectSamples {
-                selector,
-                aggregate_durations: Samples::from_vec(measurements.aggregate_durations),
-                reject_count: measurements.reject_count,
-                result_counts: measurements.result_counts,
-            }
-        ).collect();
-        sorted.sort_unstable_by_key(|sel| Reverse(sel.aggregate_durations.mean()));
-        sorted
+        map.sort_unstable_by_key(|_, samples| Reverse(samples.aggregate_durations.mean()));
+        map
         };
         MatchBenchResult {
             total_duration: timing_stats.iter().map(|s| s.total_matching).sum(),

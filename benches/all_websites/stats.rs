@@ -1,7 +1,7 @@
 use selectors::matching::TimingStats;
 
 #[derive(Clone, Debug, Default)]
-pub struct Samples<T>(Vec<T>); 
+pub struct Samples<T>(pub Vec<T>); 
 
 impl<T> Samples<T> {
     pub fn from_vec(value: Vec<T>) -> Self {
@@ -48,6 +48,10 @@ impl<T> Samples<T> {
         F: Fn(&T) -> R,
     {
         Samples(self.0.iter().map(f).collect())
+    }
+
+    pub fn push(&mut self, value: T) {
+        self.0.push(value)
     }
 
 }

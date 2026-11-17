@@ -257,6 +257,8 @@ mod selector_summary {
     use super::SelectorString;
     #[cfg(feature = "detailed_statistics")]
     use super::SelectorSlowRejectSamples;
+    #[cfg(feature = "detailed_statistics")]
+    use indexmap::IndexMap;
 
     #[derive(Clone, Serialize, Deserialize)]
     pub(crate) struct SelectorsSummaryJson {
@@ -269,15 +271,15 @@ mod selector_summary {
         fn from(_value: &WebsiteResult) -> Self {
             Self {
                 #[cfg(feature = "detailed_statistics")]
-                baseline: SelectorStatsJson::from(_value.baseline.selector_slow_reject_times.as_slice()),
+                baseline: SelectorStatsJson::from(&_value.baseline.selector_slow_reject_times),
                 #[cfg(not(feature = "detailed_statistics"))]
                 baseline: SelectorStatsJson::default(),
                 #[cfg(feature = "detailed_statistics")]
-                with_bless_list: SelectorStatsJson::from(_value.with_bless_list.selector_slow_reject_times.as_slice()),
+                with_bless_list: SelectorStatsJson::from(&_value.with_bless_list.selector_slow_reject_times),
                 #[cfg(not(feature = "detailed_statistics"))]
                 with_bless_list: SelectorStatsJson::default(),
                 #[cfg(feature = "detailed_statistics")]
-                after_preprocessing: SelectorStatsJson::from(_value.after_preprocessing.selector_slow_reject_times.as_slice()),
+                after_preprocessing: SelectorStatsJson::from(&_value.after_preprocessing.selector_slow_reject_times),
                 #[cfg(not(feature = "detailed_statistics"))]
                 after_preprocessing: SelectorStatsJson::default(),
             }
@@ -295,32 +297,32 @@ mod selector_summary {
     }
 
     #[cfg(feature = "detailed_statistics")]
-    impl From<&[SelectorSlowRejectSamples]> for SelectorStatsJson {
-        fn from(value: &[SelectorSlowRejectSamples]) -> Self {
+    impl From<&IndexMap<SelectorString, SelectorSlowRejectSamples>> for SelectorStatsJson {
+        fn from(value: &IndexMap<SelectorString, SelectorSlowRejectSamples>) -> Self {
             Self {
                 means_cycles: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.aggregate_durations.mean().cycles()))
+                    .map(|(selector, samples)| (selector.clone(), samples.aggregate_durations.mean().cycles()))
                     .collect(),
                 stddevs_cycles: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.aggregate_durations.stddev().cycles()))
+                    .map(|(selector, samples)| (selector.clone(), samples.aggregate_durations.stddev().cycles()))
                     .collect(),
                 slow_reject_counts: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.reject_count))
+                    .map(|(selector, samples)| (selector.clone(), samples.reject_count))
                     .collect(),
                 classic_global_failures: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.result_counts.classic_global_failures))
+                    .map(|(selector, samples)| (selector.clone(), samples.result_counts.classic_global_failures))
                     .collect(),
                 classic_descendant_restarts: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.result_counts.classic_descendant_restarts))
+                    .map(|(selector, samples)| (selector.clone(), samples.result_counts.classic_descendant_restarts))
                     .collect(),
                 classic_sibling_restarts: value
                     .iter()
-                    .map(|row| (row.selector.clone(), row.result_counts.classic_sibling_restarts))
+                    .map(|(selector, samples)| (selector.clone(), samples.result_counts.classic_sibling_restarts))
                     .collect(),
             }
         }
