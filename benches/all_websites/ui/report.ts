@@ -1239,8 +1239,15 @@ function renderVariationSeries(points: VariationPlotPoint[], window: VariationHi
     const dotted = window.dottedGap && previous.x < gapMiddle && point.x >= gapMiddle;
     return '<path class="variation-line' + (dotted ? ' variation-gap' : '') + '" d="M ' + previous.x + ' ' + previous.y + ' L ' + point.x + ' ' + point.y + '"/>';
   }).join("");
-  const circles = points.map((point) => '<circle class="variation-point" cx="' + point.x + '" cy="' + point.y + '" r="4"><title>'
-    + escapeHtml(point.datum.commit.hash.slice(0, 7) + " " + (point.datum.report.metadata.time_end ?? "") + ": " + formatVariationValue(point.datum.value, metric)) + '</title></circle>').join("");
+  const circles = points.map((point) => {
+    const value = formatVariationValue(point.datum.value, metric);
+    const description = point.datum.commit.hash.slice(0, 7) + " "
+      + (point.datum.report.metadata.time_end ?? "") + ": " + value;
+    return '<g class="variation-point-group"><circle class="variation-point" tabindex="0" cx="' + point.x
+      + '" cy="' + point.y + '" r="4" aria-label="' + escapeHtml(description) + '"><title>'
+      + escapeHtml(description) + '</title></circle><text class="variation-point-value" x="' + (point.x + 9)
+      + '" y="' + point.y + '" dominant-baseline="middle">' + escapeHtml(value) + '</text></g>';
+  }).join("");
   const changes = points.slice(1).map((point, index) => {
     const previous = points[index]!;
     const change = getVariationChange(point.datum.value, previous.datum.value);

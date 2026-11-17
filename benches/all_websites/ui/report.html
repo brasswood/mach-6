@@ -655,6 +655,9 @@
     .variation-history-node-anchor { fill: #0f766e; stroke: #fff; }
     .variation-gap { stroke-dasharray: 4 5; }
     .variation-point { fill: #0f766e; stroke: #fff; stroke-width: 1.5; }
+    .variation-point:focus-visible { stroke: var(--fg); stroke-width: 3px; }
+    .variation-point-value { visibility: hidden; fill: var(--fg); stroke: var(--card); stroke-width: 4px; paint-order: stroke fill; font: 11px ui-monospace, monospace; pointer-events: none; }
+    .variation-point-group:hover .variation-point-value, .variation-point-group:focus-within .variation-point-value { visibility: visible; }
     .variation-change-label { fill: var(--fg); stroke: var(--card); stroke-width: 3px; paint-order: stroke fill; font: 10px ui-monospace, monospace; }
     .variation-axis-label { fill: var(--muted); font: 11px ui-monospace, monospace; }
     .context-value {
