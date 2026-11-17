@@ -1916,11 +1916,16 @@ function renderSegmentSwatch(kind: SegmentKind): string {
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
 }
 
-function renderSegmentChange(value: bigint, baseline: bigint, metric?: VariationMetricDescriptor): string {
+function renderSegmentChange(
+  value: bigint,
+  baseline: bigint,
+  metric?: VariationMetricDescriptor,
+  positiveIsBetter = false
+): string {
   if (baseline === 0n) {
     const change = value === 0n
       ? '<span>+0.000%</span>'
-      : '<span class="metric-worse">-%</span>';
+      : '<span class="' + (positiveIsBetter ? "metric-better" : "metric-worse") + '">-%</span>';
     return metric ? renderVariationValue(change, metric) : change;
   }
   const delta = value - baseline;
@@ -1928,7 +1933,9 @@ function renderSegmentChange(value: bigint, baseline: bigint, metric?: Variation
   const milliPercent = (magnitude * 100_000n + baseline / 2n) / baseline;
   const text = (delta < 0n ? "-" : "+") + (milliPercent / 1000n).toString()
     + "." + (milliPercent % 1000n).toString().padStart(3, "0") + "%";
-  const colorClass = delta < 0n ? "metric-better" : delta > 0n ? "metric-worse" : "";
+  const colorClass = delta < 0n
+    ? positiveIsBetter ? "metric-worse" : "metric-better"
+    : delta > 0n ? positiveIsBetter ? "metric-better" : "metric-worse" : "";
   const change = '<span class="' + colorClass + '">' + text + '</span>';
   return metric ? renderVariationValue(change, metric) : change;
 }
@@ -2345,16 +2352,17 @@ function renderOptionalCount(count: number | null, comparisonCount?: number | nu
 function renderSelectorCountValue(
   count: number | null | undefined,
   reportComparisonCount?: number | null,
-  algorithmBaselineCount?: number | null,
+  algorithmComparisonCount?: number | null,
   metric?: VariationMetricDescriptor,
-  changeMetric?: VariationMetricDescriptor
+  changeMetric?: VariationMetricDescriptor,
+  changePositiveIsBetter = false
 ): string {
   if (count == null) {
     return "N/A";
   }
-  const algorithmChange = algorithmBaselineCount == null
+  const algorithmChange = algorithmComparisonCount == null
     ? ""
-    : " " + renderSegmentChange(toBigInt(count), toBigInt(algorithmBaselineCount), changeMetric);
+    : " " + renderSegmentChange(toBigInt(count), toBigInt(algorithmComparisonCount), changeMetric, changePositiveIsBetter);
   const value = escapeHtml(NUMBER_FORMAT.format(count));
   return (metric ? renderVariationValue(value, metric) : value) + algorithmChange
     + (reportComparisonCount == null ? "" : renderReportDiff(toBigInt(count), toBigInt(reportComparisonCount)));
@@ -2394,8 +2402,10 @@ function renderSelectorComparisonCells(
   const stddev = stats?.stddevs_cycles[row.selector];
   const reportMean = reportStats?.means_cycles[row.selector];
   const reportStddev = reportStats?.stddevs_cycles[row.selector];
-  const includeChange = label === "Bless List";
-  const variant = includeChange ? "With Bless List" : "Baseline";
+  const includeChange = label === "Baseline" || label === "Bless List";
+  const changePositiveIsBetter = label === "Baseline";
+  const compareVariant = label === "Baseline" ? "With Bless List" : "Baseline";
+  const variant = label === "Bless List" ? "With Bless List" : "Baseline";
   return [
     '<td class="col-time"><div class="cell-scroll">' + renderSelectorTimingValue(
       mean === undefined ? undefined : toBigInt(mean),
@@ -2411,14 +2421,16 @@ function renderSelectorComparisonCells(
       reportStats?.slow_reject_counts?.[row.selector],
       includeChange ? row.rejectCount : undefined,
       { website, variant, kind: "selectorCount", selector: row.selector, key: "slow_reject_counts" },
-      includeChange ? { website, variant, kind: "selectorChange", selector: row.selector, key: "slow_reject_counts", compareVariant: "Baseline" } : undefined
+      includeChange ? { website, variant, kind: "selectorChange", selector: row.selector, key: "slow_reject_counts", compareVariant } : undefined,
+      changePositiveIsBetter
     ) + '</td>',
     ...SELECTOR_RESULT_COUNTS.map(([key], index) => '<td class="col-result-count">' + renderSelectorCountValue(
       stats?.[key]?.[row.selector],
       reportStats?.[key]?.[row.selector],
       includeChange ? row.resultCounts[index] : undefined,
       { website, variant, kind: "selectorCount", selector: row.selector, key },
-      includeChange ? { website, variant, kind: "selectorChange", selector: row.selector, key, compareVariant: "Baseline" } : undefined
+      includeChange ? { website, variant, kind: "selectorChange", selector: row.selector, key, compareVariant } : undefined,
+      changePositiveIsBetter
     ) + '</td>')
   ];
 }
