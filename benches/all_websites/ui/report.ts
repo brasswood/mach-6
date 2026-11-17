@@ -74,7 +74,7 @@ interface VariationMetricDescriptor {
   website: string;
   variant: string;
   kind: "overall" | "displayed" | "speedup" | "segment" | "segmentStddev" | "segmentChange"
-    | "count" | "selectorTime" | "selectorStddev" | "selectorCount" | "selectorChange" | "context";
+    | "count" | "selectorTime" | "selectorStddev" | "selectorTimeChange" | "selectorCount" | "selectorChange" | "context";
   key?: string;
   selector?: string;
   compareVariant?: string;
@@ -1141,7 +1141,7 @@ function formatVariationValue(value: number, metric: VariationMetricDescriptor):
     return formatSignedCycles(BigInt(Math.round(value)));
   }
   if (metric.kind === "speedup") return value.toFixed(3) + "x";
-  if (metric.kind === "segmentChange" || metric.kind === "selectorChange") {
+  if (metric.kind === "segmentChange" || metric.kind === "selectorChange" || metric.kind === "selectorTimeChange") {
     return (value < 0 ? "-" : "+") + Math.abs(value).toFixed(3) + "%";
   }
   return metric.kind === "context" ? value.toFixed(3) + "%" : NUMBER_FORMAT.format(value);
@@ -1991,7 +1991,7 @@ function renderVariationValue(value: string, metric: VariationMetricDescriptor):
 
 function isVariationMetricDescriptor(value: unknown): value is VariationMetricDescriptor {
   const record = getRecord(value);
-  const kinds = ["overall", "displayed", "speedup", "segment", "segmentStddev", "segmentChange", "count", "selectorTime", "selectorStddev", "selectorCount", "selectorChange", "context"];
+  const kinds = ["overall", "displayed", "speedup", "segment", "segmentStddev", "segmentChange", "count", "selectorTime", "selectorStddev", "selectorTimeChange", "selectorCount", "selectorChange", "context"];
   return record !== null && typeof record.website === "string" && typeof record.variant === "string"
     && typeof record.kind === "string" && kinds.includes(record.kind)
     && (record.key === undefined || typeof record.key === "string")
@@ -2097,6 +2097,10 @@ function getVariationMetric(report: ReportJson, metric: VariationMetricDescripto
     case "count": return getVariationCount(bar, metric.key ?? "");
     case "selectorTime": return getSelectorStats(bar)?.means_cycles[metric.selector ?? ""] ?? null;
     case "selectorStddev": return getSelectorStats(bar)?.stddevs_cycles[metric.selector ?? ""] ?? null;
+    case "selectorTimeChange": return baseline ? getVariationChange(
+      getSelectorStats(bar)?.means_cycles[metric.selector ?? ""] ?? null,
+      getSelectorStats(baseline)?.means_cycles[metric.selector ?? ""] ?? null
+    ) : null;
     case "selectorCount": return getVariationSelectorCount(bar, metric.selector ?? "", metric.key ?? "");
     case "selectorChange": return baseline ? getVariationChange(
       getVariationSelectorCount(bar, metric.selector ?? "", metric.key ?? ""),
@@ -2375,12 +2379,15 @@ function renderSelectorTimingValue(
   reportComparisonStddev?: bigint | null,
   website = "",
   variant = "",
-  selector = ""
+  selector = "",
+  algorithmComparisonMean?: bigint,
+  algorithmChangeMetric?: VariationMetricDescriptor,
+  changePositiveIsBetter = false
 ): string {
   if (mean === undefined) {
     return "N/A";
   }
-  return renderTimingValue(
+  const timing = renderTimingValue(
     mean,
     stddev ?? null,
     reportComparisonMean,
@@ -2389,6 +2396,12 @@ function renderSelectorTimingValue(
     { website, variant, kind: "selectorTime", selector },
     { website, variant, kind: "selectorStddev", selector }
   );
+  return timing + (algorithmComparisonMean === undefined ? "" : " " + renderSegmentChange(
+    mean,
+    algorithmComparisonMean,
+    algorithmChangeMetric,
+    changePositiveIsBetter
+  ));
 }
 
 function renderSelectorComparisonCells(
@@ -2407,14 +2420,19 @@ function renderSelectorComparisonCells(
   const compareVariant = label === "Baseline" ? "With Bless List" : "Baseline";
   const variant = label === "Bless List" ? "With Bless List" : "Baseline";
   return [
-    '<td class="col-time"><div class="cell-scroll">' + renderSelectorTimingValue(
+    '<td class="col-time"><div class="cell-scroll' + (label === "Baseline" ? " selector-change-wrap" : "") + '">' + renderSelectorTimingValue(
       mean === undefined ? undefined : toBigInt(mean),
       stddev === undefined ? null : toBigInt(stddev),
       reportMean === undefined ? undefined : toBigInt(reportMean),
       reportStddev === undefined ? undefined : toBigInt(reportStddev),
       website,
       label === "Bless List" ? "With Bless List" : "Baseline",
-      row.selector
+      row.selector,
+      label === "Baseline" ? row.meanCycles : undefined,
+      label === "Baseline" ? {
+        website, variant: "Baseline", kind: "selectorTimeChange", selector: row.selector, compareVariant
+      } : undefined,
+      changePositiveIsBetter
     ) + '</div></td>',
     '<td class="col-count">' + renderSelectorCountValue(
       stats?.slow_reject_counts?.[row.selector],
