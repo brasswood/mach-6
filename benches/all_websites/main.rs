@@ -104,11 +104,7 @@ impl MatchBenchResult {
                     SelectorStats::Bloom(bq) => (
                         bq.time_slow_rejecting.unwrap_or_default(),
                         bq.slow_rejects,
-                        if bq.time_slow_rejecting.is_some() {
-                            bq.not_matched_result_counts
-                        } else {
-                            NotMatchedResultCounts::default()
-                        },
+                        bq.not_matched_result_counts,
                     ),
                     SelectorStats::ScopeProximity(sp) => (
                         sp.time_slow_rejecting,
