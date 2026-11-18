@@ -102,7 +102,7 @@ impl MatchBenchResult {
             for (selector, selector_stats) in per_match_stats {
                 let (duration, count, result_counts) = match selector_stats {
                     SelectorStats::Bloom(bq) => (
-                        bq.time_slow_rejecting.unwrap_or_default(),
+                        bq.time_slow_rejecting,
                         bq.slow_rejects,
                         bq.not_matched_result_counts,
                     ),
