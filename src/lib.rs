@@ -447,7 +447,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 #[cfg(feature = "debug_element")]
                 debug_element_selector(element, &element_to_string(element), s);
                 let (res, _stats) = matching::matches_selector(s, 0, None, &element, &mut context);
-                #[cfg(not(feature = "detailed_statistics"))]
+                #[cfg(feature = "time_fast_rejecting")]
                 debug_assert_eq!(_stats.time_fast_rejecting, Duration::default());
                 res
             })
@@ -897,7 +897,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
                     &mut context
                 );
                 debug_assert!(res);
-                #[cfg(not(feature = "detailed_statistics"))]
+                #[cfg(feature = "time_fast_rejecting")]
                 debug_assert_eq!(_stats.time_fast_rejecting, Duration::default());
                 res
             })
