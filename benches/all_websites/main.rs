@@ -190,6 +190,28 @@ struct WebsiteResult {
 
 const NUM_SAMPLES: u64 = 25;
 
+fn bench_baseline(w: &ParsedWebsite) -> MatchBenchResult {
+    bench_website(
+        &format!("{} baseline", w.name),
+        || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
+    )
+}
+
+fn bench_bless_list(w: &ParsedWebsite) -> MatchBenchResult {
+    bench_website(
+        &format!("{} with bless list", w.name),
+        || {
+            (
+                w.fresh_document(),
+                w.get_matcher(Optimizations {
+                    universal_bucket_bless_lists: true,
+                    ..Optimizations::from_none()
+                }),
+            )
+        },
+    )
+}
+
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Warn).init();
     let git_metadata = match collect_report_git_metadata() {
@@ -206,22 +228,8 @@ fn main() {
         .collect();
     let websites = get_documents(website_filter.iter().map(String::as_str));
     let results = websites.map(|w| {
-        let baseline = bench_website(
-            &format!("{} baseline", w.name),
-            || (w.fresh_document(), w.get_matcher(Optimizations::from_none())),
-        );
-        let with_bless_list = bench_website(
-            &format!("{} with bless list", w.name),
-            || {
-                (
-                    w.fresh_document(),
-                    w.get_matcher(Optimizations {
-                        universal_bucket_bless_lists: true,
-                        ..Optimizations::from_none()
-                    }),
-                )
-            },
-        );
+        let baseline = bench_baseline(&w);
+        let with_bless_list = bench_bless_list(&w);
         let selectors = w.get_matcher(Optimizations::from_none()).get_selectors();
         let substrings =
           concretize::substrings_from_selectors(selectors.iter());
