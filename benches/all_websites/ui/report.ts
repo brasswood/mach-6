@@ -1911,6 +1911,12 @@ function formatSpeedup(baselineCycles: bigint, algorithmCycles: bigint): string 
   return (milliSpeedup / 1000n).toString() + "." + (milliSpeedup % 1000n).toString().padStart(3, "0") + "x";
 }
 
+function getSpeedupRatio(bar: BarView): number | null {
+  if (bar.baselineTotalCycles === undefined) return null;
+  if (bar.totalCycles === 0n) return bar.baselineTotalCycles === 0n ? 1 : null;
+  return Number(bar.baselineTotalCycles) / Number(bar.totalCycles);
+}
+
 function renderSegmentSwatch(kind: SegmentKind): string {
   const info = SEGMENT_INFO[kind];
   return '<i class="swatch ' + info.cssClass + '"></i>' + escapeHtml(info.label);
@@ -2276,10 +2282,14 @@ function renderSummaryBar(bar: BarView, website: string, summaryMaxBarLengthCycl
     ? '<div class="time-display-note">Displayed: ' + renderVariationValue(escapeHtml(formatCycles(bar.totalLengthCycles)), { website, variant: bar.label, kind: "displayed" })
       + (comparisonBar === undefined ? "" : renderReportDiff(bar.totalLengthCycles, comparisonBar.totalLengthCycles)) + '</div>'
     : "";
+  const speedupRatio = getSpeedupRatio(bar);
+  const comparisonSpeedupRatio = comparisonBar === undefined ? null : getSpeedupRatio(comparisonBar);
+  const speedupChange = speedupRatio === null || comparisonSpeedupRatio === null
+    ? "" : renderReportRatioDiff(speedupRatio, comparisonSpeedupRatio);
   const speedup = bar.baselineTotalCycles === undefined
     ? ""
     : '<span class="speedup ' + (bar.baselineTotalCycles > bar.totalCycles ? "metric-better" : bar.baselineTotalCycles < bar.totalCycles ? "metric-worse" : "")
-      + '">' + renderVariationValue(escapeHtml(formatSpeedup(bar.baselineTotalCycles, bar.totalCycles)), { website, variant: bar.label, kind: "speedup" }) + '</span>';
+      + '">' + renderVariationValue(escapeHtml(formatSpeedup(bar.baselineTotalCycles, bar.totalCycles)), { website, variant: bar.label, kind: "speedup" }) + speedupChange + '</span>';
 
   return [
     '<div class="variant-summary">',

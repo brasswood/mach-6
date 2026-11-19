@@ -304,7 +304,26 @@
       padding: 0 0 4px 0;
       background: #f7f7f3;
     }
-    @media (max-width: 1500px) {
+    @media (min-width: 701px) and (max-width: 1500px) {
+      .compare-column .row {
+        grid-template-columns: 12px minmax(120px, 160px) minmax(0, 1fr);
+      }
+      .compare-column .variant-summary {
+        grid-template-columns: minmax(100px, 130px) minmax(80px, 1fr) minmax(180px, 220px);
+      }
+      .compare-column .variant-context {
+        grid-template-columns: minmax(100px, 130px) minmax(80px, 1fr) 140px;
+      }
+      .compare-column .time-primary {
+        max-width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .compare-column .time-value {
+        white-space: normal;
+      }
+    }
+    @media (max-width: 1100px) {
       .compare-row,
       .compare-sort-row {
         grid-template-columns: minmax(0, 1fr);
