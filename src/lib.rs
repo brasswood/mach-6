@@ -591,6 +591,41 @@ struct StageOracle {
     elements: Vec<ElementStageRanges>,
 }
 
+#[cfg(feature = "detailed_statistics")]
+fn collect_stage_oracle<'dom, 'stylist>(
+    element: ElementRef<'dom>,
+    element_depth: usize,
+    thread_local: &mut ThreadLocalStyleContext<ElementRef<'dom>>,
+    oracle: &mut StageOracle,
+    selector_map: &'stylist SelectorMap<Rule>,
+    cascade_data: &'stylist CascadeData,
+    stylist: &'stylist Stylist,
+    bless_list: &mut SmallVec<[&'stylist Selector; 16]>,
+    universal_bless_list: &mut SmallVec<[(&'stylist UniversalBucketRule, usize); 16]>,
+    optimizations: Optimizations,
+    staged_rule_buffers: &mut StagedRuleBuffers<'stylist>,
+    universal_tail_candidates: &mut Vec<&'stylist UniversalTailRule>,
+    matching_rules: &mut ApplicableDeclarationList,
+) {
+    // TODO: Complete oracle collection in follow-up commits.
+    thread_state::initialize(ThreadState::LAYOUT);
+    thread_local
+        .bloom_filter
+        .insert_parents_recovering(element, element_depth);
+    let mut context = matching::MatchingContext::new(
+        matching::MatchingMode::Normal,
+        Some(thread_local.bloom_filter.filter()),
+        &mut thread_local.selector_caches,
+        matching::QuirksMode::NoQuirks,
+        matching::NeedsSelectorFlags::No,
+        matching::MatchingForInvalidation::No,
+    );
+    context.set_matching_stage(Some(MatchStage::SlowAccept));
+
+    let bucket_start = oracle.stages.len();
+    if optimizations.universal_bucket_bless_lists {
+        cascade_data
+            .universal_bucket_rules()
 pub fn match_selectors_with_style_sharing(
     document: Html,
     matching_context: MatchingContext,
