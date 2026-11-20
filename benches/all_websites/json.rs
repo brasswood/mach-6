@@ -213,7 +213,7 @@ mod overall_summary {
         pub(crate) slow_rejecting_cycles: u64,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_accepting_cycles: u64,
-        #[cfg(feature = "time_fast_rejecting")]
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) fast_rejecting_cycles: u64,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) checking_style_sharing_cycles: u64,
@@ -234,7 +234,7 @@ mod overall_summary {
                 slow_rejecting_cycles: timing_stats.slow_rejecting.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: timing_stats.slow_accepting.cycles(),
-                #[cfg(feature = "time_fast_rejecting")]
+                #[cfg(feature = "detailed_statistics")]
                 fast_rejecting_cycles: timing_stats.fast_rejecting.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: timing_stats.checking_style_sharing.cycles(),
@@ -365,7 +365,7 @@ mod samples {
         pub(crate) slow_rejecting_cycles: Vec<u64>,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_accepting_cycles: Vec<u64>,
-        #[cfg(feature = "time_fast_rejecting")]
+        #[cfg(feature = "detailed_statistics")]
         pub(crate) fast_rejecting_cycles: Vec<u64>,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) checking_style_sharing_cycles: Vec<u64>,
@@ -395,7 +395,7 @@ mod samples {
                 slow_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
-                #[cfg(feature = "time_fast_rejecting")]
+                #[cfg(feature = "detailed_statistics")]
                 fast_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
