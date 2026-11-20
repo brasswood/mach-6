@@ -1426,6 +1426,9 @@ mod tests {
         );
         assert_eq!(ordinary_stats.counts.tail_selector_map_hits, 0);
         assert!(blessed_stats.counts.tail_selector_map_hits > 0);
+        assert_eq!(ordinary_stats.counts.activation_slow_accepts, 0);
+        assert_eq!(blessed_stats.counts.activation_slow_accepts, 1);
+        assert_eq!(blessed_stats.counts.slow_accepts, 2);
     }
 
     #[test]

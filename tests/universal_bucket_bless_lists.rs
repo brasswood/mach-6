@@ -54,6 +54,23 @@ fn universal_tail_uses_the_parent_activator() {
     assert_eq!(after_stats.counts.selector_map_hits, 0);
     assert_eq!(after_stats.counts.tail_selector_map_hits, 1);
     assert_eq!(after_stats.counts.bless_list_hits, 0);
+    assert_eq!(after_stats.counts.activation_fast_rejects, 1);
+    assert_eq!(after_stats.counts.activation_slow_rejects, 0);
+    assert_eq!(after_stats.counts.activation_slow_accepts, 0);
+}
+
+#[test]
+fn activation_slow_rejects_are_not_selector_rejects() {
+    let html = "<div class='a'><div><div class='b'><span></span></div></div></div>";
+    let (before, _) = run(html, &[".a > .b *"], false);
+    let (after, stats) = run(html, &[".a > .b *"], true);
+    assert_eq!(before, after);
+    assert_eq!(stats.counts.activation_slow_rejects, 1);
+    assert_eq!(stats.counts.activation_fast_rejects, 0);
+    assert_eq!(stats.counts.activation_slow_accepts, 0);
+    assert_eq!(stats.counts.slow_rejects, 0);
+    assert_eq!(stats.counts.fast_rejects, 0);
+    assert_eq!(stats.counts.slow_accepts, 0);
 }
 
 #[test]
@@ -79,7 +96,8 @@ fn other_universal_bucket_selectors_use_the_parent_activator() {
     assert_eq!(after_stats.counts.selector_map_hits, 0);
     assert_eq!(after_stats.counts.tail_selector_map_hits, 6);
     assert_eq!(after_stats.counts.slow_rejects, 0);
-    assert_eq!(after_stats.counts.fast_rejects, 6);
+    assert_eq!(after_stats.counts.fast_rejects, 0);
+    assert_eq!(after_stats.counts.activation_fast_rejects, 6);
     assert_eq!(after_stats.counts.bless_list_hits, 0);
 }
 
@@ -122,8 +140,8 @@ fn child_activations_do_not_persist_beyond_immediate_children() {
     assert_eq!(after_stats.counts.selector_map_hits, 0);
     assert_eq!(after_stats.counts.tail_selector_map_hits, 2);
     assert_eq!(after_stats.counts.bless_list_hits, 3);
-    // Count both activator checks in addition to the three rightmost compounds.
-    assert_eq!(after_stats.counts.slow_accepts, 5);
+    assert_eq!(after_stats.counts.slow_accepts, 3);
+    assert_eq!(after_stats.counts.activation_slow_accepts, 2);
 }
 
 #[test]
@@ -137,8 +155,8 @@ fn universal_bless_lists_do_not_duplicate_matching_selectors() {
     assert_eq!(after_stats.counts.selector_map_hits, 0);
     assert_eq!(after_stats.counts.tail_selector_map_hits, 1);
     assert_eq!(after_stats.counts.bless_list_hits, 4);
-    // Count the activator check in addition to the four descendant checks.
-    assert_eq!(after_stats.counts.slow_accepts, 5);
+    assert_eq!(after_stats.counts.slow_accepts, 4);
+    assert_eq!(after_stats.counts.activation_slow_accepts, 1);
 }
 
 #[test]
@@ -164,8 +182,8 @@ fn universal_bless_lists_scale_to_many_selectors() {
             assert_eq!(after_stats.counts.selector_map_hits, 0);
             assert_eq!(after_stats.counts.tail_selector_map_hits, 1000);
             assert_eq!(after_stats.counts.bless_list_hits, 499_500);
-            // Each selector contributes one activator check and its descendant matches.
-            assert_eq!(after_stats.counts.slow_accepts, 500_500);
+            assert_eq!(after_stats.counts.slow_accepts, 499_500);
+            assert_eq!(after_stats.counts.activation_slow_accepts, 1000);
         })
         .unwrap()
         .join()
