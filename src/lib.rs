@@ -757,7 +757,6 @@ pub fn match_selectors_with_style_sharing(
         #[cfg(feature = "detailed_statistics")]
         universal_tail_candidates: &mut Vec<&'a UniversalTailRule>,
     ) {
-        // TODO: Apply per-element stage ranges to the timed matching paths.
         #[cfg(feature = "detailed_statistics")]
         let element_stage_ranges = &stage_oracle.elements[*stage_index];
         #[cfg(feature = "detailed_statistics")]
@@ -981,6 +980,15 @@ pub fn match_selectors_with_style_sharing(
                         || optimizations.universal_bucket_bless_lists,
                     optimizations.universal_bucket_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
+                    #[cfg(feature = "detailed_statistics")]
+                    Some(staged_rule_buffers),
+                    #[cfg(not(feature = "detailed_statistics"))]
+                    None,
+                    #[cfg(feature = "detailed_statistics")]
+                    Some(&stage_oracle.stages[element_stage_ranges.selector_map.clone()]),
+                    #[cfg(not(feature = "detailed_statistics"))]
+                    None,
+                    None,
                 );
                 *stats += selector_map_stats;
                 // 1.3.3: add the matched selectors to the list
@@ -1068,10 +1076,6 @@ pub fn match_selectors_with_style_sharing(
         },
         registered_speculative_painters: &stylo_interface::MyRegisteredSpeculativePainters,
     };
-    let mut style_context = StyleContext {
-        shared: &shared_style_context,
-        thread_local: &mut ThreadLocalStyleContext::new(false),
-    };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
     let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
@@ -1079,7 +1083,6 @@ pub fn match_selectors_with_style_sharing(
     let mut bless_list = SmallVec::new();
     let mut universal_bless_list = SmallVec::new();
 
-    // TODO: Feed oracle results into the timed preorder traversal.
     #[cfg(feature = "detailed_statistics")]
     let mut stage_oracle = StageOracle {
         stages: Vec::with_capacity(stylist.num_selectors()),
