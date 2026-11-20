@@ -8,6 +8,40 @@ use style::servo_arc::Arc;
 use style::shared_lock::SharedRwLock;
 use style::stylesheets::{AllowImportRules, DocumentStyleSheet, Origin, Stylesheet, UrlExtraData};
 
+#[test]
+fn activation_statistics_share_times_but_not_counts() {
+    use selectors::matching::{ActivationMatchStats, BloomQueryStats};
+    let mut stats = Statistics::default();
+    stats += BloomQueryStats {
+        fast_rejects: 2, slow_rejects: 3, slow_accepts: 5,
+        #[cfg(feature = "detailed_statistics")]
+        time_fast_rejecting: tsc_timer::Duration::from_cycles(7),
+        #[cfg(feature = "detailed_statistics")]
+        time_slow_rejecting: tsc_timer::Duration::from_cycles(11),
+        #[cfg(feature = "detailed_statistics")]
+        time_slow_accepting: tsc_timer::Duration::from_cycles(13),
+        ..BloomQueryStats::default()
+    };
+    stats += ActivationMatchStats(BloomQueryStats {
+        fast_rejects: 17, slow_rejects: 19, slow_accepts: 23,
+        #[cfg(feature = "detailed_statistics")]
+        time_fast_rejecting: tsc_timer::Duration::from_cycles(29),
+        #[cfg(feature = "detailed_statistics")]
+        time_slow_rejecting: tsc_timer::Duration::from_cycles(31),
+        #[cfg(feature = "detailed_statistics")]
+        time_slow_accepting: tsc_timer::Duration::from_cycles(37),
+        ..BloomQueryStats::default()
+    });
+    assert_eq!((stats.counts.fast_rejects, stats.counts.slow_rejects, stats.counts.slow_accepts), (2, 3, 5));
+    assert_eq!((stats.counts.activation_fast_rejects, stats.counts.activation_slow_rejects, stats.counts.activation_slow_accepts), (17, 19, 23));
+    #[cfg(feature = "detailed_statistics")]
+    {
+        assert_eq!(stats.times.fast_rejecting.cycles(), 36);
+        assert_eq!(stats.times.slow_rejecting.cycles(), 42);
+        assert_eq!(stats.times.slow_accepting.cycles(), 50);
+    }
+}
+
 fn run(html: &str, selectors: &[&str], enabled: bool) -> (SetDocumentMatches, Statistics) {
     // Exercise the public whole-document traversal, including its fragment context element.
     let document = Html::parse_fragment(html);
