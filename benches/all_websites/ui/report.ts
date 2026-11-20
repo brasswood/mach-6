@@ -722,18 +722,35 @@ function layoutGitGraphPoints(points: GitGraphPoint[]): { positions: Map<string,
   const positions = new Map<string, GitGraphPosition>();
   let maxLanes = 1;
   for (const column of layers.values()) maxLanes = Math.max(maxLanes, column.length);
-  for (const [layer, column] of layers) {
+  for (const column of layers.values()) {
     column.sort((left, right) => Number(right.anchor) - Number(left.anchor) || right.commit.timestamp - left.commit.timestamp);
+  }
+  const labelLaneHeights = Array.from({ length: maxLanes }, (_, lane) => {
+    let maxLines = 1;
+    for (const column of layers.values()) {
+      const point = column[lane];
+      if (point) maxLines = Math.max(maxLines, wrapGitSubject(point.commit.subject).length + 1);
+    }
+    return maxLines * 12 + 10;
+  });
+  const labelLaneOffsets = labelLaneHeights.map((_, lane) =>
+    labelLaneHeights.slice(0, lane).reduce((total, height) => total + height, 0));
+  const labelStartY = 30 + maxLanes * 44 + 18;
+  for (const [layer, column] of layers) {
     column.forEach((point, lane) => {
       positions.set(point.key, {
         point,
         x: 200 + (layer - minLayer) * 130,
         y: 30 + lane * 44,
-        labelY: 38 + maxLanes * 44 + lane * 14
+        labelY: labelStartY + (labelLaneOffsets[lane] ?? 0)
       });
     });
   }
-  return { positions, width: (maxLayer - minLayer) * 130 + 400, height: 102 + maxLanes * 58 };
+  return {
+    positions,
+    width: (maxLayer - minLayer) * 130 + 400,
+    height: labelStartY + labelLaneHeights.reduce((total, height) => total + height, 0) + 8
+  };
 }
 
 function renderGitGraphEdges(positions: Map<string, GitGraphPosition>, dottedGap: boolean): string {
@@ -760,11 +777,12 @@ function renderGitGraphEdges(positions: Map<string, GitGraphPosition>, dottedGap
 }
 
 function wrapGitSubject(subject: string): string[] {
-  const words = subject.split(/\s+/).flatMap((word) => word.match(/.{1,20}/g) ?? []);
+  const maxLineLength = 18;
+  const words = subject.split(/\s+/).flatMap((word) => word.match(/.{1,18}/g) ?? []);
   const lines: string[] = [];
   let line = "";
   for (const word of words) {
-    if (line && line.length + word.length + 1 > 22) {
+    if (line && line.length + word.length + 1 > maxLineLength) {
       lines.push(line);
       line = word;
     } else {
@@ -784,7 +802,7 @@ function renderGitGraphNodes(positions: Map<string, GitGraphPosition>): string {
     }).join("");
     return '<g aria-label="' + escapeHtml(label) + '">'
       + '<circle class="' + className + '" cx="' + x + '" cy="' + y + '" r="7"/>'
-      + '<g class="git-history-label" transform="translate(' + (x + 9) + " " + labelY + ') rotate(28)">'
+      + '<g class="git-history-label" transform="translate(' + (x + 9) + " " + labelY + ')">'
       + '<text><tspan x="0">' + escapeHtml(point.commit.hash.slice(0, 7)) + '</tspan>'
       + subjectLines + '</text></g></g>';
   }).join("");
