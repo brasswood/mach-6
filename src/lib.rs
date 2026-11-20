@@ -770,10 +770,6 @@ pub fn match_selectors_with_style_sharing(
         }
         let inherited_bless_list_len = bless_list.len();
         let inherited_universal_bless_list_len = universal_bless_list.len();
-        let active_universal_bless_list_len = universal_bless_list[..inherited_universal_bless_list_len]
-            .iter()
-            .filter(|(_, last_depth)| *last_depth >= element_depth)
-            .count();
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
@@ -940,6 +936,17 @@ pub fn match_selectors_with_style_sharing(
                             if matched {
                                 matched_selectors.push(rule.selector());
                             }
+                        }
+                        matching_context.set_matching_stage(None);
+                        let duration = stage_start.elapsed();
+                        match stage {
+                            MatchStage::SlowReject => stats.times.slow_rejecting += duration,
+                            MatchStage::SlowAccept => stats.times.slow_accepting += duration,
+                            MatchStage::FastReject => unreachable!(),
+                        }
+                    }
+                }
+                #[cfg(not(feature = "detailed_statistics"))]
                 for (rule, last_depth) in
                     &universal_bless_list[..inherited_universal_bless_list_len]
                 {
