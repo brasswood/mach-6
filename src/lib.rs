@@ -626,6 +626,41 @@ fn collect_stage_oracle<'dom, 'stylist>(
     if optimizations.universal_bucket_bless_lists {
         cascade_data
             .universal_bucket_rules()
+            .get_matching_universal_bucket_rules(
+                element,
+                element_depth,
+                universal_bless_list,
+                &mut context,
+                None,
+                Some(&mut oracle.stages),
+            );
+    }
+    let universal_bucket_activation = bucket_start..oracle.stages.len();
+
+    let tail_start = oracle.stages.len();
+    if !optimizations.universal_bucket_bless_lists
+        && optimizations.universal_tail_bless_lists
+    {
+        cascade_data
+            .universal_tail_rules()
+            .get_matching_universal_tails(
+                element,
+                bless_list,
+                &mut context,
+                Some(universal_tail_candidates),
+                None,
+                Some(&mut oracle.stages),
+            );
+    }
+    let universal_tail_activation = tail_start..oracle.stages.len();
+
+    let bless_start = oracle.stages.len();
+    if optimizations.universal_bucket_bless_lists {
+        for (rule, last_depth) in universal_bless_list.iter() {
+            if *last_depth < element_depth {
+                continue;
+            }
+            let (_, stats) = matching::matches_rightmost_compound(
 pub fn match_selectors_with_style_sharing(
     document: Html,
     matching_context: MatchingContext,
