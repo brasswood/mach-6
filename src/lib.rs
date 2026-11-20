@@ -661,6 +661,41 @@ fn collect_stage_oracle<'dom, 'stylist>(
                 continue;
             }
             let (_, stats) = matching::matches_rightmost_compound(
+                rule.selector(),
+                &element,
+                &mut context,
+            );
+            oracle.stages.push(match_stage_from_counts(
+                stats.fast_rejects,
+                stats.slow_rejects,
+                stats.slow_accepts,
+            ));
+        }
+    }
+    let universal_bucket_bless_list = bless_start..oracle.stages.len();
+
+    let selector_map_start = oracle.stages.len();
+    matching_rules.clear();
+    selector_map.get_all_matching_rules_with_universal_tails(
+        element,
+        element,
+        matching_rules,
+        None,
+        None,
+        &mut context,
+        CascadeLevel::same_tree_author_normal(),
+        cascade_data,
+        stylist,
+        optimizations.universal_tail_bless_lists
+            || optimizations.universal_bucket_bless_lists,
+        optimizations.universal_bucket_bless_lists,
+        None,
+        Some(staged_rule_buffers),
+        None,
+        Some(&mut oracle.stages),
+    );
+    let selector_map_range = selector_map_start..oracle.stages.len();
+    context.set_matching_stage(None);
 pub fn match_selectors_with_style_sharing(
     document: Html,
     matching_context: MatchingContext,
