@@ -789,6 +789,12 @@ pub fn match_selectors_with_style_sharing(
         {
             stats.times.updating_bloom_filter += start.elapsed();
         }
+        #[cfg(feature = "detailed_statistics")]
+        let bucket_stage_oracle = Some(
+            &stage_oracle.stages[element_stage_ranges.universal_bucket_activation.clone()],
+        );
+        #[cfg(not(feature = "detailed_statistics"))]
+        let bucket_stage_oracle = None;
         if optimizations.universal_bucket_bless_lists {
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
@@ -803,9 +809,17 @@ pub fn match_selectors_with_style_sharing(
                 element_depth,
                 universal_bless_list,
                 &mut activation_context,
+                bucket_stage_oracle,
+                None,
             );
             *stats += activation_stats;
         } else if optimizations.universal_tail_bless_lists {
+            #[cfg(feature = "detailed_statistics")]
+            let tail_stage_oracle = Some(
+                &stage_oracle.stages[element_stage_ranges.universal_tail_activation.clone()],
+            );
+            #[cfg(not(feature = "detailed_statistics"))]
+            let tail_stage_oracle = None;
             let mut activation_context = matching::MatchingContext::new(
                 matching::MatchingMode::Normal,
                 Some(context.thread_local.bloom_filter.filter()),
@@ -818,6 +832,12 @@ pub fn match_selectors_with_style_sharing(
                 element,
                 bless_list,
                 &mut activation_context,
+                #[cfg(feature = "detailed_statistics")]
+                Some(universal_tail_candidates),
+                #[cfg(not(feature = "detailed_statistics"))]
+                None,
+                tail_stage_oracle,
+                None,
             );
             *stats += activation_stats;
         }
