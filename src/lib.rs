@@ -575,6 +575,22 @@ fn count_sharing_accepts(matches: &OwnedDocumentMatches) -> usize {
         .sum()
 }
 
+#[cfg(feature = "detailed_statistics")]
+#[derive(Default)]
+struct ElementStageRanges {
+    universal_bucket_activation: Range<usize>,
+    universal_tail_activation: Range<usize>,
+    universal_bucket_bless_list: Range<usize>,
+    selector_map: Range<usize>,
+}
+
+#[cfg(feature = "detailed_statistics")]
+#[derive(Default)]
+struct StageOracle {
+    stages: Vec<MatchStage>,
+    elements: Vec<ElementStageRanges>,
+}
+
 pub fn match_selectors_with_style_sharing(
     document: Html,
     matching_context: MatchingContext,
