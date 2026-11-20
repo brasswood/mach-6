@@ -905,6 +905,41 @@ pub fn match_selectors_with_style_sharing(
                     .copied()
                     .collect();
                 let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
+                #[cfg(feature = "detailed_statistics")]
+                {
+                    let stages = &stage_oracle.stages
+                        [element_stage_ranges.universal_bucket_bless_list.clone()];
+                    for stage in [MatchStage::SlowReject, MatchStage::SlowAccept] {
+                        let stage_start = Start::now();
+                        matching_context.set_matching_stage(Some(stage));
+                        let mut oracle_index = 0;
+                        for (rule, last_depth) in
+                            &universal_bless_list[..inherited_universal_bless_list_len]
+                        {
+                            if *last_depth < element_depth {
+                                continue;
+                            }
+                            let candidate_stage = stages[oracle_index];
+                            oracle_index += 1;
+                            if candidate_stage != stage {
+                                continue;
+                            }
+                            stats.counts.bless_list_hits += 1;
+                            let (matched, rule_stats) = matching::matches_rightmost_compound(
+                                rule.selector(),
+                                &element,
+                                &mut matching_context,
+                            );
+                            if let Some(selector_stats) = sel_stats.as_mut() {
+                                selector_stats.push((
+                                    rule.selector(),
+                                    SelectorStats::Bloom(rule_stats),
+                                ));
+                            }
+                            *stats += rule_stats;
+                            if matched {
+                                matched_selectors.push(rule.selector());
+                            }
                 for (rule, last_depth) in
                     &universal_bless_list[..inherited_universal_bless_list_len]
                 {
