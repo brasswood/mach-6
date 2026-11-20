@@ -30,17 +30,27 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt::Write as _;
 use std::path::Path;
+#[cfg(feature = "detailed_statistics")]
+use std::ops::Range;
 use scraper::ElementRef;
 use scraper::Html;
 use selectors::context::SelectorCaches;
 use selectors::matching::{self, Statistics};
+#[cfg(feature = "detailed_statistics")]
+use selectors::matching::{match_stage_from_counts, MatchStage};
+#[cfg(feature = "detailed_statistics")]
+use style::applicable_declarations::ApplicableDeclarationList;
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMap;
+#[cfg(feature = "detailed_statistics")]
+use style::selector_map::StagedRuleBuffers;
 use style::servo_arc::Arc;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
 use style::stylist::UniversalBucketRule;
+#[cfg(feature = "detailed_statistics")]
+use style::stylist::UniversalTailRule;
 use style::sharing::StyleSharingTarget;
 use style::stylesheets::Origin;
 use style::thread_state::{self, ThreadState};
