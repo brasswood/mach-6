@@ -748,7 +748,22 @@ pub fn match_selectors_with_style_sharing(
         universal_bless_list: &mut SmallVec<[(&'a UniversalBucketRule, usize); 16]>,
         optimizations: Optimizations,
         stats: &mut Statistics,
+        #[cfg(feature = "detailed_statistics")]
+        stage_oracle: &StageOracle,
+        #[cfg(feature = "detailed_statistics")]
+        stage_index: &mut usize,
+        #[cfg(feature = "detailed_statistics")]
+        staged_rule_buffers: &mut StagedRuleBuffers<'a>,
+        #[cfg(feature = "detailed_statistics")]
+        universal_tail_candidates: &mut Vec<&'a UniversalTailRule>,
     ) {
+        // TODO: Apply per-element stage ranges to the timed matching paths.
+        #[cfg(feature = "detailed_statistics")]
+        let element_stage_ranges = &stage_oracle.elements[*stage_index];
+        #[cfg(feature = "detailed_statistics")]
+        {
+            *stage_index += 1;
+        }
         stats.counts.num_elements += 1;
         if log_enabled!(target: "traversal", Level::Debug) { // this guard is needed to avoid evaluating expensive `element_to_string` argument
             debug!("preorder_traversal({})", element_to_string(element));
@@ -948,7 +963,15 @@ pub fn match_selectors_with_style_sharing(
                 bless_list,
                 universal_bless_list,
                 optimizations,
-                stats
+                stats,
+                #[cfg(feature = "detailed_statistics")]
+                stage_oracle,
+                #[cfg(feature = "detailed_statistics")]
+                stage_index,
+                #[cfg(feature = "detailed_statistics")]
+                staged_rule_buffers,
+                #[cfg(feature = "detailed_statistics")]
+                universal_tail_candidates,
             );
         }
         bless_list.truncate(inherited_bless_list_len);
@@ -1047,8 +1070,18 @@ pub fn match_selectors_with_style_sharing(
             &mut bless_list,
             &mut universal_bless_list,
             optimizations,
-            &mut stats
+            &mut stats,
+            #[cfg(feature = "detailed_statistics")]
+            &stage_oracle,
+            #[cfg(feature = "detailed_statistics")]
+            &mut stage_index,
+            #[cfg(feature = "detailed_statistics")]
+            &mut staged_rule_buffers,
+            #[cfg(feature = "detailed_statistics")]
+            &mut universal_tail_candidates,
         );
+        #[cfg(feature = "detailed_statistics")]
+        debug_assert_eq!(stage_index, stage_oracle.elements.len());
         start.elapsed()
     };
     let matches = DocumentMatches(result);
