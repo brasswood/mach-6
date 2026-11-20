@@ -177,6 +177,9 @@ interface CountingStatsJson {
   fast_rejects: number;
   slow_rejects: number;
   slow_accepts: number;
+  activation_fast_rejects?: number | undefined;
+  activation_slow_rejects?: number | undefined;
+  activation_slow_accepts?: number | undefined;
 }
 
 interface TimingStatsJson {
@@ -1760,7 +1763,10 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
     bless_list_hits: sumNumbers(counts.map((summary) => summary.bless_list_hits ?? 0)),
     fast_rejects: sumNumbers(counts.map((summary) => summary.fast_rejects)),
     slow_rejects: sumNumbers(counts.map((summary) => summary.slow_rejects)),
-    slow_accepts: sumNumbers(counts.map((summary) => summary.slow_accepts))
+    slow_accepts: sumNumbers(counts.map((summary) => summary.slow_accepts)),
+    activation_fast_rejects: sumOptionalNumbers(counts.map((summary) => summary.activation_fast_rejects)),
+    activation_slow_rejects: sumOptionalNumbers(counts.map((summary) => summary.activation_slow_rejects)),
+    activation_slow_accepts: sumOptionalNumbers(counts.map((summary) => summary.activation_slow_accepts))
   };
   return {
     mean_cycles: sumNumbers(summaries.map((summary) => summary.mean_cycles)),
@@ -2596,7 +2602,14 @@ function renderVariantDetails(
       '<tr><th>Bloom Filter Rejects</th><td>' + comparedCount(bar.counts.fast_rejects, "fast_rejects", comparisonCounts?.fast_rejects) + '</td></tr>',
       '<tr><th>Slow Rejects</th><td>' + comparedCount(bar.counts.slow_rejects, "slow_rejects", comparisonCounts?.slow_rejects) + '</td></tr>',
       '<tr><th>Slow Accepts</th><td>' + comparedCount(bar.counts.slow_accepts, "slow_accepts", comparisonCounts?.slow_accepts) + '</td></tr>',
-      '</tbody></table>'
+      ...([
+        ["activation_fast_rejects", "Activation Bloom Filter Rejects"],
+        ["activation_slow_rejects", "Activation Slow Rejects"],
+        ["activation_slow_accepts", "Activation Slow Accepts"]
+      ] as const).map(([key, label]) => '<tr><th>' + label + '</th><td>'
+        + renderOptionalCount(bar.counts?.[key] ?? null, comparisonCounts?.[key], countMetric(key)) + '</td></tr>'),
+      '</tbody></table>',
+      '<p class="stats-disabled-note">Activation counts are separate from selector counts; activation cycles are included in the matching stages above. N/A means this report did not record separate activation counts.</p>'
     ].join("");
   const selectorBreakdownHtml = bar.counts === undefined
     ? ""
@@ -3001,6 +3014,9 @@ function isCountingStatsJson(value: unknown): value is CountingStatsJson {
     && isFiniteNumber(record.selector_map_hits)
     && (record.tail_selector_map_hits === undefined || isFiniteNumber(record.tail_selector_map_hits))
     && (record.bless_list_hits === undefined || isFiniteNumber(record.bless_list_hits))
+    && (record.activation_fast_rejects === undefined || isFiniteNumber(record.activation_fast_rejects))
+    && (record.activation_slow_rejects === undefined || isFiniteNumber(record.activation_slow_rejects))
+    && (record.activation_slow_accepts === undefined || isFiniteNumber(record.activation_slow_accepts))
     && isFiniteNumber(record.fast_rejects)
     && isFiniteNumber(record.slow_rejects)
     && isFiniteNumber(record.slow_accepts);

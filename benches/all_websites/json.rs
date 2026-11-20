@@ -168,6 +168,12 @@ mod overall_summary {
         pub(crate) fast_rejects: usize,
         pub(crate) slow_rejects: usize,
         pub(crate) slow_accepts: usize,
+        #[serde(default)]
+        pub(crate) activation_fast_rejects: usize,
+        #[serde(default)]
+        pub(crate) activation_slow_rejects: usize,
+        #[serde(default)]
+        pub(crate) activation_slow_accepts: usize,
     }
 
     impl From<CountingStats> for CountingStatsJson {
@@ -184,6 +190,9 @@ mod overall_summary {
                 fast_rejects: value.fast_rejects,
                 slow_rejects: value.slow_rejects,
                 slow_accepts: value.slow_accepts,
+                activation_fast_rejects: value.activation_fast_rejects,
+                activation_slow_rejects: value.activation_slow_rejects,
+                activation_slow_accepts: value.activation_slow_accepts,
             }
         }
     }
