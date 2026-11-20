@@ -54,7 +54,7 @@ default = ["detailed_statistics"]
 detailed_statistics = ["selectors/detailed_statistics", "style/detailed_statistics"]
 debug_element = ["style/debug_element", "selectors/debug_element"]
 serialize_selector_samples = ["detailed_statistics"]
-time_fast_rejecting = ["selectors/time_fast_rejecting"]
+time_fast_rejecting = ["selectors/time_fast_rejecting", "style/time_fast_rejecting"]
 
 [profile.samply]
 inherits = "release"
