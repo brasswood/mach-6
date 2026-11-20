@@ -994,6 +994,46 @@ pub fn match_selectors_with_style_sharing(
     let mut bless_list = SmallVec::new();
     let mut universal_bless_list = SmallVec::new();
 
+    // TODO: Feed oracle results into the timed preorder traversal.
+    #[cfg(feature = "detailed_statistics")]
+    let mut stage_oracle = StageOracle {
+        stages: Vec::with_capacity(stylist.num_selectors()),
+        elements: Vec::with_capacity(document.root_element().descendants().count()),
+    };
+    #[cfg(feature = "detailed_statistics")]
+    let mut staged_rule_buffers = StagedRuleBuffers::with_capacity(selector_map.len());
+    #[cfg(feature = "detailed_statistics")]
+    let mut universal_tail_candidates =
+        Vec::with_capacity(cascade_data.universal_tail_rules().len());
+    #[cfg(feature = "detailed_statistics")]
+    {
+        let mut oracle_thread_local = ThreadLocalStyleContext::new(false);
+        let mut oracle_bless_list = SmallVec::new();
+        let mut oracle_universal_bless_list = SmallVec::new();
+        let mut oracle_matching_rules = ApplicableDeclarationList::new();
+        collect_stage_oracle(
+            document.root_element(),
+            0,
+            &mut oracle_thread_local,
+            &mut stage_oracle,
+            selector_map,
+            cascade_data,
+            stylist,
+            &mut oracle_bless_list,
+            &mut oracle_universal_bless_list,
+            optimizations,
+            &mut staged_rule_buffers,
+            &mut universal_tail_candidates,
+            &mut oracle_matching_rules,
+        );
+    }
+    #[cfg(feature = "detailed_statistics")]
+    let mut stage_index = 0;
+    let mut style_context = StyleContext {
+        shared: &shared_style_context,
+        thread_local: &mut ThreadLocalStyleContext::new(false),
+    };
+
     let matching_time = {
         let start = tsc_timer::Start::now();
         preorder_traversal(
