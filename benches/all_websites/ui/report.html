@@ -14,6 +14,17 @@
       --bar-bg: #d9e5e3;
       --card: #ffffff;
       --line: #d8d8d0;
+      /* Keep report segment colors within tab10; use hatch overlays to distinguish reused colors. */
+      --tab10-blue: #1f77b4;
+      --tab10-orange: #ff7f0e;
+      --tab10-green: #2ca02c;
+      --tab10-red: #d62728;
+      --tab10-purple: #9467bd;
+      --tab10-brown: #8c564b;
+      --tab10-pink: #e377c2;
+      --tab10-gray: #7f7f7f;
+      --tab10-olive: #bcbd22;
+      --tab10-cyan: #17becf;
     }
     body {
       margin: 0;
@@ -499,47 +510,47 @@
       font-weight: 600;
     }
     .seg-index {
-      background: #ff7f0e;
+      background: var(--tab10-orange);
     }
     .seg-preprocess-other {
-      background: #2ca02c;
+      background: var(--tab10-green);
     }
     .seg-distribution {
-      background: #d62728;
+      background: var(--tab10-red);
     }
     .seg-stylist {
-      background-color: #c6dbef;
-      background-image: repeating-linear-gradient(135deg, #2171b5 0 1px, transparent 1px 5px);
+      background-color: var(--tab10-blue);
+      background-image: repeating-linear-gradient(135deg, var(--tab10-olive) 0 1px, transparent 1px 5px);
     }
     .seg-total-matching {
-      background: #1f77b4;
+      background: var(--tab10-blue);
     }
     .seg-bloom {
-      background: #9467bd;
+      background: var(--tab10-purple);
     }
     .seg-share-check {
-      background: #8c564b;
+      background: var(--tab10-brown);
     }
     .seg-query {
-      background: #e377c2;
+      background: var(--tab10-pink);
     }
     .seg-fast {
-      background: #7f7f7f;
+      background: var(--tab10-gray);
     }
     .seg-slow {
-      background: #17becf;
+      background: var(--tab10-cyan);
     }
     .seg-slow-accept {
-      background-color: #aec7e8;
-      background-image: repeating-linear-gradient(135deg, #1f77b4 0 1px, transparent 1px 5px);
+      background-color: var(--tab10-blue);
+      background-image: repeating-linear-gradient(135deg, var(--tab10-pink) 0 1px, transparent 1px 5px);
     }
     .seg-share-insert {
-      background-color: #ffbb78;
-      background-image: repeating-linear-gradient(135deg, #ff7f0e 0 1px, transparent 1px 5px);
+      background-color: var(--tab10-orange);
+      background-image: repeating-linear-gradient(135deg, var(--tab10-blue) 0 1px, transparent 1px 5px);
     }
     .seg-other {
-      background-color: #98df8a;
-      background-image: repeating-linear-gradient(135deg, #2ca02c 0 1px, transparent 1px 5px);
+      background-color: var(--tab10-green);
+      background-image: repeating-linear-gradient(135deg, var(--tab10-blue) 0 1px, transparent 1px 5px);
     }
     .bar-legend {
       margin-top: 8px;
