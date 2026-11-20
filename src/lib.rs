@@ -607,7 +607,6 @@ fn collect_stage_oracle<'dom, 'stylist>(
     universal_tail_candidates: &mut Vec<&'stylist UniversalTailRule>,
     matching_rules: &mut ApplicableDeclarationList,
 ) {
-    // TODO: Complete oracle collection in follow-up commits.
     thread_state::initialize(ThreadState::LAYOUT);
     thread_local
         .bloom_filter
@@ -696,6 +695,37 @@ fn collect_stage_oracle<'dom, 'stylist>(
     );
     let selector_map_range = selector_map_start..oracle.stages.len();
     context.set_matching_stage(None);
+    drop(context);
+
+    oracle.elements.push(ElementStageRanges {
+        universal_bucket_activation,
+        universal_tail_activation,
+        universal_bucket_bless_list,
+        selector_map: selector_map_range,
+    });
+    let bless_list_len = bless_list.len();
+    let universal_bless_list_len = universal_bless_list.len();
+    for child in element.child_elements() {
+        collect_stage_oracle(
+            child,
+            element_depth + 1,
+            thread_local,
+            oracle,
+            selector_map,
+            cascade_data,
+            stylist,
+            bless_list,
+            universal_bless_list,
+            optimizations,
+            staged_rule_buffers,
+            universal_tail_candidates,
+            matching_rules,
+        );
+    }
+    bless_list.truncate(bless_list_len);
+    universal_bless_list.truncate(universal_bless_list_len);
+}
+
 pub fn match_selectors_with_style_sharing(
     document: Html,
     matching_context: MatchingContext,
