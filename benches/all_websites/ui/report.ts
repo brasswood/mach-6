@@ -7,7 +7,7 @@ type SegmentKind =
   | "updatingBloomFilter"
   | "checkingStyleSharing"
   | "queryingSelectorMap"
-  | "fastRejecting"
+  | "checkingBloomFilter"
   | "slowRejecting"
   | "slowAccepting"
   | "insertingIntoSharingCache"
@@ -190,7 +190,7 @@ interface TimingsJsonBody {
   updating_bloom_filter_cycles?: number | undefined;
   slow_rejecting_cycles?: number | undefined;
   slow_accepting_cycles?: number | undefined;
-  fast_rejecting_cycles?: number | undefined;
+  checking_bloom_filter_cycles?: number | undefined;
   checking_style_sharing_cycles?: number | undefined;
   inserting_into_sharing_cache_cycles?: number | undefined;
   querying_selector_map_cycles?: number | undefined;
@@ -292,7 +292,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "updatingBloomFilter",
   "checkingStyleSharing",
   "queryingSelectorMap",
-  "fastRejecting",
+  "checkingBloomFilter",
   "slowRejecting",
   "slowAccepting",
   "insertingIntoSharingCache",
@@ -307,7 +307,7 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   updatingBloomFilter: { label: "Updating Bloom Filter", cssClass: "seg-bloom" },
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
-  fastRejecting: { label: "Fast Rejecting", cssClass: "seg-fast" },
+  checkingBloomFilter: { label: "Checking Bloom Filter", cssClass: "seg-fast" },
   slowRejecting: { label: "Slow Rejecting", cssClass: "seg-slow" },
   slowAccepting: { label: "Slow Accepting", cssClass: "seg-slow-accept" },
   insertingIntoSharingCache: { label: "Inserting Into Sharing Cache", cssClass: "seg-share-insert" },
@@ -1534,7 +1534,7 @@ function buildBar(
     ["updatingBloomFilter", "updating_bloom_filter_cycles"],
     ["checkingStyleSharing", "checking_style_sharing_cycles"],
     ["queryingSelectorMap", "querying_selector_map_cycles"],
-    ["fastRejecting", "fast_rejecting_cycles"],
+    ["checkingBloomFilter", "checking_bloom_filter_cycles"],
     ["slowRejecting", "slow_rejecting_cycles"],
     ["slowAccepting", "slow_accepting_cycles"],
     ["insertingIntoSharingCache", "inserting_into_sharing_cache_cycles"]
@@ -1794,7 +1794,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
         updating_bloom_filter_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
         slow_rejecting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
         slow_accepting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
-        fast_rejecting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_cycles)),
+        checking_bloom_filter_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.checking_bloom_filter_cycles)),
         checking_style_sharing_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_cycles)),
         inserting_into_sharing_cache_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_cycles)),
         querying_selector_map_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles))
@@ -1805,7 +1805,7 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
         updating_bloom_filter_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
         slow_rejecting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
         slow_accepting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
-        fast_rejecting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_cycles)),
+        checking_bloom_filter_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.checking_bloom_filter_cycles)),
         checking_style_sharing_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_cycles)),
         inserting_into_sharing_cache_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_cycles)),
         querying_selector_map_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_cycles))
@@ -3035,7 +3035,7 @@ function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
     record.updating_bloom_filter_cycles,
     record.slow_rejecting_cycles,
     record.slow_accepting_cycles,
-    record.fast_rejecting_cycles,
+    record.checking_bloom_filter_cycles,
     record.checking_style_sharing_cycles,
     record.inserting_into_sharing_cache_cycles,
     record.querying_selector_map_cycles

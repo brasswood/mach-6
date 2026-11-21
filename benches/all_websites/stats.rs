@@ -180,8 +180,8 @@ impl StdDev for TimingStats {
             checking_style_sharing: stddev(|sample| sample.checking_style_sharing),
             #[cfg(feature = "detailed_statistics")]
             querying_selector_map: stddev(|sample| sample.querying_selector_map),
-            #[cfg(feature = "time_fast_rejecting")]
-            fast_rejecting: stddev(|sample| sample.fast_rejecting),
+            #[cfg(feature = "detailed_statistics")]
+            checking_bloom_filter: stddev(|sample| sample.checking_bloom_filter),
             #[cfg(feature = "detailed_statistics")]
             slow_rejecting: stddev(|sample| sample.slow_rejecting),
             #[cfg(feature = "detailed_statistics")]

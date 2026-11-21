@@ -181,9 +181,9 @@ mod overall_summary {
                 selector_map_hits: value.selector_map_hits,
                 tail_selector_map_hits: value.tail_selector_map_hits,
                 bless_list_hits: value.bless_list_hits,
-                fast_rejects: value.fast_rejects,
-                slow_rejects: value.slow_rejects,
-                slow_accepts: value.slow_accepts,
+                fast_rejects: value.fast_rejects + value.activation_fast_rejects,
+                slow_rejects: value.slow_rejects + value.activation_slow_rejects,
+                slow_accepts: value.slow_accepts + value.activation_slow_accepts,
             }
         }
     }
@@ -213,8 +213,8 @@ mod overall_summary {
         pub(crate) slow_rejecting_cycles: u64,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_accepting_cycles: u64,
-        #[cfg(feature = "time_fast_rejecting")]
-        pub(crate) fast_rejecting_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
+        pub(crate) checking_bloom_filter_cycles: u64,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) checking_style_sharing_cycles: u64,
         #[cfg(feature = "detailed_statistics")]
@@ -234,8 +234,8 @@ mod overall_summary {
                 slow_rejecting_cycles: timing_stats.slow_rejecting.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: timing_stats.slow_accepting.cycles(),
-                #[cfg(feature = "time_fast_rejecting")]
-                fast_rejecting_cycles: timing_stats.fast_rejecting.cycles(),
+                #[cfg(feature = "detailed_statistics")]
+                checking_bloom_filter_cycles: timing_stats.checking_bloom_filter.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: timing_stats.checking_style_sharing.cycles(),
                 #[cfg(feature = "detailed_statistics")]
@@ -365,8 +365,8 @@ mod samples {
         pub(crate) slow_rejecting_cycles: Vec<u64>,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) slow_accepting_cycles: Vec<u64>,
-        #[cfg(feature = "time_fast_rejecting")]
-        pub(crate) fast_rejecting_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
+        pub(crate) checking_bloom_filter_cycles: Vec<u64>,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) checking_style_sharing_cycles: Vec<u64>,
         #[cfg(feature = "detailed_statistics")]
@@ -395,8 +395,8 @@ mod samples {
                 slow_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_rejecting),
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
-                #[cfg(feature = "time_fast_rejecting")]
-                fast_rejecting_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
+                #[cfg(feature = "detailed_statistics")]
+                checking_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_bloom_filter),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
                 #[cfg(feature = "detailed_statistics")]
