@@ -37,15 +37,19 @@ use selectors::matching::{self, Statistics};
 use style::context::StyleContext;
 use style::rule_tree::CascadeLevel;
 use style::selector_map::SelectorMap;
+#[cfg(feature = "detailed_statistics")]
+use style::selector_map::StagedRuleBuffers;
 use style::servo_arc::Arc;
 use style::stylist::CascadeData;
 use style::stylist::Rule;
 use style::stylist::UniversalBucketRule;
+#[cfg(feature = "detailed_statistics")]
+use style::stylist::UniversalTailRule;
 use style::sharing::StyleSharingTarget;
 use style::stylesheets::Origin;
 use style::thread_state::{self, ThreadState};
 use smallvec::SmallVec;
-use tsc_timer::{Duration, Start};
+use tsc_timer::Start;
 
 mod stylo_interface;
 pub mod parse;
@@ -446,10 +450,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 // Debug element if applicable
                 #[cfg(feature = "debug_element")]
                 debug_element_selector(element, &element_to_string(element), s);
-                let (res, _stats) = matching::matches_selector(s, 0, None, &element, &mut context);
-                #[cfg(feature = "time_fast_rejecting")]
-                debug_assert_eq!(_stats.time_fast_rejecting, Duration::default());
-                res
+                matching::matches_selector(s, 0, None, &element, &mut context).0
             })
             .collect();
         matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
@@ -585,6 +586,10 @@ pub fn match_selectors_with_style_sharing(
         cascade_data: &'a CascadeData,
         bless_list: &mut SmallVec<[&'a Selector; 16]>,
         universal_bless_list: &mut SmallVec<[(&'a UniversalBucketRule, usize); 16]>,
+        #[cfg(feature = "detailed_statistics")]
+        staged_rule_buffers: &mut StagedRuleBuffers<'a>,
+        #[cfg(feature = "detailed_statistics")]
+        staged_tail_candidates: &mut Vec<Option<&'a UniversalTailRule>>,
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
@@ -594,10 +599,6 @@ pub fn match_selectors_with_style_sharing(
         }
         let inherited_bless_list_len = bless_list.len();
         let inherited_universal_bless_list_len = universal_bless_list.len();
-        let active_universal_bless_list_len = universal_bless_list[..inherited_universal_bless_list_len]
-            .iter()
-            .filter(|(_, last_depth)| *last_depth >= element_depth)
-            .count();
         // 0. debug element if applicable
         let debug_html_str: Option<String> = None;
         #[cfg(feature = "debug_element")]
@@ -642,6 +643,8 @@ pub fn match_selectors_with_style_sharing(
                 element,
                 bless_list,
                 &mut activation_context,
+                #[cfg(feature = "detailed_statistics")]
+                staged_tail_candidates,
             );
             *stats += activation_stats;
         }
@@ -743,6 +746,8 @@ pub fn match_selectors_with_style_sharing(
                         || optimizations.universal_bucket_bless_lists,
                     optimizations.universal_bucket_bless_lists,
                     debug_html_str.as_ref().map(|debug_html_str| debug_html_str.as_str()),
+                    #[cfg(feature = "detailed_statistics")]
+                    staged_rule_buffers,
                 );
                 *stats += selector_map_stats;
                 // 1.3.3: add the matched selectors to the list
@@ -786,6 +791,10 @@ pub fn match_selectors_with_style_sharing(
                 cascade_data,
                 bless_list,
                 universal_bless_list,
+                #[cfg(feature = "detailed_statistics")]
+                staged_rule_buffers,
+                #[cfg(feature = "detailed_statistics")]
+                staged_tail_candidates,
                 optimizations,
                 stats
             );
@@ -800,6 +809,13 @@ pub fn match_selectors_with_style_sharing(
     let cascade_data = stylist.cascade_data().borrow_for_origin(Origin::Author);
     // TODO: It's evident from this that we get one selector map per origin. How do real browsers handle all three origins (Author, User, User Agent)?
     let selector_map = cascade_data.normal_rules(&[]).unwrap();
+    #[cfg(feature = "detailed_statistics")]
+    let mut staged_rule_buffers =
+        StagedRuleBuffers::with_capacity(selector_map.max_candidate_count());
+    #[cfg(feature = "detailed_statistics")]
+    let mut staged_tail_candidates = Vec::with_capacity(
+        cascade_data.universal_tail_rules().max_candidate_count(),
+    );
     info!("Stylist::num_selectors(): {}", stylist.num_selectors());
     info!("SelectorMap::len(): {}", selector_map.len());
     let shared_style_context = SharedStyleContext {
@@ -845,6 +861,10 @@ pub fn match_selectors_with_style_sharing(
             cascade_data,
             &mut bless_list,
             &mut universal_bless_list,
+            #[cfg(feature = "detailed_statistics")]
+            &mut staged_rule_buffers,
+            #[cfg(feature = "detailed_statistics")]
+            &mut staged_tail_candidates,
             optimizations,
             &mut stats
         );
@@ -889,7 +909,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
         let matched_selectors = selectors
             .into_iter()
             .filter(|s| {
-                let (res, _stats) = matching::matches_selector(
+                let (res, _) = matching::matches_selector(
                     s,
                     0,
                     None,
@@ -897,8 +917,6 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
                     &mut context
                 );
                 debug_assert!(res);
-                #[cfg(feature = "time_fast_rejecting")]
-                debug_assert_eq!(_stats.time_fast_rejecting, Duration::default());
                 res
             })
             .cloned()
