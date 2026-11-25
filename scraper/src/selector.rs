@@ -71,7 +71,7 @@ impl Selector {
             .slice()
             .iter()
             .any(|s| {
-                matching::matches_selector(
+                matching::matches_selector_single(
                     s,
                     0,
                     None,

@@ -449,7 +449,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 // Debug element if applicable
                 #[cfg(feature = "debug_element")]
                 debug_element_selector(element, &element_to_string(element), s);
-                matching::matches_selector(
+                matching::matches_selector_single(
                     s,
                     0,
                     None,
@@ -596,7 +596,7 @@ pub fn match_selectors_with_style_sharing(
         #[cfg(feature = "detailed_statistics")]
         staged_rule_buffers: &mut StagedRuleBuffers<'a>,
         #[cfg(feature = "detailed_statistics")]
-        staged_tail_candidates: &mut Vec<Option<&'a UniversalTailRule>>,
+        staged_tail_candidates: &mut Vec<Option<(&'a Selector, &'a UniversalTailRule)>>,
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
@@ -912,7 +912,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
         let matched_selectors = selectors
             .into_iter()
             .filter(|s| {
-                let res = matching::matches_selector(
+                let res = matching::matches_selector_single(
                     s,
                     0,
                     None,
