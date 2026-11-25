@@ -10,7 +10,6 @@ use derive_more::Display;
 use log::Level;
 use log::{debug, info, log_enabled};
 use rustc_hash::FxBuildHasher;
-use selectors::matching::SelectorStats;
 use style::animation::DocumentAnimationSet;
 use style::context::SharedStyleContext;
 use style::context::StyleSystemOptions;
@@ -450,7 +449,15 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 // Debug element if applicable
                 #[cfg(feature = "debug_element")]
                 debug_element_selector(element, &element_to_string(element), s);
-                matching::matches_selector(s, 0, None, &element, &mut context).0
+                matching::matches_selector(
+                    s,
+                    0,
+                    None,
+                    &element,
+                    &mut context,
+                    &mut Statistics::default(),
+                    None,
+                )
             })
             .collect();
         matches.push(ElementMatches{ element, selectors: SelectorsOrSharedStyles::Selectors(matched_selectors) });
@@ -573,7 +580,7 @@ pub fn match_selectors_with_style_sharing(
 ) -> (
     OwnedDocumentMatches,
     Statistics,
-    Option<SmallVec<[(Selector, SelectorStats); 16]>>,
+    Option<Vec<(Selector, matching::SlowMatchStats)>>,
 ) {
     let optimizations = matching_context.optimizations;
     fn preorder_traversal<'a>(
@@ -581,7 +588,7 @@ pub fn match_selectors_with_style_sharing(
         element_depth: usize,
         context: &mut StyleContext<ElementRef<'a>>,
         matches: &mut Vec<ElementMatches<'a>>,
-        mut selector_stats: Option<&mut SmallVec<[(&'a Selector, SelectorStats); 16]>>,
+        mut per_match_stats: Option<&mut matching::PerMatchStats<'a, style::selector_parser::SelectorImpl>>,
         selector_map: &'a SelectorMap<Rule>,
         cascade_data: &'a CascadeData,
         bless_list: &mut SmallVec<[&'a Selector; 16]>,
@@ -627,6 +634,7 @@ pub fn match_selectors_with_style_sharing(
                 element,
                 element_depth,
                 universal_bless_list,
+                per_match_stats.as_deref_mut(),
                 &mut activation_context,
             );
             *stats += activation_stats;
@@ -642,6 +650,7 @@ pub fn match_selectors_with_style_sharing(
             let activation_stats = cascade_data.universal_tail_rules().get_matching_universal_tails(
                 element,
                 bless_list,
+                per_match_stats.as_deref_mut(),
                 &mut activation_context,
                 #[cfg(feature = "detailed_statistics")]
                 staged_tail_candidates,
@@ -711,7 +720,6 @@ pub fn match_selectors_with_style_sharing(
                     .iter()
                     .copied()
                     .collect();
-                let mut sel_stats = selector_stats.is_some().then(SmallVec::new);
                 for (rule, last_depth) in
                     &universal_bless_list[..inherited_universal_bless_list_len]
                 {
@@ -719,15 +727,13 @@ pub fn match_selectors_with_style_sharing(
                         continue;
                     }
                     stats.counts.bless_list_hits += 1;
-                    let (matched, rule_stats) = matching::matches_rightmost_compound(
+                    let matched = matching::matches_rightmost_compound(
                         rule.selector(),
                         &element,
                         &mut matching_context,
+                        stats,
+                        per_match_stats.as_deref_mut(),
                     );
-                    if let Some(selector_stats) = sel_stats.as_mut() {
-                        selector_stats.push((rule.selector(), SelectorStats::Bloom(rule_stats)));
-                    }
-                    *stats += rule_stats;
                     if matched {
                         matched_selectors.push(rule.selector());
                     }
@@ -737,7 +743,7 @@ pub fn match_selectors_with_style_sharing(
                     element, // TODO: ????
                     &mut SmallVec::new(),
                     Some(&mut matched_selectors),
-                    sel_stats.as_mut(),
+                    per_match_stats.as_deref_mut(),
                     &mut matching_context,
                     CascadeLevel::same_tree_author_normal(),
                     cascade_data,
@@ -757,9 +763,6 @@ pub fn match_selectors_with_style_sharing(
                         selectors: SelectorsOrSharedStyles::Selectors(matched_selectors)
                     }
                 );
-                if let Some(selector_stats) = selector_stats.as_deref_mut() {
-                    selector_stats.extend(sel_stats.unwrap().into_iter())
-                }
                 // 1.3.4: insert the element into the style sharing cache
                 if optimizations.style_sharing {
                     #[cfg(feature = "detailed_statistics")]
@@ -786,7 +789,7 @@ pub fn match_selectors_with_style_sharing(
                 element_depth+1,
                 context,
                 matches,
-                selector_stats.as_deref_mut(),
+                per_match_stats.as_deref_mut(),
                 selector_map,
                 cascade_data,
                 bless_list,
@@ -844,8 +847,8 @@ pub fn match_selectors_with_style_sharing(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    let mut selector_stats: Option<SmallVec<[(&Selector, SelectorStats); 16]>> =
-        get_selector_stats.then(SmallVec::new);
+    let mut per_match_stats: Option<matching::PerMatchStats<'_, style::selector_parser::SelectorImpl>> =
+        get_selector_stats.then(|| Vec::with_capacity(selector_map.len()));
     let mut bless_list = SmallVec::new();
     let mut universal_bless_list = SmallVec::new();
 
@@ -856,7 +859,7 @@ pub fn match_selectors_with_style_sharing(
             0,
             &mut style_context,
             &mut result,
-            selector_stats.as_mut(),
+            per_match_stats.as_mut(),
             selector_map,
             cascade_data,
             &mut bless_list,
@@ -871,7 +874,7 @@ pub fn match_selectors_with_style_sharing(
         start.elapsed()
     };
     let matches = DocumentMatches(result);
-    let selector_stats = selector_stats.map(|stats| {
+    let per_match_stats = per_match_stats.map(|stats| {
         stats.into_iter()
             .map(|(selector, stats)| (selector.clone(), stats))
             .collect()
@@ -887,7 +890,7 @@ pub fn match_selectors_with_style_sharing(
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     stats.times.building_stylist = matching_context.time_building_stylist;
     stats.times.total_matching = matching_time;
-    (owned_matches, stats, selector_stats)
+    (owned_matches, stats, per_match_stats)
 }
 
 pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
@@ -909,12 +912,14 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
         let matched_selectors = selectors
             .into_iter()
             .filter(|s| {
-                let (res, _) = matching::matches_selector(
+                let res = matching::matches_selector(
                     s,
                     0,
                     None,
                     &element,
-                    &mut context
+                    &mut context,
+                    &mut Statistics::default(),
+                    None,
                 );
                 debug_assert!(res);
                 res
