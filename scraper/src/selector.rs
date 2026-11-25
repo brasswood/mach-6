@@ -70,7 +70,17 @@ impl Selector {
         self.selectors
             .slice()
             .iter()
-            .any(|s| matching::matches_selector(s, 0, None, element, &mut context).0)
+            .any(|s| {
+                matching::matches_selector(
+                    s,
+                    0,
+                    None,
+                    element,
+                    &mut context,
+                    &mut matching::Statistics::default(),
+                    None,
+                )
+            })
     }
 }
 
