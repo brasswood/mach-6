@@ -235,7 +235,7 @@ mod overall_summary {
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: timing_stats.slow_accepting.cycles(),
                 #[cfg(feature = "detailed_statistics")]
-                checking_bloom_filter_cycles: timing_stats.checking_bloom_filter.cycles(),
+                checking_bloom_filter_cycles: timing_stats.fast_rejecting.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: timing_stats.checking_style_sharing.cycles(),
                 #[cfg(feature = "detailed_statistics")]
@@ -291,9 +291,6 @@ mod selector_summary {
         pub(crate) means_cycles: HashMap<SelectorString, u64>,
         pub(crate) stddevs_cycles: HashMap<SelectorString, u64>,
         pub(crate) slow_reject_counts: HashMap<SelectorString, usize>,
-        pub(crate) classic_global_failures: HashMap<SelectorString, usize>,
-        pub(crate) classic_descendant_restarts: HashMap<SelectorString, usize>,
-        pub(crate) classic_sibling_restarts: HashMap<SelectorString, usize>,
     }
 
     #[cfg(feature = "detailed_statistics")]
@@ -311,18 +308,6 @@ mod selector_summary {
                 slow_reject_counts: value
                     .iter()
                     .map(|(selector, samples)| (selector.clone(), samples.reject_count))
-                    .collect(),
-                classic_global_failures: value
-                    .iter()
-                    .map(|(selector, samples)| (selector.clone(), samples.result_counts.classic_global_failures))
-                    .collect(),
-                classic_descendant_restarts: value
-                    .iter()
-                    .map(|(selector, samples)| (selector.clone(), samples.result_counts.classic_descendant_restarts))
-                    .collect(),
-                classic_sibling_restarts: value
-                    .iter()
-                    .map(|(selector, samples)| (selector.clone(), samples.result_counts.classic_sibling_restarts))
                     .collect(),
             }
         }
@@ -396,7 +381,7 @@ mod samples {
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
                 #[cfg(feature = "detailed_statistics")]
-                checking_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_bloom_filter),
+                checking_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
                 #[cfg(feature = "detailed_statistics")]
