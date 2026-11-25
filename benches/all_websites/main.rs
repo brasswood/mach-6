@@ -10,9 +10,7 @@ use scraper::Html;
 use selectors::matching::{Statistics, TimingStats};
 use selectors::matching::CountingStats;
 #[cfg(feature = "detailed_statistics")]
-use selectors::matching::{NotMatchedResultCounts, SelectorStats};
-#[cfg(feature = "detailed_statistics")]
-use smallvec::SmallVec;
+use selectors::matching::SlowMatchStats;
 #[cfg(feature = "detailed_statistics")]
 use std::cmp::Reverse;
 use std::fs;
@@ -58,7 +56,6 @@ impl From<&Selector> for SelectorString {
 struct SelectorSlowRejectSamples {
     aggregate_durations: Samples<tsc_timer::Duration>,
     reject_count: usize,
-    result_counts: NotMatchedResultCounts,
 }
 
 /// Aggregated data for one matching variant in the website report.
@@ -85,7 +82,7 @@ impl MatchBenchResult {
     fn new(
         stats: Samples<Statistics>,
         #[cfg(feature = "detailed_statistics")]
-        per_match_stats: Samples<SmallVec<[(Selector, SelectorStats); 16]>>,
+        per_match_stats: Samples<Vec<(Selector, SlowMatchStats)>>,
     ) -> Self {
         let counting_stats = stats
             .first()
@@ -98,34 +95,34 @@ impl MatchBenchResult {
         #[cfg(feature = "detailed_statistics")]
         let selector_slow_reject_times = {
         let mut map: IndexMap<SelectorString, SelectorSlowRejectSamples> = IndexMap::new();
+        let num_samples = per_match_stats.len();
         for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
             for (selector, selector_stats) in per_match_stats {
-                let (duration, count, result_counts) = match selector_stats {
-                    SelectorStats::Bloom(bq) => (
-                        bq.time_slow_rejecting,
-                        bq.slow_rejects,
-                        bq.not_matched_result_counts,
-                    ),
-                    SelectorStats::ScopeProximity(sp) => (
-                        sp.time_slow_rejecting,
-                        sp.slow_rejects,
-                        sp.slow_reject_not_matched_result_counts,
-                    ),
-                };
+                if selector_stats.accepted {
+                    continue;
+                }
                 let selector = SelectorString::from(&selector);
                 let measurements = map.entry(selector).or_default();
-                measurements.reject_count += count;
-                measurements.result_counts += result_counts;
+                measurements.reject_count += 1;
+                while measurements.aggregate_durations.len() < i {
+                    measurements.aggregate_durations.push(tsc_timer::Duration::default());
+                }
                 // If this is the first time we have touched the vector at this
                 // selector for this sample (samples.len() == i), push a new
                 // Duration onto the end. Otherwise, samples.len() == i + 1,
                 // which means we have already started building up an aggregate
                 // duration for this sample, so just accumulate that. 
                 if measurements.aggregate_durations.len() == i {
-                    measurements.aggregate_durations.push(duration);
+                    measurements.aggregate_durations.push(selector_stats.duration);
                 } else {
-                    measurements.aggregate_durations.0[i] += duration;
+                    measurements.aggregate_durations.0[i] += selector_stats.duration;
                 }
+            }
+        }
+
+        for measurements in map.values_mut() {
+            while measurements.aggregate_durations.len() < num_samples {
+                measurements.aggregate_durations.push(tsc_timer::Duration::default());
             }
         }
 
