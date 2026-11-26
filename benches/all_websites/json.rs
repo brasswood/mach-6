@@ -221,6 +221,8 @@ mod overall_summary {
         pub(crate) inserting_into_sharing_cache_cycles: u64,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) querying_selector_map_cycles: u64,
+        #[cfg(feature = "detailed_statistics")]
+        pub(crate) querying_activation_selector_map_cycles: u64,
     }
 
     impl From<TimingStats> for TimingsJsonBody {
@@ -235,13 +237,17 @@ mod overall_summary {
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: timing_stats.slow_accepting.cycles(),
                 #[cfg(feature = "detailed_statistics")]
-                checking_bloom_filter_cycles: timing_stats.fast_rejecting.cycles(),
+                checking_bloom_filter_cycles: timing_stats.checking_bloom_filter.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: timing_stats.checking_style_sharing.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 inserting_into_sharing_cache_cycles: timing_stats.inserting_into_sharing_cache.cycles(),
                 #[cfg(feature = "detailed_statistics")]
                 querying_selector_map_cycles: timing_stats.querying_selector_map.cycles(),
+                #[cfg(feature = "detailed_statistics")]
+                querying_activation_selector_map_cycles: timing_stats
+                    .querying_activation_selector_map
+                    .cycles(),
             }
         }
     }
@@ -358,6 +364,8 @@ mod samples {
         pub(crate) inserting_into_sharing_cache_cycles: Vec<u64>,
         #[cfg(feature = "detailed_statistics")]
         pub(crate) querying_selector_map_cycles: Vec<u64>,
+        #[cfg(feature = "detailed_statistics")]
+        pub(crate) querying_activation_selector_map_cycles: Vec<u64>,
         pub(crate) selector_slow_rejects_cycles: Option<HashMap<SelectorString, Vec<u64>>>,
     }
 
@@ -381,13 +389,17 @@ mod samples {
                 #[cfg(feature = "detailed_statistics")]
                 slow_accepting_cycles: get_cycles_samples(|timing_stats| timing_stats.slow_accepting),
                 #[cfg(feature = "detailed_statistics")]
-                checking_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.fast_rejecting),
+                checking_bloom_filter_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_bloom_filter),
                 #[cfg(feature = "detailed_statistics")]
                 checking_style_sharing_cycles: get_cycles_samples(|timing_stats| timing_stats.checking_style_sharing),
                 #[cfg(feature = "detailed_statistics")]
                 inserting_into_sharing_cache_cycles: get_cycles_samples(|timing_stats| timing_stats.inserting_into_sharing_cache),
                 #[cfg(feature = "detailed_statistics")]
                 querying_selector_map_cycles: get_cycles_samples(|timing_stats| timing_stats.querying_selector_map),
+                #[cfg(feature = "detailed_statistics")]
+                querying_activation_selector_map_cycles: get_cycles_samples(|timing_stats| {
+                    timing_stats.querying_activation_selector_map
+                }),
                 #[cfg(not(feature = "serialize_selector_samples"))]
                 selector_slow_rejects_cycles: None,
                 #[cfg(feature = "serialize_selector_samples")]
