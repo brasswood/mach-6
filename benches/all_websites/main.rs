@@ -82,7 +82,7 @@ impl MatchBenchResult {
     fn new(
         stats: Samples<Statistics>,
         #[cfg(feature = "detailed_statistics")]
-        per_match_stats: Samples<Vec<(Selector, SlowMatchStats)>>,
+        selector_stats: Samples<Vec<(Selector, SlowMatchStats)>>,
     ) -> Self {
         let counting_stats = stats
             .first()
@@ -95,10 +95,10 @@ impl MatchBenchResult {
         #[cfg(feature = "detailed_statistics")]
         let selector_slow_reject_times = {
         let mut map: IndexMap<SelectorString, SelectorSlowRejectSamples> = IndexMap::new();
-        let num_samples = per_match_stats.len();
-        for (i, per_match_stats) in per_match_stats.into_iter().enumerate() {
-            for (selector, selector_stats) in per_match_stats {
-                if selector_stats.accepted {
+        let num_samples = selector_stats.len();
+        for (i, selector_sample) in selector_stats.into_iter().enumerate() {
+            for (selector, stats) in selector_sample {
+                if stats.accepted {
                     continue;
                 }
                 let selector = SelectorString::from(&selector);
@@ -113,9 +113,9 @@ impl MatchBenchResult {
                 // which means we have already started building up an aggregate
                 // duration for this sample, so just accumulate that. 
                 if measurements.aggregate_durations.len() == i {
-                    measurements.aggregate_durations.push(selector_stats.duration);
+                    measurements.aggregate_durations.push(stats.duration);
                 } else {
-                    measurements.aggregate_durations.0[i] += selector_stats.duration;
+                    measurements.aggregate_durations.0[i] += stats.duration;
                 }
             }
         }
@@ -328,11 +328,12 @@ where
     {
         print!("Getting selector stats for {benchmark_name}...");
         let (document, matching_context) = setup();
-        let (_, _, per_match_stats) =
+        let (_, _, selector_stats) =
             mach_6::match_selectors_with_style_sharing(document, matching_context, true);
         println!("done.");
-        let per_match_stats = Samples::from_vec(vec![per_match_stats.expect("selector stats were requested")]);
-        MatchBenchResult::new(overall_stats, per_match_stats)
+        let selector_stats =
+            Samples::from_vec(vec![selector_stats.expect("selector stats were requested")]);
+        MatchBenchResult::new(overall_stats, selector_stats)
     }
     #[cfg(not(feature = "detailed_statistics"))]
     MatchBenchResult::new(overall_stats)

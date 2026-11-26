@@ -588,7 +588,9 @@ pub fn match_selectors_with_style_sharing(
         element_depth: usize,
         context: &mut StyleContext<ElementRef<'a>>,
         matches: &mut Vec<ElementMatches<'a>>,
-        mut per_match_stats: Option<&mut matching::PerMatchStats<'a, style::selector_parser::SelectorImpl>>,
+        mut selector_stats: Option<
+            &mut matching::PerMatchStats<'a, style::selector_parser::SelectorImpl>,
+        >,
         selector_map: &'a SelectorMap<Rule>,
         cascade_data: &'a CascadeData,
         bless_list: &mut SmallVec<[&'a Selector; 16]>,
@@ -634,7 +636,7 @@ pub fn match_selectors_with_style_sharing(
                 element,
                 element_depth,
                 universal_bless_list,
-                per_match_stats.as_deref_mut(),
+                selector_stats.as_deref_mut(),
                 &mut activation_context,
             );
             *stats += activation_stats;
@@ -650,7 +652,7 @@ pub fn match_selectors_with_style_sharing(
             let activation_stats = cascade_data.universal_tail_rules().get_matching_universal_tails(
                 element,
                 bless_list,
-                per_match_stats.as_deref_mut(),
+                selector_stats.as_deref_mut(),
                 &mut activation_context,
                 #[cfg(feature = "detailed_statistics")]
                 staged_tail_candidates,
@@ -732,7 +734,7 @@ pub fn match_selectors_with_style_sharing(
                         &element,
                         &mut matching_context,
                         stats,
-                        per_match_stats.as_deref_mut(),
+                        selector_stats.as_deref_mut(),
                     );
                     if matched {
                         matched_selectors.push(rule.selector());
@@ -743,7 +745,7 @@ pub fn match_selectors_with_style_sharing(
                     element, // TODO: ????
                     &mut SmallVec::new(),
                     Some(&mut matched_selectors),
-                    per_match_stats.as_deref_mut(),
+                    selector_stats.as_deref_mut(),
                     &mut matching_context,
                     CascadeLevel::same_tree_author_normal(),
                     cascade_data,
@@ -789,7 +791,7 @@ pub fn match_selectors_with_style_sharing(
                 element_depth+1,
                 context,
                 matches,
-                per_match_stats.as_deref_mut(),
+                selector_stats.as_deref_mut(),
                 selector_map,
                 cascade_data,
                 bless_list,
@@ -847,8 +849,9 @@ pub fn match_selectors_with_style_sharing(
     };
     let mut result = Vec::new();
     let mut stats = Statistics::default();
-    let mut per_match_stats: Option<matching::PerMatchStats<'_, style::selector_parser::SelectorImpl>> =
-        get_selector_stats.then(|| Vec::with_capacity(selector_map.len()));
+    let mut selector_stats: Option<
+        matching::PerMatchStats<'_, style::selector_parser::SelectorImpl>,
+    > = get_selector_stats.then(|| Vec::with_capacity(selector_map.len()));
     let mut bless_list = SmallVec::new();
     let mut universal_bless_list = SmallVec::new();
 
@@ -859,7 +862,7 @@ pub fn match_selectors_with_style_sharing(
             0,
             &mut style_context,
             &mut result,
-            per_match_stats.as_mut(),
+            selector_stats.as_mut(),
             selector_map,
             cascade_data,
             &mut bless_list,
@@ -874,7 +877,7 @@ pub fn match_selectors_with_style_sharing(
         start.elapsed()
     };
     let matches = DocumentMatches(result);
-    let per_match_stats = per_match_stats.map(|stats| {
+    let selector_stats = selector_stats.map(|stats| {
         stats.into_iter()
             .map(|(selector, stats)| (selector.clone(), stats))
             .collect()
@@ -890,7 +893,7 @@ pub fn match_selectors_with_style_sharing(
     stats.counts.sharing_accepts = count_sharing_accepts(&owned_matches);
     stats.times.building_stylist = matching_context.time_building_stylist;
     stats.times.total_matching = matching_time;
-    (owned_matches, stats, per_match_stats)
+    (owned_matches, stats, selector_stats)
 }
 
 pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
