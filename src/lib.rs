@@ -449,7 +449,7 @@ pub fn match_selectors<'a>(document: &'a Html, selectors: &'a [Selector]) -> Doc
                 // Debug element if applicable
                 #[cfg(feature = "debug_element")]
                 debug_element_selector(element, &element_to_string(element), s);
-                matching::matches_selector_single(
+                matching::matches_selector(
                     s,
                     0,
                     None,
@@ -915,7 +915,7 @@ pub fn mach_7<'a>(matches: &DocumentMatches<'a>) -> DocumentMatches<'a> {
         let matched_selectors = selectors
             .into_iter()
             .filter(|s| {
-                let res = matching::matches_selector_single(
+                let res = matching::matches_selector(
                     s,
                     0,
                     None,
