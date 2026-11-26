@@ -7,7 +7,7 @@ type SegmentKind =
   | "updatingBloomFilter"
   | "checkingStyleSharing"
   | "queryingSelectorMap"
-  | "fastRejecting"
+  | "queryingActivationSelectorMap"
   | "checkingBloomFilter"
   | "slowRejecting"
   | "slowAccepting"
@@ -196,6 +196,7 @@ interface TimingsJsonBody {
   checking_style_sharing_cycles?: number | undefined;
   inserting_into_sharing_cache_cycles?: number | undefined;
   querying_selector_map_cycles?: number | undefined;
+  querying_activation_selector_map_cycles?: number | undefined;
 }
 
 interface SelectorsSummaryJson {
@@ -294,7 +295,7 @@ const SEGMENT_ORDER: readonly SegmentKind[] = [
   "updatingBloomFilter",
   "checkingStyleSharing",
   "queryingSelectorMap",
-  "fastRejecting",
+  "queryingActivationSelectorMap",
   "checkingBloomFilter",
   "slowRejecting",
   "slowAccepting",
@@ -310,7 +311,7 @@ const SEGMENT_INFO: Record<SegmentKind, SegmentInfo> = {
   updatingBloomFilter: { label: "Updating Bloom Filter", cssClass: "seg-bloom" },
   checkingStyleSharing: { label: "Checking Style Sharing", cssClass: "seg-share-check" },
   queryingSelectorMap: { label: "Querying Selector Map", cssClass: "seg-query" },
-  fastRejecting: { label: "Fast Rejecting", cssClass: "seg-fast-rejecting" },
+  queryingActivationSelectorMap: { label: "Querying Activation Selector Map", cssClass: "seg-query-activation" },
   checkingBloomFilter: { label: "Checking Bloom Filter", cssClass: "seg-fast" },
   slowRejecting: { label: "Slow Rejecting", cssClass: "seg-slow" },
   slowAccepting: { label: "Slow Accepting", cssClass: "seg-slow-accept" },
@@ -1538,7 +1539,7 @@ function buildBar(
     ["updatingBloomFilter", "updating_bloom_filter_cycles"],
     ["checkingStyleSharing", "checking_style_sharing_cycles"],
     ["queryingSelectorMap", "querying_selector_map_cycles"],
-    ["fastRejecting", "fast_rejecting_cycles"],
+    ["queryingActivationSelectorMap", "querying_activation_selector_map_cycles"],
     ["checkingBloomFilter", "checking_bloom_filter_cycles"],
     ["slowRejecting", "slow_rejecting_cycles"],
     ["slowAccepting", "slow_accepting_cycles"],
@@ -1546,11 +1547,13 @@ function buildBar(
   ];
   const measuredMatchDurations: SegmentView[] = [];
   for (const [kind, field] of timedStages) {
-    const meanCycles = means[field];
+    const meanCycles = means[field]
+      ?? (field === "checking_bloom_filter_cycles" ? means.fast_rejecting_cycles : undefined);
     if (meanCycles === undefined) {
       continue;
     }
-    const stddevCycles = stddevs[field];
+    const stddevCycles = stddevs[field]
+      ?? (field === "checking_bloom_filter_cycles" ? stddevs.fast_rejecting_cycles : undefined);
     measuredMatchDurations.push({
       kind,
       meanCycles: toBigInt(meanCycles),
@@ -1797,25 +1800,25 @@ function aggregateBenchmarkRunSummary(summaries: BenchmarkRunSummaryJson[]): Ben
         building_stylist_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.building_stylist_cycles)),
         total_matching_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.total_matching_cycles)),
         updating_bloom_filter_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.updating_bloom_filter_cycles)),
-        fast_rejecting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.fast_rejecting_cycles)),
         slow_rejecting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.slow_rejecting_cycles)),
         slow_accepting_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.slow_accepting_cycles)),
-        checking_bloom_filter_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.checking_bloom_filter_cycles)),
+        checking_bloom_filter_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.checking_bloom_filter_cycles ?? summary.times.means.fast_rejecting_cycles)),
         checking_style_sharing_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.checking_style_sharing_cycles)),
         inserting_into_sharing_cache_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.inserting_into_sharing_cache_cycles)),
-        querying_selector_map_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles))
+        querying_selector_map_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.querying_selector_map_cycles)),
+        querying_activation_selector_map_cycles: sumOptionalNumbers(summaries.map((summary) => summary.times.means.querying_activation_selector_map_cycles))
       },
       stddevs: {
         building_stylist_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.building_stylist_cycles)),
         total_matching_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.total_matching_cycles)),
         updating_bloom_filter_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.updating_bloom_filter_cycles)),
-        fast_rejecting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.fast_rejecting_cycles)),
         slow_rejecting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.slow_rejecting_cycles)),
         slow_accepting_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.slow_accepting_cycles)),
-        checking_bloom_filter_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.checking_bloom_filter_cycles)),
+        checking_bloom_filter_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.checking_bloom_filter_cycles ?? summary.times.stddevs.fast_rejecting_cycles)),
         checking_style_sharing_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.checking_style_sharing_cycles)),
         inserting_into_sharing_cache_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.inserting_into_sharing_cache_cycles)),
-        querying_selector_map_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_cycles))
+        querying_selector_map_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.querying_selector_map_cycles)),
+        querying_activation_selector_map_cycles: combineOptionalStddevs(summaries.map((summary) => summary.times.stddevs.querying_activation_selector_map_cycles))
       }
     }
   };
@@ -3046,7 +3049,8 @@ function isTimingsJsonBody(value: unknown): value is TimingsJsonBody {
     record.checking_bloom_filter_cycles,
     record.checking_style_sharing_cycles,
     record.inserting_into_sharing_cache_cycles,
-    record.querying_selector_map_cycles
+    record.querying_selector_map_cycles,
+    record.querying_activation_selector_map_cycles
     ].every((cycleCount) => cycleCount === undefined || isFiniteNumber(cycleCount));
 }
 
