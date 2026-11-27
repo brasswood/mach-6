@@ -984,6 +984,31 @@ mod tests {
     }
 
     #[test]
+    fn reports_only_universal_bucket_selectors_from_stylist() -> Result<()> {
+        let stylesheet_lock = style::shared_lock::SharedRwLock::new();
+        let stylesheet = crate::parse::parse_stylesheet(
+            ".a :not(.b) {} .plain {} .a * {} .a > :not(.c) {}",
+            UrlExtraData::from(url::Url::parse("about:blank").unwrap()),
+            &stylesheet_lock,
+        )?;
+        let matcher = crate::MatchingContext::new(
+            std::iter::once(&stylesheet),
+            stylesheet_lock,
+            Optimizations::from_none(),
+        );
+
+        assert_eq!(
+            matcher.get_universal_bucket_selectors(),
+            vec![
+                ".a :not(.b)".to_owned(),
+                ".a *".to_owned(),
+                ".a > :not(.c)".to_owned(),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
     fn sharable_styles_are_shared() -> Result<()> {
         let website = get_document_and_selectors(
             &websites_path().join("ten_divs_style_sharing")
