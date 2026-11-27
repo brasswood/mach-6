@@ -598,7 +598,7 @@ pub fn match_selectors_with_style_sharing(
         #[cfg(feature = "detailed_statistics")]
         staged_rule_buffers: &mut StagedRuleBuffers<'a>,
         #[cfg(feature = "detailed_statistics")]
-        staged_tail_candidates: &mut Vec<Option<(&'a Selector, &'a UniversalTailRule)>>,
+        staged_tail_candidates: &mut Vec<&'a UniversalTailRule>,
         optimizations: Optimizations,
         stats: &mut Statistics,
     ) {
