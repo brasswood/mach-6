@@ -294,6 +294,27 @@ impl MatchingContext {
         }
         selectors.into_values().collect()
     }
+
+    pub fn get_universal_bucket_selectors(&self) -> Vec<String> {
+        let cascade_data = self.stylist.cascade_data().borrow_for_origin(Origin::Author);
+        let map = cascade_data.universal_bucket_rules();
+        map.root
+            .iter()
+            .chain(map.common_pseudo_classes.iter())
+            .chain(map.rare_pseudo_classes.iter())
+            .chain(map.other.iter())
+            .chain(map.universal_tails.iter())
+            .chain(map.universal_buckets.iter())
+            .chain(map.id_hash.iter().flat_map(|(_, bucket)| bucket.iter()))
+            .chain(map.class_hash.iter().flat_map(|(_, bucket)| bucket.iter()))
+            .chain(map.attribute_hash.values().flat_map(|bucket| bucket.iter()))
+            .chain(map.local_name_hash.values().flat_map(|bucket| bucket.iter()))
+            .chain(map.namespace_hash.values().flat_map(|bucket| bucket.iter()))
+            .map(|rule| (rule.rule.source_order, rule.selector().to_css_string()))
+            .collect::<BTreeMap<_, _>>()
+            .into_values()
+            .collect()
+    }
 }
 
 fn element_to_string(el: ElementRef<'_>) -> String {
